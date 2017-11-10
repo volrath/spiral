@@ -1,0 +1,37 @@
+* UNREPL.el
+
+  Client interface with a Clojure's Socket REPL that gets upgraded to UNREPL.
+
+** Internal Data Structures
+
+   UNREPL.el depends on a running Clojure's Socket REPL.  This said REPL can be
+   created by this package or can be externally started by a human or another
+   process, and then UNREPL.el would only need the =host=, =port= coordinates to
+   connect to it.
+
+   Multiple Socket REPL can be created in the same running Emacs instance,
+   ideally each for a different Clojure project.  UNREPL.el will warn when a new
+   REPL is trying to be created for a project that has already a Socket REPL
+   running.
+
+   For each Socket REPL Server, UNREPL.el creates an "Connection Pool", that
+   contains 3 different socket connections to the same Socket REPL:
+
+   - One for the main client UNREPL.
+   - One for an UNREPL sider loader.
+   - One for tooling.
+
+   UNREPL.el holds all the projects connected in an AList called
+   =unrepl--projects=, where keys are the symbols of the form =host:port=, and
+   values are ALists with the following key-value pairs:
+
+   - =:id=: Same =host:port= symbol.
+   - =:conn-pool=: An AList with the 3 UNREPL connections for this project.
+   - =:project-dir=: An optional stringn pointing to the project's dir.
+   - =:project-type=: An optional string referring to the type of project
+     (leinigen, boot, ...)
+   - =:socket-repl=: An optional process referring to the Socket REPL server.
+
+   The =:conn-pool= is an AList containing three keys: =:client=,
+   =:side-loader=, and =:tooling=. Each of these keys will have a standard
+   network connection process as value.
