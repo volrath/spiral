@@ -1,0 +1,4 @@
+[submodule "parseclj"]
+	path = parseclj
+	url = https://github.com/lambdaisland/parseclj
+	branch = docstrings-and-conventions
