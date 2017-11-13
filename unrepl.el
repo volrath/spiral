@@ -275,8 +275,7 @@ Return a network connection process."
          (new-project (unrepl-create-project conn-id
                                              conn-pool
                                              server-proc)))
-    (map-put unrepl-projects (unrepl-project-id new-project) new-project)
-    new-project))
+    (unrepl-projects-add new-project)))
 
 
 (defun unrepl-connect ()

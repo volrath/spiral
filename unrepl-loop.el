@@ -108,7 +108,7 @@ evaluation of inputs."
   (let ((repl-buffer (unrepl-project-repl-buffer (unrepl-projects-get conn-id))))
     (with-current-buffer repl-buffer
       (unrepl-repl-insert (format "Connected to %S\n" conn-id))))
-  (unrepl-project-set-in (unrepl-projects-get conn-id)
+  (unrepl-project-set-in conn-id
                          :actions
                          (map-elt payload :actions)))
 

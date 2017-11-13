@@ -213,9 +213,20 @@ not set, raise error."
   (map-elt (unrepl-project-conn-pool proj) :client))
 
 
-(defun unrepl-projects-get (conn-id)
-  "Return the project with CONN-ID, or nil."
-  (map-elt unrepl-projects conn-id))
+(defun unrepl-projects-add (proj)
+  "Add PROJ to `unrepl-projects'."
+  (map-put unrepl-projects (unrepl-project-id proj) proj))
+
+
+(defun unrepl-projects-get (conn-id &optional raise-not-found)
+  "Return the project with CONN-ID, or nil.
+When RAISE-NOT-FOUND is nil, raises an `error' if CONN-ID is not found in
+`unrepl-projects'."
+  (let ((proj (map-elt unrepl-projects conn-id)))
+    (when (and raise-not-found
+               (not proj))
+      (error "No project connected to %s can be found" conn-id))
+    proj))
 
 
 (defun unrepl-projects-find-by-file ()
@@ -225,10 +236,17 @@ This function looks at the buffer's file path and searches through
   (error "Not implemented"))
 
 
-(defun unrepl-project-set-in (proj key val)
-  "Set an attribute in PROJ.
+(defun unrepl-project-set-in (conn-id key val)
+  "Set an attribute in the `unrepl-projects' project with key CONN-ID.
 KEY is expected to be a keyword, VAL is its corresponding value."
-  (setf (map-elt proj key) val))
+  (let ((proj (unrepl-projects-get conn-id t)))
+    (map-put unrepl-projects conn-id (if (map-elt proj key)
+                                         (mapcar (lambda (e)
+                                                   (if (equal (car e) key)
+                                                       val
+                                                     e))
+                                                 proj)
+                                       (cons (cons key val) proj)))))
 
 
 (provide 'unrepl-project)
