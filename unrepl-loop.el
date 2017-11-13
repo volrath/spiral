@@ -105,9 +105,7 @@ project/repl to modify."
   "Handle a `:unrepl/hello' message transmitted through CONN-ID.
 It processes the PAYLOAD to init the corresponding REPL and subsequent
 evaluation of inputs."
-  (let ((repl-buffer (unrepl-project-repl-buffer (unrepl-projects-get conn-id))))
-    (with-current-buffer repl-buffer
-      (unrepl-repl-insert (format "Connected to %S\n" conn-id))))
+  (unrepl-repl-connected conn-id)
   (unrepl-project-set-in conn-id
                          :actions
                          (map-elt payload :actions)))
@@ -116,9 +114,8 @@ evaluation of inputs."
 (defun unrepl-loop--prompt (conn-id payload)
   "Handle a `:prompt' message transmitted through CONN-ID.
 PAYLOAD is the standard `:prompt' message data."
-  (let ((repl-buffer (unrepl-project-repl-buffer (unrepl-projects-get conn-id))))
-    (with-current-buffer repl-buffer
-      (unrepl-repl-insert (format "%s => " (map-elt payload 'clojure.core/*ns*))))))
+  (unrepl-repl-prompt conn-id
+                      (map-elt payload 'clojure.core/*ns*)))
 
 
 ;; Side loader

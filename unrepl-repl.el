@@ -44,19 +44,51 @@
 ;;; Code:
 
 (require 'clojure-mode)
+(require 'dash)
 
 (require 'unrepl-mode)
 (require 'unrepl-project)
 
 
-(defcustom unrepl-pop-repl-on-connect t
+(defgroup unrepl-repl nil
+  "UNREPL interactive repl"
+  :prefix "unrepl-repl-"
+  :group 'unrepl)
+
+(defcustom unrepl-repl-pop-on-connect t
   "Pop REPL buffer on connect to new project.
 When nil, the REPL buffer will be created but not displayed."
   :type 'boolean
-  :group 'unrepl)
+  :group 'unrepl-repl)
 
-(defvar-local unrepl-repl-input-start-mark nil
+(defface unrepl-repl-prompt-face
+  '((t (:inherit font-lock-keyword-face)))
+  "Face for the prompt in the REPL buffer."
+  :group 'cider-repl)
+
+(defface unrepl-repl-stdout-face
+  '((t (:inherit font-lock-string-face)))
+  "Face for STDOUT output in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defvar-local unrepl-repl-input-start-mark 1
   "Point marker of current input start.")
+
+
+;; Utilities
+;; -------------------------------------------------------------------
+
+(defmacro unrepl-propertize-region (props &rest body)
+  "Add PROPS to all the inserted text while executing BODY.
+More precisely, PROPS are added to the region between the point's
+positions before and after executing BODY.
+
+BORROWED FROM CIDER."
+  (declare (indent 1))
+  (let ((start (make-symbol "start")))
+    `(let ((,start (point)))
+       (prog1 (progn ,@body)
+         (add-text-properties ,start (point) ,props)))))
 
 
 (defun unrepl-repl-newline-and-indent ()
@@ -87,6 +119,9 @@ BORROWED FROM CIDER."
             (t t)))))
 
 
+;; Interactive
+;; -------------------------------------------------------------------
+
 (declare-function unrepl-loop-send "unrepl-loop")
 (defun unrepl-repl-return (&optional end-of-input)
   "Send the current input string to UNREPL for evaluation.
@@ -112,22 +147,28 @@ Most of the behavior is BORROWED FROM CIDER."
     (message "[input not complete]"))))
 
 
-(defun unrepl-repl-insert (str)
-  "Insert STR text in REPL buffer."
-  (insert str))
-
-
 (defun unrepl-repl-quit-project (&optional just-do-it)
   "Quit the project this REPL belongs to.
 If JUST-DO-IT is non-nil, don't ask for confirmation."
   (interactive "P")
   (when (or just-do-it
-            (y-or-n-p "Are you sure? "))
+            (y-or-n-p "Are you sure you want to quit? "))
     (unrepl-quit-project)))
 
 
 ;; REPL Buffer
 ;; -------------------------------------------------------------------
+
+(defmacro with-current-repl (&rest body)
+  "Automatically switch to the inferred REPL buffer and eval BODY.
+This macro needs a `conn-id' variable in the scope, otherwise it will throw
+an error."
+  `(if conn-id
+       (let ((repl-buffer (unrepl-project-repl-buffer (unrepl-projects-get conn-id))))
+         (with-current-buffer repl-buffer
+           ,@body))
+     (error "Couldn't find a connection ID for this REPL")))
+
 
 (defun unrepl-repl-buffer-name (conn-id)
   "Return a proper name for an UNREPL REPL to CONN-ID."
@@ -156,9 +197,42 @@ Associates to it some control local variables:
           (unrepl-repl-mode))
         ;; Init REPL
         (setq-local unrepl-conn-id conn-id)
-        (insert "Waiting on UNREPL... ")
-        (when unrepl-pop-repl-on-connect
+        (-> ";; Waiting on UNREPL... "
+            (propertize 'font-lock-face 'font-lock-comment-face)
+            (insert))
+        (when unrepl-repl-pop-on-connect
           (pop-to-buffer repl-buffer))))))
+
+
+(defun unrepl-repl-connected (conn-id)
+  "Init the REPL buffer for CONN-ID."
+  (with-current-repl
+   (-> "Connected to %s\n"
+       (format conn-id)
+       (propertize 'font-lock-face 'font-lock-comment-face)
+       (insert))))
+
+
+(defun unrepl-repl-prompt (conn-id namespace)
+  "Insert prompt in CONN-ID'S REPL for NAMESPACE."
+  (with-current-repl
+   (let ((at-point-max-p (equal (point) (point-max))))
+     (save-excursion
+       (goto-char (point-max))
+       (unless (bolp) (newline))
+       (add-text-properties unrepl-repl-input-start-mark (point)
+                            '(read-only t rear-nonsticky (read-only)))
+       (-> "%s => "
+           (format namespace)
+           (propertize 'font-lock-face 'unrepl-repl-prompt-face
+                       'field 'unrepl-repl-prompt-field
+                       'intangible t
+                       'read-only t
+                       'rear-nonsticky '(field font-lock-face intangible read-only))
+           (insert))
+       (setq-local unrepl-repl-input-start-mark (point)))
+     (when at-point-max-p
+       (goto-char (point-max))))))
 
 
 ;; UNREPL REPL mode

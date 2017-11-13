@@ -127,7 +127,7 @@ choose."
 
 The returned data structure is meant to be placed in `unrepl-projects'.
 
-SERVER-PROC is an optional process representating the Clojure Socket REPL."
+SERVER-PROC is an optional process representing the Clojure Socket REPL."
   (let ((project-dir (clojure-project-dir (unrepl--current-dir))))
     `((:id . ,conn-id)
       (:project-dir . ,project-dir)
