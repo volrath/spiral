@@ -58,11 +58,12 @@
   "Predicate that defines if the client for the current buffer has been greeted already.")
 
 
-(defun unrepl-loop-send (str)
-  "Send string STR to the UNREPL connection represented by `unrepl-conn-id'."
+(defun unrepl-loop-send (start end)
+  "Send buffer substring from START to END to the UNREPL.
+Connection is inferred from `unrepl-conn-id'."
   (let* ((project (unrepl-projects-get unrepl-conn-id))
          (client-proc (unrepl-project-client-proc project)))
-    (process-send-string client-proc str)))
+    (process-send-string client-proc (buffer-substring start end))))
 
 
 (defun unrepl-loop--client-dispatcher (msg conn-id)

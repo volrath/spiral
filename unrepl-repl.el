@@ -136,15 +136,16 @@ there is in there.
 
 Most of the behavior is BORROWED FROM CIDER."
   (interactive "P")
-  (cond
-   (end-of-input
-    (unrepl-loop-send))
-   ((unrepl-repl--input-complete-p (point-max))
-    (unrepl-loop-send)
-    (newline))
-   (t
-    (unrepl-repl-newline-and-indent)
-    (message "[input not complete]"))))
+  (let ((start unrepl-repl-input-start-mark))
+    (cond
+     (end-of-input
+      (unrepl-loop-send start (point)))
+     ((unrepl-repl--input-complete-p (point-max))
+      (unrepl-loop-send start (point-max))
+      (newline))
+     (t
+      (unrepl-repl-newline-and-indent)
+      (message "[input not complete]")))))
 
 
 (defun unrepl-repl-quit-project (&optional just-do-it)
