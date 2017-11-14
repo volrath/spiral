@@ -51,7 +51,12 @@
 
 
 (defvar unrepl-loop--global-edn-tag-readers
-  `((unrepl/ns . ,#'symbol-name))
+  `((unrepl/ns . ,#'symbol-name)
+    (unrepl/string . ,(lambda (c) (format "%S" c)))
+    (unrepl.java/class . ,(lambda (c) (format "%S" c)))
+    (unrepl/object . ,(lambda (c) (format "%S" c)))
+    (error . ,(lambda (c) (format "%S" c)))
+    (unrepl/... . ,(lambda (_) "...")))
   "Global EDN tag readers to be used on every incoming client message.")
 
 (defvar-local unrepl-loop-greeted-p nil
