@@ -64,12 +64,17 @@ When nil, the REPL buffer will be created but not displayed."
 (defface unrepl-repl-prompt-face
   '((t (:inherit font-lock-keyword-face)))
   "Face for the prompt in the REPL buffer."
-  :group 'cider-repl)
+  :group 'unrepl-repl)
 
 (defface unrepl-repl-prompt-result-face
   '((t (:inherit font-lock-warning-face)))
   "Face for the result prompt in the REPL buffer."
-  :group 'cider-repl)
+  :group 'unrepl-repl)
+
+(defface unrepl-repl-constant-face
+  '((t (:inherit font-lock-constant-face)))
+  "Face for constant things in the REPL buffer."
+  :group 'unrepl-repl)
 
 (defface unrepl-repl-stdout-face
   '((t (:inherit font-lock-string-face)))
@@ -85,12 +90,8 @@ When nil, the REPL buffer will be created but not displayed."
 
 (defvar-local unrepl-repl-history nil
   "A list that holds history entries.
-A History Entry is a list of minimum 2 items: the input string and the
-history id (positive autoincr integer).  An entry can also have 2 other
-items: a prompt position in buffer and an UNREPL group id.")
-
-(defvar-local unrepl-repl-history-count 0
-  "Count the entries added to history.")
+A History Entry is a 3-tuple: the input string, an UNREPL group id, and a
+prompt position in buffer.")
 
 
 ;; Utilities
@@ -163,56 +164,70 @@ A `project' variable will be added to the local scope."
   (push entry unrepl-repl-history))
 
 
-(defun unrepl-repl--make-history-entry! (str)
-  "Create a History Entry for STR.
-An optional PROMPT-POS can be associated to this History Entry.  The new
-History Entry will automatically `unrepl-repl-history-count' + 1 as its
-id.
-Return the new History Entry."
+(defun unrepl-repl--make-history-entry (str)
+  "Create a History Entry for STR and return it."
   (list
-   (cl-incf unrepl-repl-history-count)
    str
    nil ;; pending eval's group-id -- optional
+   nil ;; next prompt position
    ))
 
 
-(defun unrepl-repl--history-entry-id (entry)
-  "Return the id of the given History ENTRY."
-  (car entry))
+(defun unrepl-repl--history-get (idx)
+  "Return the history entry with reverse index IDX.
+Indices, as saved in pending evaluations, start with 1."
+  (nth
+   (- (length unrepl-repl-history) idx)
+   unrepl-repl-history))
 
 
 (defun unrepl-repl--history-entry-str (entry)
   "Return the string of the given History ENTRY."
+  (car entry))
+
+
+(defun unrepl-repl--history-entry-group-id (entry)
+  "Return the UNREPL group id of the given History ENTRY."
   (cadr entry))
 
 
 (defun unrepl-repl--history-entry-prompt-pos (entry)
   "Return the prompt position of the given History ENTRY."
-  (caddr entry))
-
-
-(defun unrepl-repl--history-entry-group-id (entry)
-  "Return the UNREPL group id of the given History ENTRY."
-  (cadddr entry))
+  (cl-caddr entry))
 
 
 (defun unrepl-repl--add-input-to-history (str)
-  "Add input STR to history.
-This function internally modifies `unrepl-repl-history-count'."
+  "Add input STR to history."
   (unless (string= str "")
-    (unrepl-repl--history-add (unrepl-repl--make-history-entry! str))))
+    (unrepl-repl--history-add (unrepl-repl--make-history-entry str))))
 
 
 (defun unrepl-repl--history-add-gid-to-top-entry (group-id)
   "Add GROUP-ID to the top entry in history."
-  (setf (caddr (car unrepl-repl-history)) group-id))
+  (setf (cadr (car unrepl-repl-history)) group-id))
+
+
+(defun unrepl-repl--history-set-prompt-pos (history-idx pos &optional override)
+  "Set POS as the HISTORY-IDX entry `prompt-pos'.
+Optional arg OVERRIDE indicates if previously set prompt pos should be
+ignored."
+  (let ((entry (unrepl-repl--history-get history-idx)))
+    (when (and entry
+               (or (not (unrepl-repl--history-entry-prompt-pos entry))
+                   override))
+      (setf
+       (cl-caddr
+        (nth
+         (- (length unrepl-repl-history) history-idx)
+         unrepl-repl-history))
+       pos))))
 
 
 (defun unrepl-repl-input-history-assoc (conn-id group-id)
   "Possibly return a list =(:history-entry-id <some id>)=.
 Check CONN-ID REPL to see if `unrepl-repl-inputting' is true.  If so,
 return the tuple using the latest history id
-available (`unrepl-repl-history-count').  nil otherwise.
+available.  nil otherwise.
 
 This function includes an important side effect: If REPL is inputting, the
 latest history entry will be associated with GROUP-ID."
@@ -220,7 +235,7 @@ latest history entry will be associated with GROUP-ID."
    (when (and unrepl-repl-inputting
               unrepl-repl-history)
      (unrepl-repl--history-add-gid-to-top-entry group-id)
-     `(:history-entry-id ,unrepl-repl-history-count))))
+     `(:history-entry-id ,(length unrepl-repl-history)))))
 
 
 ;; Interactive
@@ -248,12 +263,12 @@ Most of the behavior is BORROWED FROM CIDER."
      ;; (end-of-input
      ;;  (unrepl-loop-send start (point)))
      ((unrepl-repl--input-complete-p end)
-      (-> (unrepl-loop-send start end)
-          (unrepl-repl--add-input-to-history))
       (newline)
       (goto-char (point-max))
       (add-text-properties unrepl-repl-input-start-mark (point)
                            '(read-only t rear-nonsticky (read-only)))
+      (-> (unrepl-loop-send start end)
+          (unrepl-repl--add-input-to-history))
       (setq-local unrepl-repl-inputting t))
      (t
       (unrepl-repl-newline-and-indent)
@@ -331,13 +346,20 @@ prompt, which is use to show results of evaluations."
 (defun unrepl-repl-prompt (conn-id)
   "Insert prompt in CONN-ID'S REPL."
   (with-current-repl
-   (unless (bolp) (newline))
+   (unless (bolp)
+     (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face)))
    (goto-char (point-max))
+   ;; Tell previous history entry that the new prompt starts here
+   (when unrepl-repl-history
+     (unrepl-repl--history-set-prompt-pos (length unrepl-repl-history)
+                                          (point)))
+   ;; Insert prompt
    (insert
-    (unrepl-repl--build-prompt (1+ unrepl-repl-history-count)
+    (unrepl-repl--build-prompt (1+ (length unrepl-repl-history))
                                (unrepl-project-namespace project)))
+   ;; Mark current input start
    (setq-local unrepl-repl-input-start-mark (point))
-   ;; Last but not least, reset the `unrepl-repl-inputting' variable.
+   ;; Reset the `unrepl-repl-inputting' variable.
    (setq-local unrepl-repl-inputting nil)))
 
 
