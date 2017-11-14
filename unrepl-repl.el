@@ -71,7 +71,12 @@ When nil, the REPL buffer will be created but not displayed."
   "Face for the prompt in the REPL buffer."
   :group 'unrepl-repl)
 
-(defface unrepl-repl-prompt-result-face
+(defface unrepl-repl-result-prompt-face
+  '((t (:inherit font-lock-function-name-face)))
+  "Face for the result prompt in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-repl-exception-prompt-face
   '((t (:inherit font-lock-warning-face)))
   "Face for the result prompt in the REPL buffer."
   :group 'unrepl-repl)
@@ -268,8 +273,8 @@ Most of the behavior is BORROWED FROM CIDER."
      ;; (end-of-input
      ;;  (unrepl-loop-send start (point)))
      ((unrepl-repl--input-complete-p end)
-      (newline)
       (goto-char (point-max))
+      (newline)
       (add-text-properties unrepl-repl-input-start-mark (point)
                            '(read-only t rear-nonsticky (read-only)))
       (-> (unrepl-loop-send start end)
@@ -337,7 +342,7 @@ prompt, which is use to show results of evaluations."
                 (make-string (length namespace) ?\s)
               namespace))
         (font-face (if result
-                       'unrepl-repl-prompt-result-face
+                       'unrepl-repl-result-face
                      'unrepl-repl-prompt-face)))
     (-> "%s [%s]=> "
         (format ns history-id)
@@ -346,6 +351,16 @@ prompt, which is use to show results of evaluations."
                     'intangible t
                     'read-only t
                     'rear-nonsticky '(field font-lock-face intangible read-only)))))
+
+
+(defun unrepl-repl--build-result-indicator (_history-id _namespace)
+  "Return an indicator for results of evaluation."
+  (propertize "> "
+              'font-lock-face 'unrepl-repl-result-prompt-face
+              'field 'unrepl-repl-prompt-field
+              'intangible t
+              'read-only t
+              'rear-nonsticky '(field font-lock-face intangible read-only)))
 
 
 (defun unrepl-repl-prompt (conn-id)
@@ -374,9 +389,10 @@ prompt, which is use to show results of evaluations."
    (unless (bolp)
      (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face)))
    (insert
-    (unrepl-repl--build-prompt history-id
-                               (unrepl-project-namespace project)
-                               t)
+    ;; (unrepl-repl--build-prompt history-id
+    ;;                            (unrepl-project-namespace project)
+    ;;                            t)
+    (unrepl-repl--build-result-indicator history-id (unrepl-project-namespace project))
     (format "%S\n" evaluation))))
 
 
