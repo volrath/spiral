@@ -66,6 +66,11 @@ When nil, the REPL buffer will be created but not displayed."
   "Face for the prompt in the REPL buffer."
   :group 'cider-repl)
 
+(defface unrepl-repl-prompt-result-face
+  '((t (:inherit font-lock-warning-face)))
+  "Face for the result prompt in the REPL buffer."
+  :group 'cider-repl)
+
 (defface unrepl-repl-stdout-face
   '((t (:inherit font-lock-string-face)))
   "Face for STDOUT output in the REPL buffer."
@@ -73,6 +78,19 @@ When nil, the REPL buffer will be created but not displayed."
 
 (defvar-local unrepl-repl-input-start-mark 1
   "Point marker of current input start.")
+
+(defvar-local unrepl-repl-inputting nil
+  "Boolean value that indicates if the latest input sent to the server sent
+  using the REPL.")
+
+(defvar-local unrepl-repl-history nil
+  "A list that holds history entries.
+A History Entry is a list of minimum 2 items: the input string and the
+history id (positive autoincr integer).  An entry can also have 2 other
+items: a prompt position in buffer and an UNREPL group id.")
+
+(defvar-local unrepl-repl-history-count 0
+  "Count the entries added to history.")
 
 
 ;; Utilities
@@ -94,6 +112,11 @@ BORROWED FROM CIDER."
 (defun unrepl-repl-newline-and-indent ()
   "Insert a new line, then indent."
   (newline))
+
+
+(defun unrepl-repl--in-input-area-p ()
+  "Return t if in input area."
+  (<= unrepl-repl-input-start-mark (point)))
 
 
 (defun unrepl-repl--input-complete-p (end)
@@ -119,6 +142,87 @@ BORROWED FROM CIDER."
             (t t)))))
 
 
+(defmacro with-current-repl (&rest body)
+  "Automatically switch to the inferred REPL buffer and eval BODY.
+This macro needs a `conn-id' variable in the scope, otherwise it will throw
+an error.
+A `project' variable will be added to the local scope."
+  `(if conn-id
+       (let* ((project (unrepl-projects-get conn-id))
+              (repl-buffer (unrepl-project-repl-buffer project)))
+         (with-current-buffer repl-buffer
+           ,@body))
+     (error "Couldn't find a connection ID for this REPL")))
+
+
+;; History
+;; -------------------------------------------------------------------
+
+(defun unrepl-repl--history-add (entry)
+  "Add History ENTRY to `unrepl-repl-history'."
+  (push entry unrepl-repl-history))
+
+
+(defun unrepl-repl--make-history-entry! (str)
+  "Create a History Entry for STR.
+An optional PROMPT-POS can be associated to this History Entry.  The new
+History Entry will automatically `unrepl-repl-history-count' + 1 as its
+id.
+Return the new History Entry."
+  (list
+   (cl-incf unrepl-repl-history-count)
+   str
+   nil ;; pending eval's group-id -- optional
+   ))
+
+
+(defun unrepl-repl--history-entry-id (entry)
+  "Return the id of the given History ENTRY."
+  (car entry))
+
+
+(defun unrepl-repl--history-entry-str (entry)
+  "Return the string of the given History ENTRY."
+  (cadr entry))
+
+
+(defun unrepl-repl--history-entry-prompt-pos (entry)
+  "Return the prompt position of the given History ENTRY."
+  (caddr entry))
+
+
+(defun unrepl-repl--history-entry-group-id (entry)
+  "Return the UNREPL group id of the given History ENTRY."
+  (cadddr entry))
+
+
+(defun unrepl-repl--add-input-to-history (str)
+  "Add input STR to history.
+This function internally modifies `unrepl-repl-history-count'."
+  (unless (string= str "")
+    (unrepl-repl--history-add (unrepl-repl--make-history-entry! str))))
+
+
+(defun unrepl-repl--history-add-gid-to-top-entry (group-id)
+  "Add GROUP-ID to the top entry in history."
+  (setf (caddr (car unrepl-repl-history)) group-id))
+
+
+(defun unrepl-repl-input-history-assoc (conn-id group-id)
+  "Possibly return a list =(:history-entry-id <some id>)=.
+Check CONN-ID REPL to see if `unrepl-repl-inputting' is true.  If so,
+return the tuple using the latest history id
+available (`unrepl-repl-history-count').  nil otherwise.
+
+This function includes an important side effect: If REPL is inputting, the
+latest history entry will be associated with GROUP-ID."
+  (with-current-repl
+   (when (and unrepl-repl-inputting
+              unrepl-repl-history)
+     (unrepl-repl--history-add-gid-to-top-entry group-id)
+     `(:history-entry-id ,unrepl-repl-history-count))))
+
+
 ;; Interactive
 ;; -------------------------------------------------------------------
 
@@ -136,13 +240,21 @@ there is in there.
 
 Most of the behavior is BORROWED FROM CIDER."
   (interactive "P")
-  (let ((start unrepl-repl-input-start-mark))
+  (unless (unrepl-repl--in-input-area-p)
+    (error "No input at point"))
+  (let ((start unrepl-repl-input-start-mark)
+        (end (point-max)))
     (cond
-     (end-of-input
-      (unrepl-loop-send start (point)))
-     ((unrepl-repl--input-complete-p (point-max))
-      (unrepl-loop-send start (point-max))
-      (newline))
+     ;; (end-of-input
+     ;;  (unrepl-loop-send start (point)))
+     ((unrepl-repl--input-complete-p end)
+      (-> (unrepl-loop-send start end)
+          (unrepl-repl--add-input-to-history))
+      (newline)
+      (goto-char (point-max))
+      (add-text-properties unrepl-repl-input-start-mark (point)
+                           '(read-only t rear-nonsticky (read-only)))
+      (setq-local unrepl-repl-inputting t))
      (t
       (unrepl-repl-newline-and-indent)
       (message "[input not complete]")))))
@@ -160,17 +272,6 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
 ;; REPL Buffer
 ;; -------------------------------------------------------------------
 
-(defmacro with-current-repl (&rest body)
-  "Automatically switch to the inferred REPL buffer and eval BODY.
-This macro needs a `conn-id' variable in the scope, otherwise it will throw
-an error."
-  `(if conn-id
-       (let ((repl-buffer (unrepl-project-repl-buffer (unrepl-projects-get conn-id))))
-         (with-current-buffer repl-buffer
-           ,@body))
-     (error "Couldn't find a connection ID for this REPL")))
-
-
 (defun unrepl-repl-buffer-name (conn-id)
   "Return a proper name for an UNREPL REPL to CONN-ID."
   (format "UNREPL [%s]" conn-id))
@@ -182,13 +283,7 @@ This function would kill any buffer that share's the same CONN-ID, to
 guarantee a fresh start.
 
 Associates to it some control local variables:
-- `unrepl-current-namespace': holds the current namespace in UNREPL, as
-  provided by the `:prompt' message.
-- `unrepl-repl-ngid': next group-id to be processed by UNREPL, starting
-  with 1.
-- `unrepl-repl-pending-evals': an AList to store pending evaluations.  Keys
-  are UNREPL group ids and values would be keywords representing the last
-  received message for said group."
+- `unrepl-repl-history': holds the current history of this REPL."
   (let ((buf-name (unrepl-repl-buffer-name conn-id)))
     (when (get-buffer buf-name)
       (kill-buffer buf-name))
@@ -214,26 +309,46 @@ Associates to it some control local variables:
        (insert))))
 
 
-(defun unrepl-repl-prompt (conn-id namespace)
-  "Insert prompt in CONN-ID'S REPL for NAMESPACE."
+(defun unrepl-repl--build-prompt (history-id namespace &optional result)
+  "Build a prompt for HISTORY-ID and NAMESPACE.
+RESULT is a boolean flag.  When not nil, the prompt is said to be a result
+prompt, which is use to show results of evaluations."
+  (let ((ns (if result
+                (make-string (length namespace) ?\s)
+              namespace))
+        (font-face (if result
+                       'unrepl-repl-prompt-result-face
+                     'unrepl-repl-prompt-face)))
+    (-> "%s [%s]=> "
+        (format ns history-id)
+        (propertize 'font-lock-face font-face
+                    'field 'unrepl-repl-prompt-field
+                    'intangible t
+                    'read-only t
+                    'rear-nonsticky '(field font-lock-face intangible read-only)))))
+
+
+(defun unrepl-repl-prompt (conn-id)
+  "Insert prompt in CONN-ID'S REPL."
   (with-current-repl
-   (let ((at-point-max-p (equal (point) (point-max))))
-     (save-excursion
-       (goto-char (point-max))
-       (unless (bolp) (newline))
-       (add-text-properties unrepl-repl-input-start-mark (point)
-                            '(read-only t rear-nonsticky (read-only)))
-       (-> "%s => "
-           (format namespace)
-           (propertize 'font-lock-face 'unrepl-repl-prompt-face
-                       'field 'unrepl-repl-prompt-field
-                       'intangible t
-                       'read-only t
-                       'rear-nonsticky '(field font-lock-face intangible read-only))
-           (insert))
-       (setq-local unrepl-repl-input-start-mark (point)))
-     (when at-point-max-p
-       (goto-char (point-max))))))
+   (unless (bolp) (newline))
+   (goto-char (point-max))
+   (insert
+    (unrepl-repl--build-prompt (1+ unrepl-repl-history-count)
+                               (unrepl-project-namespace project)))
+   (setq-local unrepl-repl-input-start-mark (point))
+   ;; Last but not least, reset the `unrepl-repl-inputting' variable.
+   (setq-local unrepl-repl-inputting nil)))
+
+
+(defun unrepl-repl-insert-evaluation (conn-id history-id evaluation)
+  "In CONN-ID REPL buffer, get history entry with HISTORY-ID and print EVALUATION at the end of it."
+  (with-current-repl
+   (insert
+    (unrepl-repl--build-prompt history-id
+                               (unrepl-project-namespace project)
+                               t)
+    (format "%S\n" evaluation))))
 
 
 ;; UNREPL REPL mode

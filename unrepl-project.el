@@ -44,6 +44,7 @@
 ;;; Code:
 
 (require 'clojure-mode)
+(require 'dash)
 (require 'map)
 
 
@@ -99,6 +100,85 @@ BORROWED FROM CIDER."
     default-directory))
 
 
+;; Pending Evaluations
+;; -------------------------------------------------------------------
+;; An associative data structure that holds all pending evaluations for a
+;; project, indexed by their corresponding UNREPL group ids.
+;; An entry in the pending evaluations data structure is also an associative
+;; data structure that contains the following:
+;; - `:status': either `:read', `:started-eval', `:eval', or `:exception'.
+;; - `:prompt-marker': (optional) a buffer position to which print either
+;;    evaluation outputs or `:out' strings.
+;; - `actions': (optional) evaluation actions as provided by the
+;;   `started-eval' UNREPL message.
+
+(defun unrepl-project--pending-evals-get (pending-evals group-id)
+  "Return a pending evaluation entry from PENDING-EVALS for GROUP-ID."
+  (map-elt pending-evals group-id))
+
+
+(defun unrepl-project--pending-evals-remove (pending-evals group-id)
+  "Remove GROUP-ID entry from PENDING-EVALS."
+  (map-delete pending-evals group-id))
+
+
+(defun unrepl-project--pending-evals-add (pending-evals group-id entry)
+  "Use GROUP-ID to add ENTRY in PENDING-EVALS."
+  (map-put pending-evals group-id entry))
+
+
+(defun unrepl-project--pending-eval-history (entry)
+  "Return the history entry id for pending eval ENTRY."
+  (map-elt entry :history-entry-id))
+
+
+(defun unrepl-project--pending-eval-update (pending-evals group-id &rest kwargs)
+  "Update a pending evaluation for GROUP-ID with KWARGS in PENDING-EVALS.
+Return the pending-evals data structure."
+  (let ((entry (unrepl-project--pending-evals-get pending-evals group-id)))
+    (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
+          (-partition 2 kwargs))
+    (map-put pending-evals group-id entry)
+    pending-evals))
+
+
+(defun unrepl-project-pending-eval-update (conn-id group-id status &rest kwargs)
+  "Update a pending eval entry for GROUP-ID in CONN-ID.
+All the pending evaluations are stored in PROJECTS `:pending-evals' key,
+this function always expect to update their STATUS, and optionally it can
+update more key-val provided by KWARGS."
+  (let* ((project (unrepl-projects-get conn-id))
+         (pending-evals (unrepl-project-pending-evals project)))
+    (if (memq status '(:eval :exception))
+        (setq pending-evals
+              (unrepl-project--pending-evals-remove pending-evals group-id))
+      (setq pending-evals
+            (apply #'unrepl-project--pending-eval-update pending-evals group-id :status status kwargs)))
+    (unrepl-project-set-in conn-id :pending-evals pending-evals)))
+
+
+(defun unrepl-project-pending-evals-get-history-id (conn-id group-id)
+  "Return a history entry id for GROUP-ID in CONN-ID, if any."
+  (let* ((project (unrepl-projects-get conn-id))
+         (pending-evals (unrepl-project-pending-evals project))
+         (pending-eval-entry (unrepl-project--pending-evals-get pending-evals group-id)))
+    (when pending-eval-entry
+      (unrepl-project--pending-eval-history pending-eval-entry))))
+
+
+;; UNREPL Projects
+;; -------------------------------------------------------------------
+;; `unrepl-projects' is an associative data structure where keys are Connection
+;; IDs and values are Project data structures.
+;; A Project is an associative data structure that holds:
+;; - `:id': A Connection ID.
+;; - `:conn-pool': An AList with the 3 UNREPL connections for this project.
+;; - `:pending-evals': A Pending Evals data structure.
+;; - `:repl-buffer': A buffer that holds human-focused REPL interaction.
+;; - `:project-dir': An optional stringn pointing to the project's dir.
+;; - `:project-type': An optional string referring to the type of project.
+;; - `:socket-repl': An optional process referring to the Socket REPL server.
+
 (defun unrepl-project-type ()
   "Determine the type of Clojure project.
 
@@ -130,10 +210,12 @@ The returned data structure is meant to be placed in `unrepl-projects'.
 SERVER-PROC is an optional process representing the Clojure Socket REPL."
   (let ((project-dir (clojure-project-dir (unrepl--current-dir))))
     `((:id . ,conn-id)
+      (:namespace . nil)
       (:project-dir . ,project-dir)
       (:socket-repl . ,server-proc)
       (:repl-buffer . ,(unrepl-repl-create-buffer conn-id))
-      (:conn-pool . ,conn-pool))))
+      (:conn-pool . ,conn-pool)
+      (:pending-evals . nil))))
 
 
 (declare-function unrepl--conn-pool-procs "unrepl")
@@ -183,6 +265,11 @@ not set, raise error."
   (cdr (unrepl--conn-host-port (unrepl-project-id proj))))
 
 
+(defun unrepl-project-pending-evals (proj)
+  "Return the PROJ's pending evaluations data structure."
+  (map-elt proj :pending-evals))
+
+
 (defun unrepl-project-repl-buffer (proj)
   "Return the REPL buffer for the given PROJ."
   (map-elt proj :repl-buffer))
@@ -191,6 +278,11 @@ not set, raise error."
 (defun unrepl-project-host (proj)
   "Return the Socket REPL host for the given PROJ."
   (car (unrepl--conn-host-port (unrepl-project-id proj))))
+
+
+(defun unrepl-project-namespace (proj)
+  "Return the current namespace used in PROJ."
+  (map-elt proj :namespace))
 
 
 (defun unrepl-project-dir (proj)
@@ -240,13 +332,9 @@ This function looks at the buffer's file path and searches through
   "Set an attribute in the `unrepl-projects' project with key CONN-ID.
 KEY is expected to be a keyword, VAL is its corresponding value."
   (let ((proj (unrepl-projects-get conn-id t)))
-    (map-put unrepl-projects conn-id (if (map-elt proj key)
-                                         (mapcar (lambda (e)
-                                                   (if (equal (car e) key)
-                                                       val
-                                                     e))
-                                                 proj)
-                                       (cons (cons key val) proj)))))
+    (map-put proj key val)
+    (map-put unrepl-projects conn-id proj)
+    unrepl-projects))
 
 
 (provide 'unrepl-project)
