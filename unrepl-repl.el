@@ -61,6 +61,11 @@ When nil, the REPL buffer will be created but not displayed."
   :type 'boolean
   :group 'unrepl-repl)
 
+(defcustom unrepl-repl-group-stdout t
+  "Group evaluation's output."
+  :type 'boolean
+  :group 'unrepl-repl)
+
 (defface unrepl-repl-prompt-face
   '((t (:inherit font-lock-keyword-face)))
   "Face for the prompt in the REPL buffer."
@@ -366,11 +371,28 @@ prompt, which is use to show results of evaluations."
 (defun unrepl-repl-insert-evaluation (conn-id history-id evaluation)
   "In CONN-ID REPL buffer, get history entry with HISTORY-ID and print EVALUATION at the end of it."
   (with-current-repl
+   (unless (bolp)
+     (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face)))
    (insert
     (unrepl-repl--build-prompt history-id
                                (unrepl-project-namespace project)
                                t)
     (format "%S\n" evaluation))))
+
+
+(defun unrepl-repl-insert-out (conn-id history-id str)
+  "Print STR with HISTORY-ID in CONN-ID REPL."
+  (with-current-repl
+   (let ((propertized-str (propertize str 'font-lock-face 'unrepl-repl-stdout-face)))
+     (if (and unrepl-repl-group-stdout
+              (< history-id (length unrepl-repl-history)))  ;; if there's another prompt already
+         (save-excursion
+           (goto-char (-> history-id
+                          (unrepl-repl--history-get)
+                          (unrepl-repl--history-entry-prompt-pos)))
+           (insert propertized-str)
+           (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
+       (insert propertized-str)))))
 
 
 ;; UNREPL REPL mode
