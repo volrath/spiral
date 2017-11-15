@@ -48,6 +48,7 @@
 (require 'seq)
 
 (require 'unrepl-loop)
+(require 'unrepl-mode)
 (require 'unrepl-project)
 (require 'unrepl-repl)
 
@@ -76,9 +77,6 @@ number."
                  (const when-needed)
                  (const :tag "never" nil))
   :group 'unrepl)
-
-(defvar-local unrepl-conn-id nil
-  "Port number used when creating a new Socket REPL.")
 
 (defvar-local unrepl-server-host-port nil
   "Tuple with host and port of a Socket REPL.
@@ -268,14 +266,22 @@ Return a network connection process."
 ;; -------------------------------------------------------------------
 
 (defun unrepl-connect-to (host port &optional server-proc)
-  "Create a new project connection to a socket in HOST:PORT represented by SERVER-PROC."
+  "Create a new project connection to a socket in HOST:PORT.
+An optional SERVER-PROC can be passed, which would be the actual Clojure
+Socket REPL process.
+Return connected project."
   (interactive "sHost: \nnPort: ")
-  (let* ((conn-pool (unrepl--create-connection-pool host port))
-         (conn-id (unrepl-process-conn-id (unrepl--conn-pool-proc conn-pool :client)))
-         (new-project (unrepl-create-project conn-id
-                                             conn-pool
-                                             server-proc)))
-    (unrepl-projects-add new-project)))
+  (if-let (project (unrepl-projects-get (unrepl--make-conn-id host port)))
+      (progn
+        (message "Connection to %s already exists. Reusing it."
+                 (unrepl--make-conn-id host port))
+        project)
+    (let* ((conn-pool (unrepl--create-connection-pool host port))
+           (conn-id (unrepl-process-conn-id (unrepl--conn-pool-proc conn-pool :client)))
+           (new-project (unrepl-create-project conn-id
+                                               conn-pool
+                                               server-proc)))
+      (unrepl-projects-add new-project))))
 
 
 (defun unrepl-connect ()
