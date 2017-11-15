@@ -84,6 +84,7 @@ project/repl to modify."
       (:started-eval (unrepl-loop--started-eval conn-id payload group-id))
       (:eval (unrepl-loop--eval conn-id payload group-id))
       (:out (unrepl-loop--out conn-id payload group-id))
+      (:exception (unrepl-loop--placeholder-handler conn-id payload group-id))
       (_ (error (format "Unrecognized message: %S" tag))))))
 
 
@@ -185,6 +186,11 @@ function to display the result accordingly."
 PAYLOAD is the UNREPL payload for `:eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
   (unrepl-repl-insert-out conn-id group-id payload))
+
+
+(defun unrepl-loop--placeholder-handler (conn-id payload group-id)
+  ""
+  (unrepl-repl-insert-out conn-id group-id (format "%S" payload)))
 
 
 ;; Side loader
