@@ -125,6 +125,11 @@ BORROWED FROM CIDER."
   (newline))
 
 
+(defun unrepl-repl--input-str ()
+  "Return the current input string in REPL buffer."
+  (buffer-substring-no-properties unrepl-repl-input-start-mark (point-max)))
+
+
 (defun unrepl-repl--in-input-area-p ()
   "Return t if in input area."
   (<= unrepl-repl-input-start-mark (point)))
@@ -267,22 +272,20 @@ Most of the behavior is BORROWED FROM CIDER."
   (interactive "P")
   (unless (unrepl-repl--in-input-area-p)
     (error "No input at point"))
-  (let ((start unrepl-repl-input-start-mark)
-        (end (point-max)))
-    (cond
-     ;; (end-of-input
-     ;;  (unrepl-loop-send start (point)))
-     ((unrepl-repl--input-complete-p end)
-      (goto-char (point-max))
-      (newline)
-      (add-text-properties unrepl-repl-input-start-mark (point)
-                           '(read-only t rear-nonsticky (read-only)))
-      (-> (unrepl-loop-send start end)
-          (unrepl-repl--add-input-to-history))
-      (setq-local unrepl-repl-inputting t))
-     (t
-      (unrepl-repl-newline-and-indent)
-      (message "[input not complete]")))))
+  (cond
+   ;; (end-of-input
+   ;;  (unrepl-loop-send start (point)))
+   ((unrepl-repl--input-complete-p (point-max))
+    (goto-char (point-max))
+    (add-text-properties unrepl-repl-input-start-mark (point)
+                         '(read-only t rear-nonsticky (read-only)))
+    (-> (unrepl-loop-send (unrepl-repl--input-str))
+        (unrepl-repl--add-input-to-history))
+    (newline)
+    (setq-local unrepl-repl-inputting t))
+   (t
+    (unrepl-repl-newline-and-indent)
+    (message "[input not complete]"))))
 
 
 (defun unrepl-repl-quit-project (&optional just-do-it)
