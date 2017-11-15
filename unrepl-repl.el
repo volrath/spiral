@@ -292,15 +292,6 @@ Most of the behavior is BORROWED FROM CIDER."
     (message "[input not complete]"))))
 
 
-(defun unrepl-repl-quit-project (&optional just-do-it)
-  "Quit the project this REPL belongs to.
-If JUST-DO-IT is non-nil, don't ask for confirmation."
-  (interactive "P")
-  (when (or just-do-it
-            (y-or-n-p "Are you sure you want to quit? "))
-    (unrepl-quit-project)))
-
-
 ;; history
 
 (defun unrepl-repl--replace-input (str)
@@ -372,7 +363,7 @@ This function makes sure to not get out of history boundaries."
 
 (defun unrepl-repl-buffer-name (conn-id)
   "Return a proper name for an UNREPL REPL to CONN-ID."
-  (format "UNREPL [%s]" conn-id))
+  (format "UNREPL[%s]" conn-id))
 
 (defun unrepl-repl-create-buffer (conn-id)
   "Create a new UNREPL buffer for a connection CONN-ID.
@@ -492,7 +483,6 @@ prompt, which is use to show results of evaluations."
     (define-key map (kbd "RET") #'unrepl-repl-return)
     (define-key map (kbd "C-<up>") #'unrepl-repl-previous-input)
     (define-key map (kbd "C-<down>") #'unrepl-repl-next-input)
-    (define-key map (kbd "C-c C-q") #'unrepl-repl-quit-project)
     map))
 
 (defvar unrepl-repl-mode-syntax-table
