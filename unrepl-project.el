@@ -219,17 +219,10 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 
 
 (declare-function unrepl--conn-pool-procs "unrepl")
-(defun unrepl-quit-project (&optional conn-id)
-  "Kill and remove project with CONN-ID.
-
-If CONN-ID is not provided, use buffer local variable `unrepl-conn-id'.  If
-not set, raise error."
+(defun unrepl-project-quit (proj)
+  "Kill and remove project PROJ."
   (interactive)
-  (let* ((conn-id (or conn-id
-                      unrepl-conn-id
-                      (user-error "This buffer is not connected to UNREPL")))
-         (proj (unrepl-projects-get conn-id))
-         (repl-buf (unrepl-project-repl-buffer proj))
+  (let* ((repl-buf (unrepl-project-repl-buffer proj))
          (server-proc (unrepl-project-socket-repl proj))
          (server-buf (when server-proc (process-buffer server-proc)))
          (pool (unrepl-project-conn-pool proj)))
@@ -250,8 +243,7 @@ not set, raise error."
     (when repl-buf
       (kill-buffer repl-buf))
     ;; Remove the entry from `unrepl-projects'
-    (message "UNREPL connection to %s terminated" conn-id)
-    (setq unrepl-projects (map-delete unrepl-projects conn-id))))
+    (setq unrepl-projects (map-delete unrepl-projects (unrepl-project-id proj)))))
 
 
 (defun unrepl-project-id (proj)
