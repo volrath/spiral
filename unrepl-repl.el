@@ -103,6 +103,10 @@ When nil, the REPL buffer will be created but not displayed."
 A History Entry is a 3-tuple: the input string, an UNREPL group id, and a
 prompt position in buffer.")
 
+(defvar-local unrepl-repl-history-lookup nil
+  "A number that represents the current history index being looked upon
+  when searching through history.  When nil, search is inactive.")
+
 
 ;; Utilities
 ;; -------------------------------------------------------------------
@@ -297,6 +301,72 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
     (unrepl-quit-project)))
 
 
+;; history
+
+(defun unrepl-repl--replace-input (str)
+  "Replace the current REPL input with STR."
+  (delete-region unrepl-repl-input-start-mark (point-max))
+  (goto-char (point-max))
+  (insert str))
+
+
+(defun unrepl-repl--history-search-in-progress-p ()
+  "Return t if there's a search in progress, by looking at `last-command'."
+  (eq last-command 'unrepl-repl--history-replace))
+
+
+(defun unrepl-repl--history-replace (direction-fn)
+  "Replace current input with the next history input following DIRECTION-FN.
+DIRECTION-FN is a function that takes a history index and returns a tuple
+with the next history entry's idx and input string to be evaluated."
+  (let* (next-in-history
+         (history-size (length unrepl-repl-history))
+         (lookup (cond
+                  ((unrepl-repl--history-search-in-progress-p)
+                   unrepl-repl-history-lookup)
+                  (t
+                   (1+ history-size))))
+         (current-input (unrepl-repl--input-str)))
+    (setq next-in-history (funcall direction-fn lookup))
+    (while (and
+            (<= 1 (car next-in-history) history-size)
+            (string= (cdr next-in-history) current-input))
+      (setq next-in-history (funcall direction-fn (car next-in-history))))
+    (let ((idx (car next-in-history))
+          (str (cdr next-in-history)))
+      (cond
+       ((< idx 1) (message "Beginning of history"))
+       ((> idx history-size) (message "End of history"))
+       (t (unrepl-repl--replace-input str)))
+      (setq-local unrepl-repl-history-lookup idx))
+    (setq this-command 'unrepl-repl--history-replace)))
+
+
+(defun unrepl-repl--history-search-tuple (idx)
+  "Helper function that return a tuple of (index, str) for a given IDX.
+This function makes sure to not get out of history boundaries."
+  (if (<= 1 idx (length unrepl-repl-history))
+      (cons idx (unrepl-repl--history-entry-str
+                 (unrepl-repl--history-get idx)))
+    (cons idx nil)))
+
+
+(defun unrepl-repl-previous-input ()
+  "Replace current input with previous input in history."
+  (interactive)
+  (unrepl-repl--history-replace
+   (lambda (idx)
+     (unrepl-repl--history-search-tuple (1- idx)))))
+
+
+(defun unrepl-repl-next-input ()
+  "Replace current input with previous input in history."
+  (interactive)
+  (unrepl-repl--history-replace
+   (lambda (idx)
+     (unrepl-repl--history-search-tuple (1+ idx)))))
+
+
 ;; REPL Buffer
 ;; -------------------------------------------------------------------
 
@@ -420,6 +490,8 @@ prompt, which is use to show results of evaluations."
 (defvar unrepl-repl-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'unrepl-repl-return)
+    (define-key map (kbd "C-<up>") #'unrepl-repl-previous-input)
+    (define-key map (kbd "C-<down>") #'unrepl-repl-next-input)
     (define-key map (kbd "C-c C-q") #'unrepl-repl-quit-project)
     map))
 
