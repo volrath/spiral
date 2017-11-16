@@ -167,12 +167,12 @@ BORROWED FROM CIDER."
 This macro needs a `conn-id' variable in the scope, otherwise it will throw
 an error.
 A `project' variable will be added to the local scope."
-  `(if conn-id
-       (let* ((project (unrepl-projects-get conn-id))
-              (repl-buffer (unrepl-project-repl-buffer project)))
-         (with-current-buffer repl-buffer
-           ,@body))
-     (error "Couldn't find a connection ID for this REPL")))
+  `(let* ((project (if (boundp 'conn-id)
+                       (unrepl-projects-get conn-id)
+                     (unrepl-ensure-connected!)))
+          (repl-buffer (unrepl-project-repl-buffer project)))
+     (with-current-buffer repl-buffer
+       ,@body)))
 
 
 ;; History
