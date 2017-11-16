@@ -106,11 +106,15 @@ BORROWED FROM CIDER."
 ;; project, indexed by their corresponding UNREPL group ids.
 ;; An entry in the pending evaluations data structure is also an associative
 ;; data structure that contains the following:
-;; - `:status': either `:read', `:started-eval', `:eval', or `:exception'.
+;; - `:status': either `:sent', `:read', `:started-eval', `:eval', or
+;;   `:exception'.
+;; - `:type': Indicates the type of evaluation, or where did this evaluation
+;;    come from.  Options are: `repl', `buffer' (C-x C-e type of thing),
+;;   `internal' (an unrepl message of some sort).
 ;; - `:prompt-marker': (optional) a buffer position to which print either
 ;;    evaluation outputs or `:out' strings.
 ;; - `actions': (optional) evaluation actions as provided by the
-;;   `started-eval' UNREPL message.
+;;    `started-eval' UNREPL message.
 
 (defun unrepl-project--pending-evals-get (pending-evals group-id)
   "Return a pending evaluation entry from PENDING-EVALS for GROUP-ID."
@@ -298,9 +302,9 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
   (map-elt proj :conn-pool))
 
 
-(defun unrepl-project-client-proc (proj)
-  "Return the client network process for the given PROJ."
-  (map-elt (unrepl-project-conn-pool proj) :client))
+(defun unrepl-project-conn-pool-get-process (proj type)
+  "Return the TYPE network process for the given PROJ."
+  (map-elt (unrepl-project-conn-pool proj) type))
 
 
 (defun unrepl-projects-add (proj)

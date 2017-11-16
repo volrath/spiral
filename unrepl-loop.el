@@ -59,20 +59,69 @@
     (unrepl/... . ,(lambda (_) "...")))
   "Global EDN tag readers to be used on every incoming client message.")
 
+(defvar-local unrepl-loop-process-type nil
+  "Type of process.
+This local variable is meant to be set in conn-pool processes' buffers so
+that they are easily distinguishable.")
+
+(defvar-local unrepl-loop-process-dispatcher nil
+  "The EDN message dispatcher function for a process buffer.")
+
 (defvar-local unrepl-loop-greeted-p nil
   "Predicate that defines if the client for the current buffer has been greeted already.")
 
 
-(defun unrepl-loop-send (str)
-  "Send input STR to UNREPL.
-Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (let* ((project (unrepl-projects-get unrepl-conn-id))
-         (client-proc (unrepl-project-client-proc project)))
-    (process-send-string client-proc (concat str "\n"))
+(defun unrepl-loop--announce-greeting-p (process)
+  "Decide whether or not to announce this PROCESS greetings."
+  (with-current-buffer (process-buffer process)
+    (eql unrepl-loop-process-type 'client)))
+
+
+(defun unrepl-loop--send (conn-id proc-type str)
+  "Send input STR to PROC-TYPE of CONN-ID.
+PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'."
+  (let* ((project (unrepl-projects-get conn-id))
+         (proc (unrepl-project-conn-pool-get-process project proc-type)))
+    (process-send-string proc (concat str "\n"))
     str))
 
 
-(defun unrepl-loop--client-dispatcher (msg conn-id)
+(declare-function unrepl-process-conn-id "unrepl")
+(defun unrepl-loop-handle-proc-message (process output)
+  "Decode OUTPUT's EDN messages from PROCESS, and dispatch accordingly."
+  (let ((proc-buf (process-buffer process)))
+    (with-current-buffer proc-buf
+      (unless unrepl-loop-greeted-p
+        (when-let (hello-match (string-match-p (regexp-quote "[:unrepl/hello")  ;; TODO: check for sideloader
+                                               output))
+          (setq output (substring output hello-match))
+          (setq-local unrepl-loop-greeted-p t)
+          (when (unrepl-loop--announce-greeting-p process)
+            (message "UNREPL says hi!"))))
+      (when unrepl-loop-greeted-p
+        (goto-char (point-max))
+        (save-excursion (insert output))
+
+        ;; There can be several EDN messages in OUTPUT, so we iterate over them.
+        (mapcar (lambda (edn-msg)
+                  (funcall unrepl-loop-process-dispatcher
+                           edn-msg
+                           (unrepl-process-conn-id process)))
+                (parseedn-read unrepl-loop--global-edn-tag-readers))))))
+
+
+
+;; Client Process
+;; =============================================================================
+
+(defun unrepl-client-send (str)
+  "Send input STR to UNREPL client connection.
+Connection to sent the input to is inferred from `unrepl-conn-id'."
+  (unrepl-loop--send unrepl-conn-id 'client str)
+  str)
+
+
+(defun unrepl-loop-client-dispatcher (msg conn-id)
   "Dispatch MSG to an `unrepl-loop--' client message handler.
 CONN-ID is provided to client message handlers so they know which
 project/repl to modify."
@@ -87,30 +136,8 @@ project/repl to modify."
       (:exception (unrepl-loop--placeholder-handler conn-id payload group-id))
       (_ (error (format "Unrecognized message: %S" tag))))))
 
-
-(declare-function unrepl-process-conn-id "unrepl")
-(defun unrepl-loop-handle-client-message (process output)
-  "Decode EDN messages from PROCESS contained in OUTPUT and dispatch accordingly."
-  (with-current-buffer (process-buffer process)
-    (unless unrepl-loop-greeted-p
-      (when-let (hello-match (string-match-p (regexp-quote "[:unrepl/hello")
-                                             output))
-        (setq output (substring output hello-match))
-        (setq-local unrepl-loop-greeted-p t)
-        (message "UNREPL says hi!")))
-    (when unrepl-loop-greeted-p
-      (goto-char (point-max))
-      (save-excursion (insert output))
-
-      ;; There can be several EDN messages in OUTPUT, so we iterate over them.
-      (mapcar (lambda (edn-msg)
-                (unrepl-loop--client-dispatcher edn-msg
-                                                (unrepl-process-conn-id process)))
-              (parseedn-read unrepl-loop--global-edn-tag-readers)))))
-
-
-;; UNREPL Client Message Processing
-;; -------------------------------------------------------------------
+;; Message Processing
+;; ------------------
 
 (defmacro unrepl-loop--unpack-payload (vars &rest body)
   "Take VARS out of `payload' and make them available in BODY scope.
@@ -193,8 +220,27 @@ GROUP-ID is an integer as described by UNREPL's documentation."
   (unrepl-repl-insert-out conn-id group-id (format "%S" payload)))
 
 
-;; Side loader
-;; -------------------------------------------------------------------
+
+;; Aux Connection Process
+;; =============================================================================
+
+(defun unrepl-aux-send (str)
+  "Send input STR to UNREPL aux connection.
+Connection to sent the input to is inferred from `unrepl-conn-id'."
+  (unrepl-loop--send unrepl-conn-id 'aux str)
+  str)
+
+
+
+;; Side Loader Process
+;; =============================================================================
+
+(defun unrepl-side-loader-send (str)
+  "Send input STR to UNREPL side loader connection.
+Connection to sent the input to is inferred from `unrepl-conn-id'."
+  (unrepl-loop--send unrepl-conn-id 'side-loader str)
+  str)
+
 
 (defun unrepl-loop-handle-side-loader-message (process output)
   "Decode EDN messages from PROCESS contained in OUTPUT and act accordingly."

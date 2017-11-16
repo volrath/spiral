@@ -260,7 +260,7 @@ latest history entry will be associated with GROUP-ID."
 ;; Interactive
 ;; -------------------------------------------------------------------
 
-(declare-function unrepl-loop-send "unrepl-loop")
+(declare-function unrepl-client-send "unrepl-loop")
 (defun unrepl-repl-return (&optional end-of-input)
   "Send the current input string to UNREPL for evaluation.
 
@@ -278,12 +278,12 @@ Most of the behavior is BORROWED FROM CIDER."
     (error "No input at point"))
   (cond
    ;; (end-of-input
-   ;;  (unrepl-loop-send start (point)))
+   ;;  (unrepl-client-send start (point)))
    ((unrepl-repl--input-complete-p (point-max))
     (goto-char (point-max))
     (add-text-properties unrepl-repl-input-start-mark (point)
                          '(read-only t rear-nonsticky (read-only)))
-    (-> (unrepl-loop-send (unrepl-repl--input-str))
+    (-> (unrepl-client-send (unrepl-repl--input-str))
         (unrepl-repl--add-input-to-history))
     (newline)
     (setq-local unrepl-repl-inputting t))

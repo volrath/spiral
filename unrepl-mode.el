@@ -144,12 +144,12 @@ Return a UNREPL project"
        (pop-to-buffer repl-buffer)))))
 
 
-(declare-function unrepl-loop-send "unrepl-repl")
+(declare-function unrepl-client-send "unrepl-repl")
 (defun unrepl-eval-last-sexp ()
   "Evaluate the expression preceding point."
   (interactive)
   (unrepl-ensure-connected!)
-  (unrepl-loop-send (unrepl-last-sexp)))
+  (unrepl-client-send (unrepl-last-sexp)))
 
 
 (defun unrepl-quit (&optional just-do-it conn-id)

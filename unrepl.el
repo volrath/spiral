@@ -185,7 +185,7 @@ Mostly copied from Cider's `nrepl-server-filter'"
                       (with-current-buffer server-buffer
                         (buffer-substring (point-min) (point-max)))
                     "")))
-    (unrepl-quit-project conn-id)
+    (unrepl-project-quit conn-id)
     (unless (string-match-p "^killed\\|^interrupt\\|^hangup" event)
       (error "Could not start nREPL server: %s" problem))))
 
@@ -197,16 +197,11 @@ Increases from the value of =unrepl--last-port-used=."
   unrepl-starting-port)
 
 
-(defun unrepl--upgrade-connection! (proc)
-  "Upgrade the PROC Socket Connection to UNREPL by feeding the UNREPL blob to it."
-  (process-send-string proc (unrepl--blob)))
-
-
 (defun unrepl--socket-repl-connect (host port type)
   "Connect to a Clojure Socket REPL identified by HOST:PORT with a given TYPE.
 
 TYPE is a keyword that can either be `:client', `:side-loader', or
-`:tooling', and it is used to set the correct name of the network process,
+`:aux', and it is used to set the correct name of the network process,
 and to properly set the filter function for the process output.
 
 Return a network connection process."
@@ -215,31 +210,28 @@ Return a network connection process."
    :buffer (unrepl--get-network-buffer type host port)
    :host host
    :service port
-   :filter (intern (format "unrepl-loop-handle-%s-message" (unrepl--keyword-name type)))))
+   :filter #'unrepl-loop-handle-proc-message))
 
 
-(defun unrepl--create-connection-pool (host port)
-  "Create a new Connection Pool to the Socket REPL in HOST:PORT."
-  (message "Upgrading to UNREPL.")
-  (let* ((client-proc (unrepl--socket-repl-connect host port :client))
-         ;; (side-loader-proc (unrepl--socket-repl-connect host port :side-loader))
-         ;; (tooling-proc (unrepl--socket-repl-connect host port :tooling))
-         (pool `((:client . ,client-proc)
-                 ;; (:side-loader . ,side-loader-proc)
-                 ;; (:tooling . ,tooling-proc)
-                 )))
-    ;; Setup client
-    (unrepl--upgrade-connection! client-proc)
-    (with-current-buffer (process-buffer client-proc)
-      (clojure-mode))
-    ;; Setup `unrepl-conn-id' on each proc buffer
-    (let ((conn-id (unrepl-process-conn-id client-proc)))
-      (mapc (lambda (p-conn)
-              (with-current-buffer (process-buffer (cdr p-conn))
-                (setq-local unrepl-conn-id conn-id)))
-            pool))
-    ;; Finally return the pool
-    pool))
+(defun unrepl--create-connection-process (type host port upgrade-msg dispatcher-fn)
+  "Create a new TYPE connection process to HOST:PORT.
+TYPE is a keyword: `:client', `:aux', or `:side-loader'.
+UPGRADE-MSG is a STR to be sent to the newly created process.
+DISPATCHER-FN is a function that will receive UNREPL EDN messages and will
+dispatch to handlers according to the message's tag.
+
+Returns a pair (TYPE . new-process)."
+  (let* ((new-proc (unrepl--socket-repl-connect host port type))
+         (conn-id (unrepl-process-conn-id new-proc)))
+    ;; Setup process
+    (process-send-string new-proc upgrade-msg)
+    (with-current-buffer (process-buffer new-proc)
+      (clojure-mode)
+      (setq-local unrepl-conn-id conn-id)
+      (setq-local unrepl-loop-process-type type)
+      (setq-local unrepl-loop-process-dispatcher dispatcher-fn))
+    ;; Finally return the process pair
+    (cons type new-proc)))
 
 
 (defun unrepl--conn-pool-proc (pool type)
@@ -276,7 +268,12 @@ Return connected project."
         (message "Connection to %s already exists. Reusing it."
                  (unrepl--make-conn-id host port))
         project)
-    (let* ((conn-pool (unrepl--create-connection-pool host port))
+    ;; We only start with the `:client' connection process in the pool, because
+    ;; it's the only one needed.  `:aux' and `:side-loader' are created when
+    ;; `:client' gets greeted.
+    (let* ((conn-pool (list (unrepl--create-connection-process :client host port
+                                                               (unrepl--blob)
+                                                               #'unrepl-loop-client-dispatcher)))
            (conn-id (unrepl-process-conn-id (unrepl--conn-pool-proc conn-pool :client)))
            (new-project (unrepl-create-project conn-id
                                                conn-pool
