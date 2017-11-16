@@ -177,7 +177,7 @@ buffer, `unrepl-eval-last-sexp' command, etc), and will call a different
 function to display the result accordingly."
   (if-let (history-id (unrepl-project-pending-evals-get-history-id conn-id group-id))
       (unrepl-repl-insert-evaluation conn-id history-id payload)
-    (message "Received evaluation that didn't come from the REPL"))  ;; placeholder
+    (message "%S" payload))  ;; placeholder, maybe add function that knows how to display payload
   (unrepl-project-pending-eval-update conn-id group-id :eval))
 
 

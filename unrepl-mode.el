@@ -44,6 +44,7 @@
 ;;; Code:
 
 (require 'unrepl-project)
+(require 'unrepl-util)
 
 (defcustom unrepl-ask-for-connection t
   "Automatically ask for host:port when trying to interact with UNREPL in an unconnected buffer."
@@ -72,7 +73,7 @@
   "Port number used when creating a new Socket REPL.")
 
 
-(defun unrepl--conn-id-prompt ()
+(defun unrepl-mode--conn-id-prompt ()
   "Prompt the user for a HOST:PORT conn-id.
 Return a conn-id symbol."
   (intern (format "%s:%s"
@@ -110,7 +111,7 @@ Return a UNREPL project"
           (setq-local unrepl-conn-id conn-id)
           (unrepl-projects-get conn-id))
       (if unrepl-ask-for-connection
-          (let ((conn-id (unrepl--conn-id-prompt)))
+          (let ((conn-id (unrepl-mode--conn-id-prompt)))
             (if-let (project (unrepl-projects-get conn-id))
                 (progn
                   (setq-local unrepl-conn-id conn-id)
@@ -130,6 +131,9 @@ Return a UNREPL project"
   nil)
 
 
+;; Interactive Commands
+;; -------------------------------------------------------------------
+
 (defun unrepl-switch-to-repl-buffer ()
   "Switch to the REPL buffer for `unrepl-conn-id'."
   (interactive)
@@ -140,13 +144,21 @@ Return a UNREPL project"
        (pop-to-buffer repl-buffer)))))
 
 
+(declare-function unrepl-loop-send "unrepl-repl")
+(defun unrepl-eval-last-sexp ()
+  "Evaluate the expression preceding point."
+  (interactive)
+  (unrepl-ensure-connected!)
+  (unrepl-loop-send (unrepl-last-sexp)))
+
+
 (defun unrepl-quit (&optional just-do-it conn-id)
   "Quit connection to CONN-ID or current `unrepl-conn-id'.
 If JUST-DO-IT is non-nil, don't ask for confirmation."
   (interactive "P")
   (let ((conn-id (or conn-id
                      unrepl-conn-id
-                     (unrepl-ask-for-conn-id))))
+                     (unrepl-mode--conn-id-prompt))))
     (if-let (project (unrepl-projects-get conn-id))
         (when (or just-do-it
                   (y-or-n-p (format "Are you sure you want to quit connection to %s? " conn-id)))
@@ -158,6 +170,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
 (defconst unrepl-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
+    (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
     (define-key map (kbd "C-c C-q") #'unrepl-quit)
     map))
 
