@@ -1,37 +1,95 @@
 * UNREPL.el
 
-  Client interface with a Clojure's Socket REPL that gets upgraded to UNREPL.
+  Emacs >= 25.1
 
-** Internal Data Structures
+  Client interface with a Clojure's Socket REPL through the [[https://github.com/unrepl/unrepl][unrepl]] protocol.
 
-   UNREPL.el depends on a running Clojure's Socket REPL.  This said REPL can be
-   created by this package or can be externally started by a human or another
-   process, and then UNREPL.el would only need the =host=, =port= coordinates to
-   connect to it.
+** Usage
 
-   Multiple Socket REPL can be created in the same running Emacs instance,
-   ideally each for a different Clojure project.  UNREPL.el will warn when a new
-   REPL is trying to be created for a project that has already a Socket REPL
-   running.
+   To install, place this repository somewhere in your load-path.
 
-   For each Socket REPL Server, UNREPL.el creates an "Connection Pool", that
-   contains 3 different socket connections to the same Socket REPL:
+   Currently, UNREPL.el provides two ways to connect to a Socket REPL:
 
-   - One for the main client UNREPL.
-   - One for an UNREPL sider loader.
-   - One for tooling.
+   1. Automatically creating a Socket REPL from Emacs with UNREPL.el.  This
+      requires you to have [[https://github.com/boot-clj/boot][boot]] > 2.7.2 installed locally. It will be used to
+      instantiate a new Socket REPL on =localhost:60100=.
 
-   UNREPL.el holds all the projects connected in an AList called
-   =unrepl--projects=, where keys are the symbols of the form =host:port=, and
-   values are ALists with the following key-value pairs:
+      Issue:
 
-   - =:id=: Same =host:port= symbol.
-   - =:conn-pool=: An AList with the 3 UNREPL connections for this project.
-   - =:project-dir=: An optional stringn pointing to the project's dir.
-   - =:project-type=: An optional string referring to the type of project
-     (leinigen, boot, ...)
-   - =:socket-repl=: An optional process referring to the Socket REPL server.
+      #+BEGIN_SRC
+      M-x unrepl-connect
+      #+END_SRC
 
-   The =:conn-pool= is an AList containing three keys: =:client=,
-   =:side-loader=, and =:tooling=. Each of these keys will have a standard
-   network connection process as value.
+   2. By connecting to a Socket REPL you alredy created.  There are several ways
+      to do this, here are some examples:
+
+      #+BEGIN_SRC bash
+      # lein:
+      > JVM_OPTS='-Dclojure.server.myrepl={:port,5555,:accept,clojure.core.server/repl}' lein repl
+      # or boot < 2.7.2:
+      > boot -i "(do (require 'clojure.core.server) (clojure.core.server/start-server {:port 5555 :name :repl :accept 'clojure.core.server/repl}))" wait
+      # or boot >= 2.7.2:
+      > boot socket-server --port 5555 wait
+      # or plain Clojure jar:
+      java -Dclojure.server.myrepl="{:port 5555,:accept,clojure.core.server/repl}" -jar ~/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar
+      #+END_SRC
+
+      Then issue:
+
+      #+BEGIN_SRC
+      M-x unrepl-connect-to
+      Host: localhost
+      Port: 5555
+      #+END_SRC
+
+   After a successful connection, you will be greeted with a REPL buffer.
+
+   You can also evaluate sexp in a buffer by enabling =unrepl-mode= in that buffer
+   and executing =unrepl-eval-last-sexp= or =C-x C-e=.
+
+** Development
+
+   Early stage, this might be out of date.
+
+*** Implementation Details
+
+**** Main Internal Data Structure
+
+     UNREPL.el depends on a running Clojure's Socket REPL.
+
+     Multiple Socket REPLs can be created in the same running Emacs instance,
+     ideally each for a different Clojure project.
+
+     In the UNREPL.el context, a **Project** represents a connection with a
+     Clojure Socket REPL.  A project is identified by a **Connection ID**, which
+     is a symbol of the form =host:port=.
+
+     Each project holds:
+
+     - =:id=: Its connection id.
+     - =:conn-pool=: An alist with 3 UNREPL connections for this project's
+       Socket REPL.
+     - =:pending-evals=: An associative datastructure that holds pending
+       evaluations for this connection.
+     - =:repl-buffer=: A buffer that holds human-focused REPL interaction.
+     - =:project-dir=: An optional strinng pointing to the project's dir.
+     - =:socket-repl=: An optional process referring to the Socket REPL server.
+
+     The 3 connections in a project's connection pool are:
+
+     - One for the main client UNREPL.
+     - One for an UNREPL sider loader.
+     - One for tooling.
+
+     All UNREPL.el projects are stored in an associative data structure called
+     =unrepl-projects=, where keys are connection ids.
+
+**** The REPL
+
+**** The Loop
+
+** License
+
+   © 2017 Daniel Barreto
+
+   Distributed under the terms of the GNU GENERAL PUBLIC LICENSE, version 3.
