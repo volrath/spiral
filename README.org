@@ -6,7 +6,26 @@
 
 ** Usage
 
-   To install, place this repository somewhere in your load-path.
+*** Installing
+   This project is on early stage, so it might require you to do a couple of
+   things to get things running.
+
+   To install, Clone this repository with its submodule:
+
+   #+BEGIN_SRC bash
+   git clone --recursive https://github.com/volrath/unrepl.el
+   #+END_SRC
+
+   Then place this repository, and it's *parseclj* submodule copy, somewhere in
+   your load-path.
+
+   OPTIONAL: In =unrepl-util.el= there's a commented =unrepl-retry= function
+   that you can evaluate (and assign it to a key binding), that will
+   automatically add these directories to your =load-path=, reload the whole
+   project and restart a connection to localhost:5555.  Please be sure to run
+   this function from within a buffer containing a =unrepl-*.el= file.
+
+*** Connecting to a Socket REPL
 
    Currently, UNREPL.el provides two ways to connect to a Socket REPL:
 
@@ -16,7 +35,7 @@
 
       Issue:
 
-      #+BEGIN_SRC
+      #+BEGIN_SRC bash
       M-x unrepl-connect
       #+END_SRC
 
@@ -36,7 +55,7 @@
 
       Then issue:
 
-      #+BEGIN_SRC
+      #+BEGIN_SRC bash
       M-x unrepl-connect-to
       Host: localhost
       Port: 5555
@@ -60,8 +79,8 @@
      Multiple Socket REPLs can be created in the same running Emacs instance,
      ideally each for a different Clojure project.
 
-     In the UNREPL.el context, a **Project** represents a connection with a
-     Clojure Socket REPL.  A project is identified by a **Connection ID**, which
+     In the UNREPL.el context, a /Project/ represents a connection with a
+     Clojure Socket REPL.  A project is identified by a /Connection ID/, which
      is a symbol of the form =host:port=.
 
      Each project holds:
