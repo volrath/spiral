@@ -46,6 +46,19 @@
 (require 'clojure-mode)
 
 
+(defun unrepl-conn-host-port (conn-id)
+  "Return a tuple of host<string>, port<integer> from CONN-ID."
+  (let* ((s-host-port (split-string (symbol-name conn-id) ":"))
+         (host (car s-host-port))
+         (port (string-to-number (cadr s-host-port))))
+    (cons host port)))
+
+
+(defun unrepl-command-template (template &rest params)
+  "Process TEMPLATE with PARAMS and return a string."
+  (format "%s\n" template))
+
+
 (defun unrepl-last-sexp (&optional bounds)
   "Return the sexp preceding the point.
 If BOUNDS is non-nil, return a list of its starting and ending position

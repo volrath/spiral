@@ -48,6 +48,7 @@
 (require 'unrepl-mode)
 (require 'unrepl-project)
 (require 'unrepl-repl)
+(require 'unrepl-util)
 
 
 (defvar unrepl-loop--global-edn-tag-readers
@@ -74,7 +75,7 @@ that they are easily distinguishable.")
 (defun unrepl-loop--announce-greeting-p (process)
   "Decide whether or not to announce this PROCESS greetings."
   (with-current-buffer (process-buffer process)
-    (eql unrepl-loop-process-type 'client)))
+    (eql unrepl-loop-process-type :client)))
 
 
 (defun unrepl-loop--send (conn-id proc-type str)
@@ -92,8 +93,7 @@ PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'."
   (let ((proc-buf (process-buffer process)))
     (with-current-buffer proc-buf
       (unless unrepl-loop-greeted-p
-        (when-let (hello-match (string-match-p (regexp-quote "[:unrepl/hello")  ;; TODO: check for sideloader
-                                               output))
+        (when-let (hello-match (string-match-p "\\[:unrepl.*/hello" output))
           (setq output (substring output hello-match))
           (setq-local unrepl-loop-greeted-p t)
           (when (unrepl-loop--announce-greeting-p process)
@@ -156,14 +156,30 @@ gets executed."
             vars))
      ,@body))
 
+
+(declare-function unrepl-create-connection-process "unrepl")
 (defun unrepl-loop--hello (conn-id payload)
   "Handle a `:unrepl/hello' message transmitted through CONN-ID.
 It processes the PAYLOAD to init the corresponding REPL and subsequent
 evaluation of inputs."
   (unrepl-loop--unpack-payload
       (actions)
-    (unrepl-repl-connected conn-id)
-    (unrepl-project-set-in conn-id :actions actions)))
+    (unrepl-repl-connected conn-id)                   ;; Start REPL
+    (unrepl-project-set-in conn-id :actions actions)  ;; Store global actions
+    ;; And start aux connections
+    (let* ((host-port (unrepl-conn-host-port conn-id))
+           (host (car host-port))
+           (port (cdr host-port))
+           (start-aux-msg (unrepl-command-template (map-elt actions :start-aux)))
+           (start-sl-msg (unrepl-command-template (map-elt actions :unrepl.jvm/start-side-loader))))
+      (unrepl-project-conn-pool-set-in
+       conn-id
+       :aux (unrepl-create-connection-process :aux host port
+                                              start-aux-msg
+                                              #'unrepl-loop-aux-handler)
+       :side-loader (unrepl-create-connection-process :side-loader host port
+                                                      start-sl-msg
+                                                      #'unrepl-loop-side-loader-handler)))))
 
 
 (defun unrepl-loop--prompt (conn-id payload)
@@ -216,7 +232,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
 
 
 (defun unrepl-loop--placeholder-handler (conn-id payload group-id)
-  ""
+  "Placeholder handler CONN-ID PAYLOAD GROUP-ID."
   (unrepl-repl-insert-out conn-id group-id (format "%S" payload)))
 
 
@@ -227,8 +243,14 @@ GROUP-ID is an integer as described by UNREPL's documentation."
 (defun unrepl-aux-send (str)
   "Send input STR to UNREPL aux connection.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (unrepl-loop--send unrepl-conn-id 'aux str)
-  str)
+  (unrepl-loop--send unrepl-conn-id 'aux str))
+
+
+(defun unrepl-loop-aux-handler (_msg _conn-id)
+  "Dispatch MSG to an `unrepl-loop--aux-*' message handler.
+CONN-ID is provided to the handlers so they know which project/repl they
+will be affecting."
+  )  ;; All are noops, for now.
 
 
 
@@ -238,16 +260,14 @@ Connection to sent the input to is inferred from `unrepl-conn-id'."
 (defun unrepl-side-loader-send (str)
   "Send input STR to UNREPL side loader connection.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (unrepl-loop--send unrepl-conn-id 'side-loader str)
-  str)
+  (unrepl-loop--send unrepl-conn-id 'side-loader str))
 
 
-(defun unrepl-loop-handle-side-loader-message (process output)
-  "Decode EDN messages from PROCESS contained in OUTPUT and act accordingly."
-  (with-current-buffer (process-buffer process)
-    (unless (string-match-p (regexp-quote "user=>") output)
-      (goto-char (point-max))
-      (save-excursion (insert output)))))
+(defun unrepl-loop-side-loader-handler (_msg _conn-id)
+  "Dispatch MSG to an `unrepl-loop--side-loader-*' message handler.
+CONN-ID is provided to the handlers so they know which project/repl they
+will be affecting."
+  )  ;; All are noops, for now.
 
 
 (provide 'unrepl-loop)

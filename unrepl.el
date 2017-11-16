@@ -51,6 +51,7 @@
 (require 'unrepl-mode)
 (require 'unrepl-project)
 (require 'unrepl-repl)
+(require 'unrepl-util)
 
 
 (defgroup unrepl '()
@@ -102,14 +103,6 @@ that its corresponding connection pool can be created.")
 (defun unrepl--make-conn-id (host port)
   "Return a symbol of the form HOST:PORT."
   (intern (format "%s:%S" host port)))
-
-
-(defun unrepl--conn-host-port (conn-id)
-  "Return a tuple of host<string>, port<integer> from CONN-ID."
-  (let* ((s-host-port (split-string (symbol-name conn-id) ":"))
-         (host (car s-host-port))
-         (port (string-to-number (cadr s-host-port))))
-    (cons host port)))
 
 
 (defun unrepl--get-network-buffer (type server-host server-port)
@@ -213,7 +206,7 @@ Return a network connection process."
    :filter #'unrepl-loop-handle-proc-message))
 
 
-(defun unrepl--create-connection-process (type host port upgrade-msg dispatcher-fn)
+(defun unrepl-create-connection-process (type host port upgrade-msg dispatcher-fn)
   "Create a new TYPE connection process to HOST:PORT.
 TYPE is a keyword: `:client', `:aux', or `:side-loader'.
 UPGRADE-MSG is a STR to be sent to the newly created process.
@@ -230,8 +223,8 @@ Returns a pair (TYPE . new-process)."
       (setq-local unrepl-conn-id conn-id)
       (setq-local unrepl-loop-process-type type)
       (setq-local unrepl-loop-process-dispatcher dispatcher-fn))
-    ;; Finally return the process pair
-    (cons type new-proc)))
+    ;; Finally return the process
+    new-proc))
 
 
 (defun unrepl--conn-pool-proc (pool type)
@@ -271,9 +264,9 @@ Return connected project."
     ;; We only start with the `:client' connection process in the pool, because
     ;; it's the only one needed.  `:aux' and `:side-loader' are created when
     ;; `:client' gets greeted.
-    (let* ((conn-pool (list (unrepl--create-connection-process :client host port
-                                                               (unrepl--blob)
-                                                               #'unrepl-loop-client-dispatcher)))
+    (let* ((conn-pool `((:client . ,(unrepl-create-connection-process :client host port
+                                                                      (unrepl--blob)
+                                                                      #'unrepl-loop-client-dispatcher))))
            (conn-id (unrepl-process-conn-id (unrepl--conn-pool-proc conn-pool :client)))
            (new-project (unrepl-create-project conn-id
                                                conn-pool

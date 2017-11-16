@@ -47,6 +47,8 @@
 (require 'dash)
 (require 'map)
 
+(require 'unrepl-util)
+
 
 (defcustom unrepl-default-socket-repl-command 'boot
   "The default command to be used when creating a Clojure Socket REPL."
@@ -223,6 +225,7 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 
 
 (declare-function unrepl--conn-pool-procs "unrepl")
+(declare-function unrepl-connected-buffers "unrepl-mode")
 (defun unrepl-project-quit (conn-id)
   "Kill and remove project with CONN-ID."
   (interactive)
@@ -261,10 +264,9 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
   (map-elt proj :id))
 
 
-(declare-function unrepl--conn-host-port "unrepl")
 (defun unrepl-project-port (proj)
   "Return the Socket REPL port for the given PROJ."
-  (cdr (unrepl--conn-host-port (unrepl-project-id proj))))
+  (cdr (unrepl-conn-host-port (unrepl-project-id proj))))
 
 
 (defun unrepl-project-pending-evals (proj)
@@ -279,7 +281,7 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 
 (defun unrepl-project-host (proj)
   "Return the Socket REPL host for the given PROJ."
-  (car (unrepl--conn-host-port (unrepl-project-id proj))))
+  (car (unrepl-conn-host-port (unrepl-project-id proj))))
 
 
 (defun unrepl-project-namespace (proj)
@@ -305,6 +307,17 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 (defun unrepl-project-conn-pool-get-process (proj type)
   "Return the TYPE network process for the given PROJ."
   (map-elt (unrepl-project-conn-pool proj) type))
+
+
+(defun unrepl-project-conn-pool-set-in (conn-id &rest kwargs)
+  "Set new key-vals in CONN-ID's `:conn-pool', provided by KWARGS.
+KWARGS is expected to be pairs of keywords and processes."
+  (let* ((proj (unrepl-projects-get conn-id))
+         (conn-pool (unrepl-project-conn-pool proj)))
+    (mapc (lambda (pair)
+            (map-put conn-pool (car pair) (cadr pair)))
+          (-partition 2 kwargs))
+    (unrepl-project-set-in conn-id :conn-pool conn-pool)))
 
 
 (defun unrepl-projects-add (proj)
