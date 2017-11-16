@@ -80,7 +80,7 @@ Return a conn-id symbol."
                   (read-string "Port: "))))
 
 
-(defun unrepl-utils-connected-buffers (conn-id)
+(defun unrepl-connected-buffers (conn-id)
   "List all buffers connected to CONN-ID."
   ;; We could maybe add a buffer list to the project data structure, but it can
   ;; get tricky to maintain synced pretty easily.

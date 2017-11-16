@@ -247,7 +247,7 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
     (mapc (lambda (unrepl-buf)
             (with-current-buffer unrepl-buf
               (kill-local-variable 'unrepl-conn-id)))
-          (unrepl-utils-connected-buffers conn-id))
+          (unrepl-connected-buffers conn-id))
     ;; Remove the entry from `unrepl-projects'
     (setq unrepl-projects (map-delete unrepl-projects conn-id))))
 
