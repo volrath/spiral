@@ -255,12 +255,18 @@ Returns a pair (TYPE . new-process)."
 ;; Main interactive entry
 ;; -------------------------------------------------------------------
 
+(defvar unrepl-calling-buffer nil
+  "Saves the calling buffer for more initialization after connecting.")
+
+;;;###autoload
 (defun unrepl-connect-to (host port &optional server-proc)
   "Create a new project connection to a socket in HOST:PORT.
 An optional SERVER-PROC can be passed, which would be the actual Clojure
 Socket REPL process.
 Return connected project."
   (interactive "sHost: \nnPort: ")
+  (when (null unrepl-calling-buffer)
+    (setq unrepl-calling-buffer (current-buffer)))
   (if-let (project (unrepl-projects-get (unrepl--make-conn-id host port)))
       (progn
         (message "Connection to %s already exists. Reusing it."
@@ -276,12 +282,24 @@ Return connected project."
            (new-project (unrepl-create-project conn-id
                                                conn-pool
                                                server-proc)))
-      (unrepl-projects-add new-project))))
+      (prog1 (unrepl-projects-add new-project)
+        ;; If this is a Clojure REPL, enable unrepl-mode and assign connection
+        ;; id right away.
+        ;; TODO: Look for all other clojure buffers in the same project and
+        ;; enable unrepl-mode on them as well.  This should be a customizable
+        ;; behavior.
+        (with-current-buffer unrepl-calling-buffer
+          (when (derived-mode-p 'clojure-mode)
+            (unrepl-mode)
+            (setq-local unrepl-conn-id conn-id)
+            (setq unrepl-calling-buffer nil)))))))
 
 
+;;;###autoload
 (defun unrepl-connect ()
   "Create a new Clojure Socket REPL and establish a project connection to it."
   (interactive)
+  (setq unrepl-calling-buffer (current-buffer))
   (unrepl--create-socket-repl!))
 
 
