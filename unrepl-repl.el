@@ -466,6 +466,9 @@ prompt, which is use to show results of evaluations."
 ;; UNREPL REPL mode
 ;; -------------------------------------------------------------------
 
+(defvar unrepl-repl-mode-hook nil
+  "Hook for `unrepl-repl-mode'.")
+
 (defvar unrepl-repl-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'unrepl-repl-return)
@@ -485,7 +488,9 @@ prompt, which is use to show results of evaluations."
   (unrepl-mode)
   (set-syntax-table unrepl-repl-mode-syntax-table)
   ;; TODO: eldoc
-  (hack-dir-local-variables-non-file-buffer))
+  (hack-dir-local-variables-non-file-buffer)
+
+  (run-hooks 'unrepl-repl-mode-hook))
 
 (provide 'unrepl-repl)
 
