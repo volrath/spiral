@@ -184,7 +184,7 @@ gets executed."
   (declare (indent 1))
   `(let (,@(mapcar
             (lambda (v)
-              `(,v (map-elt payload ,(intern-soft (format ":%s" v)))))
+              `(,v (unrepl-ast-map-elt payload ,(intern-soft (format ":%s" v)))))
             vars))
      ,@body))
 
@@ -202,8 +202,8 @@ evaluation of inputs."
     (let* ((host-port (unrepl-conn-host-port conn-id))
            (host (car host-port))
            (port (cdr host-port))
-           (start-aux-msg (unrepl-command-template (map-elt actions :start-aux)))
-           (start-sl-msg (unrepl-command-template (map-elt actions :unrepl.jvm/start-side-loader))))
+           (start-aux-msg (unrepl-command-template (unrepl-ast-map-elt actions :start-aux)))
+           (start-sl-msg (unrepl-command-template (unrepl-ast-map-elt actions :unrepl.jvm/start-side-loader))))
       (unrepl-project-conn-pool-set-in
        conn-id
        :aux (unrepl-create-connection-process :aux host port

@@ -45,6 +45,7 @@
 
 (require 'clojure-mode)
 (require 'dash)
+(require 'parseclj)
 (require 'treepy)
 
 
@@ -54,11 +55,6 @@
          (host (car s-host-port))
          (port (string-to-number (cadr s-host-port))))
     (cons host port)))
-
-
-(defun unrepl-command-template (template &rest _params)
-  "Process TEMPLATE with PARAMS and return a string."
-  (format "%s\n" template))
 
 
 (defun unrepl-last-sexp (&optional bounds)
@@ -93,6 +89,56 @@ Value is returned as an AST node."
   (cadr (seq-find (lambda (kv-pair)
                     (eql key (parseclj-ast-value (car kv-pair))))
                   (-partition 2 (parseclj-ast-children map-node)))))
+
+
+;; template management
+
+(defun unrepl-ast--generate-replace-param-tags-fn (params)
+  "Create a closure fn for replacing param tag nodes with PARAMS.
+Return a function that receives a param tag AST node, gets its keyword
+children (the actual param name) and compares against the PARAMS alist to
+see if there's a valid replacement for it."
+  (lambda (param-tag-node)
+    (let* ((param-keyword (-> param-tag-node
+                              (parseclj-ast-children)
+                              (car)
+                              (parseclj-ast-value)))
+           (replacement (seq-find (lambda (p-kv)
+                                    (eql (car p-kv) param-keyword))
+                                  params)))
+      (if replacement
+          ;; TODO: transform this `replacement' to an AST node.  Initially
+          ;; `replacement' will be an elisp value, like an integer, a string, a
+          ;; seq, or whatever.  This should be turned into a node, because it
+          ;; will be later passed to `parseclj-unparse-clojure-to-string', which
+          ;; only knows how to traverse/convert AST nodes into strings.
+          (error "Not implemented! check code for details")
+        param-tag-node))))
+
+
+(defun unrepl-ast--replace-param-tags (root params)
+  "Traverse ROOT and replace 'param tag' nodes with PARAMS.
+For each param tag, PARAMS alist is checked to see if there's a
+corresponding replacement.
+Return ROOT with all available param tags replaced."
+  (let ((loc (unrepl-ast-zip root)))
+    (if (treepy-end-p loc)
+        root
+      (let ((replace-param-tag-fn (unrepl-ast--generate-replace-param-tags-fn params)))
+        (while (not (treepy-end-p (treepy-next loc)))
+          (let ((node (treepy-node loc)))
+            (setq loc (treepy-next
+                       (if (eql (parseclj-ast-node-attr node :tag) 'unrepl/param)
+                           (treepy-edit loc replace-param-tag-fn)
+                         loc)))))
+        (treepy-root loc)))))
+
+
+(defun unrepl-command-template (template-ast &rest params)
+  "Process TEMPLATE-AST with PARAMS and return a string."
+  (let ((cmd (unrepl-ast--replace-param-tags template-ast params)))
+    (format "%s\n"
+            (parseclj-unparse-clojure-to-string cmd))))
 
 
 ;; Debugging
