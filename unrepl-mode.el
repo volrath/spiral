@@ -152,6 +152,18 @@ Return a UNREPL project"
   (unrepl-client-send (unrepl-last-sexp)))
 
 
+(declare-function unrepl-aux-send "unrepl-loop")
+(defun unrepl-repl-interrupt ()
+  "Interrupt pending evaluation."
+  (interactive)
+  (with-current-project
+   (if-let (pending-eval (unrepl-project-pending-eval project))
+       (let* ((actions (unrepl-project-pending-eval-entry-actions pending-eval))
+              (interrupt-templ (unrepl-ast-map-elt actions :interrupt)))
+         (unrepl-aux-send (unrepl-command-template interrupt-templ)))
+     (message "No operations pending..."))))
+
+
 (defun unrepl-quit (&optional just-do-it conn-id)
   "Quit connection to CONN-ID or current `unrepl-conn-id'.
 If JUST-DO-IT is non-nil, don't ask for confirmation."
@@ -171,6 +183,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
     (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
+    (define-key map (kbd "C-c C-c") #'unrepl-repl-interrupt)
     (define-key map (kbd "C-c C-q") #'unrepl-quit)
     map))
 

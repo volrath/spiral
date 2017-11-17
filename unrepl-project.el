@@ -143,6 +143,11 @@ BORROWED FROM CIDER."
 ;; When a `:prompt' is received again, the top of the queue (`:eval'ed pending
 ;; evaluation) will be taken out, and the process start again.
 
+(defun unrepl-project-pending-eval (conn-id)
+  "Return the beginning of CONN-ID's `:pending-evals' queue."
+  (car (unrepl-project-pending-evals conn-id)))
+
+
 (defun unrepl-project-pending-eval-add (conn-id &rest kwargs)
   "Add a pending evaluation to the end of the CONN-ID'S `:pending-evals' queue.
 KWARGS are key-values used to create the pending evaluation entry."
@@ -176,11 +181,6 @@ KWARGS are the key-values to update the pending evaluation entry."
       (map-elt :repl-history-idx)))
 
 
-(defun unrepl-project-pending-eval-entry-history-idx (entry)
-  "Return the `:repl-history-idx' from a pending eval ENTRY."
-  (map-elt entry :repl-history-idx))
-
-
 (defun unrepl-project-pending-eval-callback (conn-id)
   "Return the `:eval-callback' from the top of the CONN-ID's `:pending-evals' queue."
   (-> conn-id
@@ -190,6 +190,15 @@ KWARGS are the key-values to update the pending evaluation entry."
       (map-elt :eval-callback)))
 
 
+(defun unrepl-project-pending-eval-actions (conn-id)
+  "Return `:actions' form the top of the CONN-ID's `:pending-evals' queue."
+  (-> conn-id
+      (unrepl-projects-get)
+      (unrepl-project-pending-evals)
+      (car)
+      (map-elt :actions)))
+
+
 (defun unrepl-project-pending-evals-shift (conn-id)
   "Shift the CONN-ID's `:pending-evals' queue and return the shifted entry."
   (let* ((project (unrepl-projects-get conn-id))
@@ -197,6 +206,16 @@ KWARGS are the key-values to update the pending evaluation entry."
          (entry (car pending-evals)))
     (unrepl-project-set-in conn-id :pending-evals (cdr pending-evals))
     entry))
+
+
+(defun unrepl-project-pending-eval-entry-history-idx (entry)
+  "Return the `:repl-history-idx' from a pending eval ENTRY."
+  (map-elt entry :repl-history-idx))
+
+
+(defun unrepl-project-pending-eval-entry-actions (entry)
+  "Return the `:actions' from a pending eval ENTRY."
+  (map-elt entry :actions))
 
 
 ;; UNREPL Projects
