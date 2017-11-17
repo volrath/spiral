@@ -37,6 +37,7 @@
 ;;; Code:
 
 (require 'clojure-mode)
+(require 'find-func)
 (require 'map)
 (require 'seq)
 
@@ -52,8 +53,10 @@
   :prefix "unrepl-"
   :group 'applications)
 
-(defcustom unrepl-blob-path (expand-file-name "blob.clj")
-  "Path to UNREPL 'blob' file."
+(defcustom unrepl-blob-path nil
+  "Path to UNREPL 'blob' file.
+When nil, UNREPL.el will try to find the blob file in the same directory
+where the unrepl package ins installed."
   :type 'file
   :group 'unrepl)
 
@@ -81,11 +84,20 @@ that its corresponding connection pool can be created.")
 ;; Utility functions
 ;; -------------------------------------------------------------------
 
+(defun unrepl--find-default-blob ()
+  "Look for the blob file in the same dir where `unrepl-connect' is defined."
+  (let* ((unrepl-file (cdr (find-function-library 'unrepl-connect)))
+         (unrepl-dir (file-name-directory unrepl-file)))
+    (expand-file-name "blob.clj" unrepl-dir)))
+
+
 (defun unrepl--blob ()
   "Return the UNREPL blob as a string."
-  (with-temp-buffer
-    (insert-file-contents unrepl-blob-path)
-    (buffer-string)))
+  (let ((blob-path (or unrepl-blob-path
+                       (unrepl--find-default-blob))))
+    (with-temp-buffer
+      (insert-file-contents blob-path)
+      (buffer-string))))
 
 
 (defun unrepl--keyword-name (keyword)
