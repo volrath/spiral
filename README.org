@@ -7,8 +7,8 @@
 ** Usage
 
 *** Installing
-   This project is on early stage, so it might require you to do a couple of
-   things to get things running.
+   This project is on early stage, so it might require to get your hands a bit
+   dirty to get things running.
 
    To install, Clone this repository with its submodule:
 
@@ -18,6 +18,9 @@
 
    Then place this repository, and it's *parseclj* submodule copy, somewhere in
    your load-path.
+
+   You also need to install these [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], [[https://github.com/magnars/dash.el][dash]], and [[https://github.com/volrath/treepy.el][treepy]].  All available
+   in MELPA.
 
    OPTIONAL: In =unrepl-util.el= there's a commented =unrepl-retry= function
    that you can evaluate (and assign it to a key binding), that will
