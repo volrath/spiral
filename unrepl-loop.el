@@ -1,28 +1,16 @@
-;;; unrepl-loop.el ---  -*- lexical-binding: t; -*-
+;;; unrepl-loop.el --- UNREPL EDN messages processing -*- lexical-binding: t; -*-
 ;;
 ;; Filename: unrepl-loop.el
-;; Description:
-;; Author: Daniel Barreto
-;; Maintainer:
+;; Author: Daniel Barreto <daniel@barreto.tech>
+;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Sat Nov 11 20:07:16 2017 (+0100)
-;; Version:
-;; Package-Requires: ()
-;; URL:
-;; Doc URL:
-;; Keywords:
-;; Compatibility:
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
 ;;
-;;
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;; Change Log:
-;;
+;; Processing of UNREPL EDN messages.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

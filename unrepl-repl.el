@@ -1,28 +1,16 @@
-;;; unrepl-repl.el ---  -*- lexical-binding: t; -*-
+;;; unrepl-repl.el --- REPL interactions -*- lexical-binding: t; -*-
 ;;
 ;; Filename: unrepl-repl.el
-;; Description:
-;; Author: Daniel Barreto
-;; Maintainer:
+;; Author: Daniel Barreto <daniel@barreto.tech>
+;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Fri Nov 10 18:05:43 2017 (+0100)
-;; Version:
-;; Package-Requires: ()
-;; URL:
-;; Doc URL:
-;; Keywords:
-;; Compatibility:
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
 ;;
-;;
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;; Change Log:
-;;
+;; REPL interactions
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

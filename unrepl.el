@@ -1,28 +1,21 @@
-;;; unrepl.el ---  -*- lexical-binding: t; -*-
+;;; unrepl.el --- Emacs UNREPL Client -*- lexical-binding: t; -*-
 ;;
 ;; Filename: unrepl.el
 ;; Description:
-;; Author: Daniel Barreto
-;; Maintainer:
+;; Author: Daniel Barreto <daniel@barreto.tech>
+;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Thu Nov  9 23:26:00 2017 (+0100)
 ;; Version:
-;; Package-Requires: ()
-;; URL:
-;; Doc URL:
-;; Keywords:
-;; Compatibility:
+;; Package-Requires: ((emacs "25.1") (clojure-mode "5.6.0") (dash "2.13.0") (treepy "1.0.0"))
+;; URL: https://github.com/volrath/unrepl.el
+;; Keywords: languages, clojure
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
 ;;
-;;
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;; Change Log:
-;;
+;; Client interface to a Clojure Socket REPL through UNREPL protocol.
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

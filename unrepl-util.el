@@ -1,28 +1,16 @@
-;;; unrepl-util.el ---  -*- lexical-binding: t; -*-
+;;; unrepl-util.el --- Common utility functions -*- lexical-binding: t; -*-
 ;;
 ;; Filename: unrepl-util.el
-;; Description:
-;; Author: Daniel Barreto
-;; Maintainer:
+;; Author: Daniel Barreto <daniel@barreto.tech>
+;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Thu Nov 16 01:09:49 2017 (+0100)
-;; Version:
-;; Package-Requires: ()
-;; URL:
-;; Doc URL:
-;; Keywords:
-;; Compatibility:
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
 ;;
-;;
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;; Change Log:
-;;
+;; Common utility functions
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

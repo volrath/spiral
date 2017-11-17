@@ -1,28 +1,17 @@
-;;; unrepl-mode.el ---  -*- lexical-binding: t; -*-
+;;; unrepl-mode.el --- UNREPL minor mode for interactions with Socket Server -*- lexical-binding: t; -*-
 ;;
 ;; Filename: unrepl-mode.el
 ;; Description:
-;; Author: Daniel Barreto
-;; Maintainer:
+;; Author: Daniel Barreto <daniel@barreto.tech>
+;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Sun Nov 12 12:25:44 2017 (+0100)
-;; Version:
-;; Package-Requires: ()
-;; URL:
-;; Doc URL:
-;; Keywords:
-;; Compatibility:
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Commentary:
 ;;
-;;
-;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
-;;; Change Log:
-;;
+;; UNREPL minor mode for interactions with Socket Server
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
