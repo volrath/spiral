@@ -254,7 +254,7 @@ latest history entry will be associated with GROUP-ID."
    (when (and unrepl-repl-inputting
               unrepl-repl-history)
      (unrepl-repl--history-add-gid-to-top-entry group-id)
-     `(:history-entry-id ,(length unrepl-repl-history)))))
+     `(:repl-history-idx ,(length unrepl-repl-history)))))
 
 
 ;; Interactive

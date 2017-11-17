@@ -114,11 +114,16 @@ PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'."
 ;; Client Process
 ;; =============================================================================
 
-(defun unrepl-client-send (str)
+(defun unrepl-client-send (str &optional eval-out-callback)
   "Send input STR to UNREPL client connection.
-Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (unrepl-loop--send unrepl-conn-id 'client str)
-  str)
+EVAL-OUT-CALLBACK is a function that takes the evaluation payload and
+displays it in any given way.
+Connection to sent the input to is inferred
+from `unrepl-conn-id'."
+  (prog1 (unrepl-loop--send unrepl-conn-id :client str)
+    (unrepl-project-pending-eval-add unrepl-conn-id
+                                     :status :sent
+                                     :eval-callback eval-out-callback)))
 
 
 (defun unrepl-loop-client-dispatcher (msg conn-id)
@@ -186,7 +191,10 @@ evaluation of inputs."
   "Handle a `:prompt' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:prompt' as a hash table."
   (unrepl-project-set-in conn-id :namespace (map-elt payload 'clojure.core/*ns*))
-  (unrepl-repl-prompt conn-id))
+  (if-let (pending-eval (unrepl-project-pending-evals-shift conn-id))
+      (when (unrepl-project-pending-eval-entry-history-idx pending-eval)
+        (unrepl-repl-prompt conn-id))
+    (unrepl-repl-prompt conn-id)))
 
 
 (defun unrepl-loop--read (conn-id _payload group-id)
@@ -195,9 +203,12 @@ PAYLOAD is the UNREPL payload for `:read' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
   (let ((history-assoc (unrepl-repl-input-history-assoc conn-id group-id)))
     ;; `history-assoc' is either nil or a tuple that contains
-    ;; `:history-entry-id' as its first element and a history entry id as its
+    ;; `:repl-history-idx' as its first element and a history entry id as its
     ;; second element.  For more information, read its documentation.
-    (apply #'unrepl-project-pending-eval-update conn-id group-id :read history-assoc)))
+    (apply #'unrepl-project-pending-eval-update conn-id
+           :status :read
+           :group-id group-id
+           history-assoc)))
 
 
 (defun unrepl-loop--started-eval (conn-id payload group-id)
@@ -206,22 +217,30 @@ PAYLOAD is the UNREPL payload for `:started-eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
   (unrepl-loop--unpack-payload
       (actions)
-    (unrepl-project-pending-eval-update conn-id group-id :started-eval
+    (unrepl-project-pending-eval-update conn-id
+                                        :status :started-eval
+                                        :group-id group-id
                                         :actions actions)))
 
 
-(defun unrepl-loop--eval (conn-id payload group-id)
+(defun unrepl-loop--eval (conn-id payload _group-id)
   "Handle a `:eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation.
 
-This function will determine where did this evaluation come from (REPL
-buffer, `unrepl-eval-last-sexp' command, etc), and will call a different
-function to display the result accordingly."
-  (if-let (history-id (unrepl-project-pending-evals-get-history-id conn-id group-id))
-      (unrepl-repl-insert-evaluation conn-id history-id payload)
-    (message "%S" payload))  ;; placeholder, maybe add function that knows how to display payload
-  (unrepl-project-pending-eval-update conn-id group-id :eval))
+This function will see if there's an evaluation display callback function,
+and it will use it to show the result.  If not, it will try to determine
+where did this evaluation come from (REPL buffer, `unrepl-eval-last-sexp'
+command, etc), and will call a different function to display the result
+accordingly."
+  (unrepl-project-pending-eval-update conn-id
+                                      :status :eval)
+  ;; Display the evaluation payload somewhere...
+  (if-let (eval-callback (unrepl-project-pending-eval-callback conn-id))
+      (funcall eval-callback payload)
+    (if-let (history-id (unrepl-project-pending-eval-history-idx conn-id))
+        (unrepl-repl-insert-evaluation conn-id history-id payload)
+      (message "%S" payload))))
 
 
 (defun unrepl-loop--out (conn-id payload group-id)
@@ -243,7 +262,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
 (defun unrepl-aux-send (str)
   "Send input STR to UNREPL aux connection.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (unrepl-loop--send unrepl-conn-id 'aux str))
+  (unrepl-loop--send unrepl-conn-id :aux str))
 
 
 (defun unrepl-loop-aux-handler (_msg _conn-id)
@@ -260,7 +279,7 @@ will be affecting."
 (defun unrepl-side-loader-send (str)
   "Send input STR to UNREPL side loader connection.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (unrepl-loop--send unrepl-conn-id 'side-loader str))
+  (unrepl-loop--send unrepl-conn-id :side-loader str))
 
 
 (defun unrepl-loop-side-loader-handler (_msg _conn-id)

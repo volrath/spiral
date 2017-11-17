@@ -104,72 +104,99 @@ BORROWED FROM CIDER."
 
 ;; Pending Evaluations
 ;; -------------------------------------------------------------------
-;; An associative data structure that holds all pending evaluations for a
-;; project, indexed by their corresponding UNREPL group ids.
-;; An entry in the pending evaluations data structure is also an associative
-;; data structure that contains the following:
+;; Projects store a queue of pending evaluations.  Each pending evaluation is an
+;; associative data structure that contains the following:
 ;; - `:status': either `:sent', `:read', `:started-eval', `:eval', or
 ;;   `:exception'.
-;; - `:type': Indicates the type of evaluation, or where did this evaluation
-;;    come from.  Options are: `repl', `buffer' (C-x C-e type of thing),
-;;   `internal' (an unrepl message of some sort).
-;; - `:prompt-marker': (optional) a buffer position to which print either
+;; - `:group-id': (optional) an UNREPL group id.
+;; - `:repl-history-idx': (optional) only if the input was sent from the REPL,
+;;    this would be the index in history.
+;; - `:prompt-marker': (optional) a REPL buffer position to which print either
 ;;    evaluation outputs or `:out' strings.
 ;; - `actions': (optional) evaluation actions as provided by the
 ;;    `started-eval' UNREPL message.
+;;
+;; Pending evaluations' life cycle start when an input string is sent to the
+;; UNREPL server (either by using the human REPL interface, or by evaluating
+;; clojure buffer code).  At this very moment, a pending evaluation is created
+;; with only a status `:sent', and it will be put in the pending evaluations
+;; queue.  Any other input sent while processing this pending evaluation, will
+;; generate new pending evaluation entries that will be added to the queue and
+;; processed in order.
+;; An input string sent to the UNREPL server will generate ideally 1 `:read'
+;; message back from the server, but in general, it can generate 0 or more of
+;; them.
+;;
+;; The first `:read' message received after sending input stream will be used to
+;; update the pending evaluation status, add a group id, and, if the input came
+;; from the REPL, update its prompt marker.
+;; `:start-eval' messages will be used to add a set of actions to the pending
+;; evaluation structure.
+;; When `:eval' messages are received (or `:exception's), we will display them
+;; according to how the input was generated in the first place (REPL or buffer
+;; eval)
+;; Subsequent `:read' messages received for the same input (or put in a
+;; different way, not interrupted by another `:prompt' message) will modify the
+;; same pending evaluation as their predecessors, making sure to from it the
+;; actions and group-id information.
+;;
+;; When a `:prompt' is received again, the top of the queue (`:eval'ed pending
+;; evaluation) will be taken out, and the process start again.
 
-(defun unrepl-project--pending-evals-get (pending-evals group-id)
-  "Return a pending evaluation entry from PENDING-EVALS for GROUP-ID."
-  (map-elt pending-evals group-id))
-
-
-(defun unrepl-project--pending-evals-remove (pending-evals group-id)
-  "Remove GROUP-ID entry from PENDING-EVALS."
-  (map-delete pending-evals group-id))
-
-
-(defun unrepl-project--pending-evals-add (pending-evals group-id entry)
-  "Use GROUP-ID to add ENTRY in PENDING-EVALS."
-  (map-put pending-evals group-id entry))
-
-
-(defun unrepl-project--pending-eval-history (entry)
-  "Return the history entry id for pending eval ENTRY."
-  (map-elt entry :history-entry-id))
-
-
-(defun unrepl-project--pending-eval-update (pending-evals group-id &rest kwargs)
-  "Update a pending evaluation for GROUP-ID with KWARGS in PENDING-EVALS.
-Return the pending-evals data structure."
-  (let ((entry (unrepl-project--pending-evals-get pending-evals group-id)))
-    (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
-          (-partition 2 kwargs))
-    (map-put pending-evals group-id entry)
-    pending-evals))
-
-
-(defun unrepl-project-pending-eval-update (conn-id group-id status &rest kwargs)
-  "Update a pending eval entry for GROUP-ID in CONN-ID.
-All the pending evaluations are stored in PROJECTS `:pending-evals' key,
-this function always expect to update their STATUS, and optionally it can
-update more key-val provided by KWARGS."
-  (let* ((project (unrepl-projects-get conn-id))
-         (pending-evals (unrepl-project-pending-evals project)))
-    (if (memq status '(:eval :exception))
-        (setq pending-evals
-              (unrepl-project--pending-evals-remove pending-evals group-id))
-      (setq pending-evals
-            (apply #'unrepl-project--pending-eval-update pending-evals group-id :status status kwargs)))
-    (unrepl-project-set-in conn-id :pending-evals pending-evals)))
-
-
-(defun unrepl-project-pending-evals-get-history-id (conn-id group-id)
-  "Return a history entry id for GROUP-ID in CONN-ID, if any."
+(defun unrepl-project-pending-eval-add (conn-id &rest kwargs)
+  "Add a pending evaluation to the end of the CONN-ID'S `:pending-evals' queue.
+KWARGS are key-values used to create the pending evaluation entry."
   (let* ((project (unrepl-projects-get conn-id))
          (pending-evals (unrepl-project-pending-evals project))
-         (pending-eval-entry (unrepl-project--pending-evals-get pending-evals group-id)))
-    (when pending-eval-entry
-      (unrepl-project--pending-eval-history pending-eval-entry))))
+         (entry (mapcar (lambda (pair)
+                          (cons (car pair) (cadr pair)))
+                        (-partition 2 kwargs))))
+    (unrepl-project-set-in conn-id
+                           :pending-evals (nconc pending-evals `(,entry)))))
+
+
+(defun unrepl-project-pending-eval-update (conn-id &rest kwargs)
+  "Update the entry at the beginning of the CONN-ID's `:pending-evals' queue.
+KWARGS are the key-values to update the pending evaluation entry."
+  (let* ((project (unrepl-projects-get conn-id))
+         (pending-evals (unrepl-project-pending-evals project))
+         (entry (car pending-evals)))
+    (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
+          (-partition 2 kwargs))
+    (unrepl-project-set-in conn-id
+                           :pending-evals (cons entry (cdr pending-evals)))))
+
+
+(defun unrepl-project-pending-eval-history-idx (conn-id)
+  "Return the `:repl-history-idx' from the top of the CONN-ID's queue."
+  (-> conn-id
+      (unrepl-projects-get)
+      (unrepl-project-pending-evals)
+      (car)
+      (map-elt :repl-history-idx)))
+
+
+(defun unrepl-project-pending-eval-entry-history-idx (entry)
+  "Return the `:repl-history-idx' from a pending eval ENTRY."
+  (map-elt entry :repl-history-idx))
+
+
+(defun unrepl-project-pending-eval-callback (conn-id)
+  "Return the `:eval-callback' from the top of the CONN-ID's `:pending-evals' queue."
+  (-> conn-id
+      (unrepl-projects-get)
+      (unrepl-project-pending-evals)
+      (car)
+      (map-elt :eval-callback)))
+
+
+(defun unrepl-project-pending-evals-shift (conn-id)
+  "Shift the CONN-ID's `:pending-evals' queue and return the shifted entry."
+  (let* ((project (unrepl-projects-get conn-id))
+         (pending-evals (unrepl-project-pending-evals project))
+         (entry (car pending-evals)))
+    (unrepl-project-set-in conn-id :pending-evals (cdr pending-evals))
+    entry))
 
 
 ;; UNREPL Projects
