@@ -44,6 +44,8 @@
 ;;; Code:
 
 (require 'clojure-mode)
+(require 'dash)
+(require 'treepy)
 
 
 (defun unrepl-conn-host-port (conn-id)
@@ -54,7 +56,7 @@
     (cons host port)))
 
 
-(defun unrepl-command-template (template &rest params)
+(defun unrepl-command-template (template &rest _params)
   "Process TEMPLATE with PARAMS and return a string."
   (format "%s\n" template))
 
@@ -74,6 +76,27 @@ BORROWED FROM CIDER."
                         (when (looking-at-p "\n") (forward-char 1))
                         (point))))))
 
+
+;; AST Utilities
+;; -------------------------------------------------------------------
+
+(defun unrepl-ast-zip (ast-node)
+  "Create a treepy zipper for AST-NODE."
+  (treepy-zipper #'parseclj-ast-branch-node-p
+                 #'parseclj-ast-children
+                 #'parseclj-ast-node
+                 ast-node))
+
+(defun unrepl-ast-map-elt (map-node key)
+  "Traverse MAP-NODE in look for KEY, and return corresponding value.
+Value is returned as an AST node."
+  (cadr (seq-find (lambda (kv-pair)
+                    (eql key (parseclj-ast-value (car kv-pair))))
+                  (-partition 2 (parseclj-ast-children map-node)))))
+
+
+;; Debugging
+;; -------------------------------------------------------------------
 
 (defmacro comment (&rest _body)
   "A wannabe 'clojure-like' comment macro."

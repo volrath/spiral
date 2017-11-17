@@ -261,7 +261,7 @@ latest history entry will be associated with GROUP-ID."
 ;; -------------------------------------------------------------------
 
 (declare-function unrepl-client-send "unrepl-loop")
-(defun unrepl-repl-return (&optional end-of-input)
+(defun unrepl-repl-return (&optional _end-of-input)
   "Send the current input string to UNREPL for evaluation.
 
 Input is expected to be a complete expression (whole form).  In case of
@@ -457,7 +457,7 @@ prompt, which is use to show results of evaluations."
     ;;                            (unrepl-project-namespace project)
     ;;                            t)
     (unrepl-repl--build-result-indicator history-id (unrepl-project-namespace project))
-    (format "%S\n" evaluation))))
+    (format "%s\n" evaluation))))
 
 
 (defun unrepl-repl-insert-out (conn-id history-id str)

@@ -43,7 +43,8 @@
 ;;
 ;;; Code:
 
-(require 'parseedn)
+(require 'parseclj)
+(require 'treepy)
 
 (require 'unrepl-mode)
 (require 'unrepl-project)
@@ -87,6 +88,29 @@ PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'."
     str))
 
 
+(defun unrepl-loop--destructure-message-ast (msg-node)
+  "Traverse MSG-NODE and return its UNREPL tag, payload and group-id.
+Tag is returned as a keyword.
+Payload is returned as a parseclj AST node.
+Group-id is returned as an integer."
+  (let* ((zp (unrepl-ast-zip msg-node))
+         (tag (-> zp
+                  (treepy-down)
+                  (treepy-node)
+                  (parseclj-ast-value)))
+         (payload (-> zp
+                      (treepy-down)
+                      (treepy-right)
+                      (treepy-node)))
+         (group-id (-> zp
+                       (treepy-down)
+                       (treepy-right)
+                       (treepy-right)
+                       (treepy-node)
+                       (parseclj-ast-value))))
+    (list tag payload group-id)))
+
+
 (declare-function unrepl-process-conn-id "unrepl")
 (defun unrepl-loop-handle-proc-message (process output)
   "Decode OUTPUT's EDN messages from PROCESS, and dispatch accordingly."
@@ -103,11 +127,11 @@ PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'."
         (save-excursion (insert output))
 
         ;; There can be several EDN messages in OUTPUT, so we iterate over them.
-        (mapcar (lambda (edn-msg)
-                  (funcall unrepl-loop-process-dispatcher
-                           edn-msg
-                           (unrepl-process-conn-id process)))
-                (parseedn-read unrepl-loop--global-edn-tag-readers))))))
+        (mapcar (lambda (msg-ast-node)
+                  (apply unrepl-loop-process-dispatcher
+                         (unrepl-process-conn-id process)
+                         (unrepl-loop--destructure-message-ast msg-ast-node)))
+                (parseclj-ast-children (parseclj-parse-clojure)))))))
 
 
 
@@ -126,20 +150,23 @@ from `unrepl-conn-id'."
                                      :eval-callback eval-out-callback)))
 
 
-(defun unrepl-loop-client-dispatcher (msg conn-id)
-  "Dispatch MSG to an `unrepl-loop--' client message handler.
+(defun unrepl-loop-client-dispatcher (conn-id tag payload &optional group-id)
+  "Dispatch an UNREPL message to an `unrepl-loop--' client message handler.
 CONN-ID is provided to client message handlers so they know which
-project/repl to modify."
-  (seq-let [tag payload group-id] msg
-    (pcase tag
-      (:unrepl/hello (unrepl-loop--hello conn-id payload))
-      (:prompt (unrepl-loop--prompt conn-id payload))
-      (:read (unrepl-loop--read conn-id payload group-id))
-      (:started-eval (unrepl-loop--started-eval conn-id payload group-id))
-      (:eval (unrepl-loop--eval conn-id payload group-id))
-      (:out (unrepl-loop--out conn-id payload group-id))
-      (:exception (unrepl-loop--placeholder-handler conn-id payload group-id))
-      (_ (error (format "Unrecognized message: %S" tag))))))
+project/repl to modify.
+TAG is the UNREPL tag, and it's used to select the handler function for the
+message.
+PAYLOAD is a parseclj AST node of the message's payload.
+GROUP-ID is a number."
+  (pcase tag
+    (:unrepl/hello (unrepl-loop--hello conn-id payload))
+    (:prompt (unrepl-loop--prompt conn-id payload))
+    (:read (unrepl-loop--read conn-id payload group-id))
+    (:started-eval (unrepl-loop--started-eval conn-id payload group-id))
+    (:eval (unrepl-loop--eval conn-id payload group-id))
+    (:out (unrepl-loop--out conn-id payload group-id))
+    (:exception (unrepl-loop--placeholder-handler conn-id payload group-id))
+    (_ (error (format "Unrecognized message: %S" tag)))))
 
 ;; Message Processing
 ;; ------------------
@@ -189,8 +216,13 @@ evaluation of inputs."
 
 (defun unrepl-loop--prompt (conn-id payload)
   "Handle a `:prompt' message transmitted through CONN-ID.
-PAYLOAD is the UNREPL payload for `:prompt' as a hash table."
-  (unrepl-project-set-in conn-id :namespace (map-elt payload 'clojure.core/*ns*))
+PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
+  (unrepl-project-set-in conn-id
+                         :namespace (-> payload
+                                        (unrepl-ast-map-elt 'clojure.core/*ns*)  ;; tagged element
+                                        (parseclj-ast-children)
+                                        (car)                                    ;; actual ns symbol
+                                        (parseclj-ast-value)))
   (if-let (pending-eval (unrepl-project-pending-evals-shift conn-id))
       (when (unrepl-project-pending-eval-entry-history-idx pending-eval)
         (unrepl-repl-prompt conn-id))
@@ -236,23 +268,26 @@ accordingly."
   (unrepl-project-pending-eval-update conn-id
                                       :status :eval)
   ;; Display the evaluation payload somewhere...
-  (if-let (eval-callback (unrepl-project-pending-eval-callback conn-id))
-      (funcall eval-callback payload)
-    (if-let (history-id (unrepl-project-pending-eval-history-idx conn-id))
-        (unrepl-repl-insert-evaluation conn-id history-id payload)
-      (message "%S" payload))))
+  (let ((eval-result (parseclj-unparse-clojure-to-string payload)))
+    (if-let (eval-callback (unrepl-project-pending-eval-callback conn-id))
+        (funcall eval-callback eval-result)
+      (if-let (history-id (unrepl-project-pending-eval-history-idx conn-id))
+          (unrepl-repl-insert-evaluation conn-id history-id eval-result)
+        (message "%s" eval-result)))))
 
 
 (defun unrepl-loop--out (conn-id payload group-id)
   "Handle a `:out' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-repl-insert-out conn-id group-id payload))
+  (unrepl-repl-insert-out conn-id group-id
+                          (parseclj-ast-value payload)))
 
 
 (defun unrepl-loop--placeholder-handler (conn-id payload group-id)
   "Placeholder handler CONN-ID PAYLOAD GROUP-ID."
-  (unrepl-repl-insert-out conn-id group-id (format "%S" payload)))
+  (unrepl-repl-insert-out conn-id group-id
+                          (format "%s\n" (parseclj-unparse-clojure-to-string payload))))
 
 
 
@@ -265,7 +300,7 @@ Connection to sent the input to is inferred from `unrepl-conn-id'."
   (unrepl-loop--send unrepl-conn-id :aux str))
 
 
-(defun unrepl-loop-aux-handler (_msg _conn-id)
+(defun unrepl-loop-aux-handler (&rest _args)
   "Dispatch MSG to an `unrepl-loop--aux-*' message handler.
 CONN-ID is provided to the handlers so they know which project/repl they
 will be affecting."
@@ -282,7 +317,7 @@ Connection to sent the input to is inferred from `unrepl-conn-id'."
   (unrepl-loop--send unrepl-conn-id :side-loader str))
 
 
-(defun unrepl-loop-side-loader-handler (_msg _conn-id)
+(defun unrepl-loop-side-loader-handler (&rest _args)
   "Dispatch MSG to an `unrepl-loop--side-loader-*' message handler.
 CONN-ID is provided to the handlers so they know which project/repl they
 will be affecting."
