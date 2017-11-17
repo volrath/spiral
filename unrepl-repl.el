@@ -408,8 +408,8 @@ prompt, which is use to show results of evaluations."
         (font-face (if result
                        'unrepl-repl-result-face
                      'unrepl-repl-prompt-face)))
-    (-> "%s [%s]=> "
-        (format ns history-id)
+    (-> "[%s] %s=> "
+        (format history-id ns)
         (propertize 'font-lock-face font-face
                     'field 'unrepl-repl-prompt-field
                     'intangible t
