@@ -139,7 +139,7 @@ from `unrepl-conn-id'."
 
 
 (defun unrepl-loop-client-dispatcher (conn-id tag payload &optional group-id)
-  "Dispatch an UNREPL message to an `unrepl-loop--' client message handler.
+  "Dispatch an UNREPL message to an `unrepl-loop--client-*' message handler.
 CONN-ID is provided to client message handlers so they know which
 project/repl to modify.
 TAG is the UNREPL tag, and it's used to select the handler function for the
@@ -147,14 +147,14 @@ message.
 PAYLOAD is a parseclj AST node of the message's payload.
 GROUP-ID is a number."
   (pcase tag
-    (:unrepl/hello (unrepl-loop--hello conn-id payload))
-    (:prompt (unrepl-loop--prompt conn-id payload))
-    (:read (unrepl-loop--read conn-id payload group-id))
-    (:started-eval (unrepl-loop--started-eval conn-id payload group-id))
-    (:eval (unrepl-loop--eval conn-id payload group-id))
-    (:out (unrepl-loop--out conn-id payload group-id))
-    (:exception (unrepl-loop--placeholder-handler conn-id payload group-id))
-    (_ (error (format "Unrecognized message: %S" tag)))))
+    (:unrepl/hello (unrepl-loop--client-hello conn-id payload))
+    (:prompt (unrepl-loop--client-prompt conn-id payload))
+    (:read (unrepl-loop--client-read conn-id payload group-id))
+    (:started-eval (unrepl-loop--client-started-eval conn-id payload group-id))
+    (:eval (unrepl-loop--client-eval conn-id payload group-id))
+    (:out (unrepl-loop--client-out conn-id payload group-id))
+    (:exception (unrepl-loop--client-placeholder-handler conn-id payload group-id))
+    (_ (error (format "[client] Unrecognized message: %S" tag)))))
 
 ;; Message Processing
 ;; ------------------
@@ -178,7 +178,7 @@ gets executed."
 
 
 (declare-function unrepl-create-connection-process "unrepl")
-(defun unrepl-loop--hello (conn-id payload)
+(defun unrepl-loop--client-hello (conn-id payload)
   "Handle a `:unrepl/hello' message transmitted through CONN-ID.
 It processes the PAYLOAD to init the corresponding REPL and subsequent
 evaluation of inputs."
@@ -202,7 +202,7 @@ evaluation of inputs."
                                                       #'unrepl-loop-side-loader-handler)))))
 
 
-(defun unrepl-loop--prompt (conn-id payload)
+(defun unrepl-loop--client-prompt (conn-id payload)
   "Handle a `:prompt' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
   (unrepl-project-set-in conn-id
@@ -217,7 +217,7 @@ PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
     (unrepl-repl-prompt conn-id)))
 
 
-(defun unrepl-loop--read (conn-id _payload group-id)
+(defun unrepl-loop--client-read (conn-id _payload group-id)
   "Handle a `:read' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:read' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
@@ -231,7 +231,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
            history-assoc)))
 
 
-(defun unrepl-loop--started-eval (conn-id payload group-id)
+(defun unrepl-loop--client-started-eval (conn-id payload group-id)
   "Handle a `:started-eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:started-eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
@@ -243,7 +243,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
                                         :actions actions)))
 
 
-(defun unrepl-loop--eval (conn-id payload _group-id)
+(defun unrepl-loop--client-eval (conn-id payload _group-id)
   "Handle a `:eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation.
@@ -264,7 +264,7 @@ accordingly."
         (message "%s" eval-result)))))
 
 
-(defun unrepl-loop--out (conn-id payload group-id)
+(defun unrepl-loop--client-out (conn-id payload group-id)
   "Handle a `:out' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
@@ -272,7 +272,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
                           (parseclj-ast-value payload)))
 
 
-(defun unrepl-loop--placeholder-handler (conn-id payload group-id)
+(defun unrepl-loop--client-placeholder-handler (conn-id payload group-id)
   "Placeholder handler CONN-ID PAYLOAD GROUP-ID."
   (unrepl-repl-insert-out conn-id group-id
                           (format "%s\n" (parseclj-unparse-clojure-to-string payload))))
