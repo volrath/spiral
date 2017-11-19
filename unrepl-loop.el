@@ -331,11 +331,11 @@ Return the file contents encoded as a base64 string."
       (cond
        ;; path as a directory
        ((file-directory-p path)
-        (let ((file-path (concat (file-name-as-directory path)
-                                 file-path)))
-          (if (file-exists-p file-path)
+        (let ((file-path-complete (concat (file-name-as-directory path)
+                                          file-path)))
+          (if (file-exists-p file-path-complete)
               (with-temp-buffer
-                (insert-file-contents file-path)
+                (insert-file-contents file-path-complete)
                 (funcall encoded-buffer))
             (unrepl-loop--side-loader-find-file file-path (cdr classpath)))))
        ;; path as a file (assumed to be jar/zip)
