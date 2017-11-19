@@ -19,8 +19,8 @@
    Then place this repository, and it's *parseclj* submodule copy, somewhere in
    your load-path.
 
-   You also need to install these [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], [[https://github.com/magnars/dash.el][dash]], and [[https://github.com/volrath/treepy.el][treepy]].  All available
-   in MELPA.
+   You also need to install these [[https://github.com/plexus/a.el][a.el]], [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], [[https://github.com/magnars/dash.el][dash]], and [[https://github.com/volrath/treepy.el][treepy]].  All
+   available in MELPA.
 
    OPTIONAL: In =unrepl-util.el= there's a commented =unrepl-retry= function
    that you can evaluate (and assign it to a key binding), that will
