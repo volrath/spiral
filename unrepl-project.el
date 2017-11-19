@@ -341,12 +341,15 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 
 (defun unrepl-project-classpath (proj)
   "Return the global `unrepl-classpath' list appended to PROJ's classpath.
-This function ensures that every path/file in the returned classpath exists."
-  (seq-filter
-   (lambda (path) (when path (file-exists-p path)))
-   (append (list (unrepl-project-dir proj))
-           (map-elt proj :classpath)
-           unrepl-classpath)))
+This function ensures that every path/file in the returned classpath exists
+and its expanded."
+  (mapcar
+   #'file-truename
+   (seq-filter
+    (lambda (path) (when path (file-exists-p path)))
+    (append (list (unrepl-project-dir proj))
+            (map-elt proj :classpath)
+            unrepl-classpath))))
 
 
 (defun unrepl-project-conn-pool (proj)
