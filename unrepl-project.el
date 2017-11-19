@@ -38,6 +38,12 @@
 (require 'unrepl-util)
 
 
+(defcustom unrepl-classpath '()
+  "Global classpath for UNREPL aux connections.
+Ideal for REPL tooling."
+  :type 'list
+  :group 'unrepl)
+
 (defcustom unrepl-default-socket-repl-command 'boot
   "The default command to be used when creating a Clojure Socket REPL."
   :type '(choice (const boot)
@@ -331,6 +337,16 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 (defun unrepl-project-socket-repl (proj)
   "Return a plist with the `:host' `:port' kv pairs for the PROJ's Socket REPL."
   (map-elt proj :socket-repl))
+
+
+(defun unrepl-project-classpath (proj)
+  "Return the global `unrepl-classpath' list appended to PROJ's classpath.
+This function ensures that every path/file in the returned classpath exists."
+  (seq-filter
+   (lambda (path) (when path (file-exists-p path)))
+   (append (list (unrepl-project-dir proj))
+           (map-elt proj :classpath)
+           unrepl-classpath)))
 
 
 (defun unrepl-project-conn-pool (proj)
