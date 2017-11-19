@@ -112,9 +112,10 @@ BORROWED FROM CIDER."
          (add-text-properties ,start (point) ,props)))))
 
 
-(defun unrepl-repl-newline-and-indent ()
+(defun unrepl-repl--newline-and-indent ()
   "Insert a new line, then indent."
-  (newline))
+  (insert "\n")
+  (lisp-indent-line))
 
 
 (defun unrepl-repl--input-str ()
@@ -276,7 +277,7 @@ Most of the behavior is BORROWED FROM CIDER."
     (newline)
     (setq-local unrepl-repl-inputting t))
    (t
-    (unrepl-repl-newline-and-indent)
+    (unrepl-repl--newline-and-indent)
     (message "[input not complete]"))))
 
 
