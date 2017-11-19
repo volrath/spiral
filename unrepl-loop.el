@@ -67,12 +67,14 @@ that they are easily distinguishable.")
     (eql unrepl-loop-process-type :client)))
 
 
-(defun unrepl-loop--send (conn-id proc-type str)
+(defun unrepl-loop--send (conn-id proc-type str &optional no-line-break)
   "Send input STR to PROC-TYPE of CONN-ID.
-PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'."
+PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'.
+By default, this function will add a new line after STR.  NO-LINE-BREAK
+overrides this behavior."
   (let* ((project (unrepl-projects-get conn-id))
          (proc (unrepl-project-conn-pool-get-process project proc-type)))
-    (process-send-string proc (concat str "\n"))
+    (process-send-string proc (concat str (unless no-line-break "\n")))
     str))
 
 
