@@ -31,6 +31,7 @@
 ;;
 ;;; Code:
 
+(require 'arc-mode)
 (require 'parseclj)
 (require 'treepy)
 
@@ -307,12 +308,71 @@ Connection to sent the input to is inferred from `unrepl-conn-id'."
   (unrepl-loop--send unrepl-conn-id :side-loader str))
 
 
-(defun unrepl-loop-side-loader-handler (&rest _args)
-  "Dispatch MSG to an `unrepl-loop--side-loader-*' message handler.
-CONN-ID is provided to the handlers so they know which project/repl they
-will be affecting."
-  )  ;; All are noops, for now.
+(defun unrepl-loop-side-loader-handler (conn-id tag payload &rest _extra)
+  "Dispatch message to an `unrepl-loop--side-loader-*' message handler.
+CONN-ID is provided to side-loader message handlers so they know which
+project/repl to modify.
+TAG is the UNREPL tag for side-loading, expected to be either `:class' or
+`:resource'.
+PAYLOAD is a parseclj AST node of the message's payload, which should be a
+string."
+  (unless (memq tag '(:unrepl.jvm.side-loader/hello :class :resource))
+    (error (format "[side-loader] Unrecognized message: %S" tag)))
+  (unless (eql tag :unrepl.jvm.side-loader/hello)
+    (let* ((payload-val (parseclj-ast-value payload))
+           (file-path (if (eql tag :class)
+                          (format "%s.class"
+                                  (replace-regexp-in-string "\\." "/" payload-val))
+                        payload-val)))
+      (unrepl-loop--side-loader-resource conn-id file-path))))
 
+
+(defun unrepl-loop--side-loader-find-file (file-path classpath)
+  "Try to find FILE-PATH in CLASSPATH.
+CLASSPATH should be a list of paths.  If nothing is found, return nil.
+Return the file contents encoded as a base64 string."
+  (when-let (path (car classpath))
+    (let ((encoded-buffer (lambda ()
+                            (encode-coding-region (point-min) (point-max) 'utf-8)
+                            (base64-encode-region (point-min) (point-max) t)
+                            (format "%S"
+                                    (buffer-substring-no-properties (point-min) (point-max))))))
+      (cond
+       ;; path as a directory
+       ((file-directory-p path)
+        (let ((file-path (concat (file-name-as-directory path)
+                                 file-path)))
+          (if (file-exists-p file-path)
+              (with-temp-buffer
+                (insert-file-contents file-path)
+                (funcall encoded-buffer))
+            (unrepl-loop--side-loader-find-file file-path (cdr classpath)))))
+       ;; path as a file (assumed to be jar/zip)
+       (t
+        (with-temp-buffer
+          (condition-case err
+              (progn
+                (let ((message-log-max nil)
+                      (inhibit-message t))
+                  (archive-zip-extract path file-path))
+                (if (> (buffer-size) 0)
+                    (funcall encoded-buffer)
+                  (unrepl-loop--side-loader-find-file file-path (cdr classpath))))
+            (error
+             (ding (message "%S" err))
+             (unrepl-loop--side-loader-find-file file-path (cdr classpath))))))))))
+
+
+(defun unrepl-loop--side-loader-resource (conn-id file-path)
+  "Find a FILE-PATH in CONN-ID's classpath.
+Classpath is taken from CONN-ID'S project.
+The actual file is then sent back to the side-loader as a base64 string.
+If FILE-PATH cannot be found, send nil to side-loader."
+  (let ((classpath (-> conn-id
+                       (unrepl-projects-get)
+                       (unrepl-project-classpath))))
+    (let ((base64-contents (unrepl-loop--side-loader-find-file file-path classpath)))
+      (unrepl-side-loader-send (or base64-contents "nil")))))
 
 (provide 'unrepl-loop)
 
