@@ -272,7 +272,10 @@ Most of the behavior is BORROWED FROM CIDER."
     (goto-char (point-max))
     (add-text-properties unrepl-repl-input-start-mark (point)
                          '(read-only t rear-nonsticky (read-only)))
-    (-> (unrepl-client-send (unrepl-repl--input-str))
+    (-> (unrepl-repl--input-str)
+        (unrepl-client-send (lambda (eval-result)
+                              (unrepl-repl-insert-evaluation unrepl-conn-id
+                                                             eval-result)))
         (unrepl-repl--add-input-to-history))
     (newline)
     (setq-local unrepl-repl-inputting t))

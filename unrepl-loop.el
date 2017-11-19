@@ -254,9 +254,7 @@ accordingly."
   (let ((eval-result (parseclj-unparse-clojure-to-string payload)))
     (if-let (eval-callback (unrepl-project-pending-eval-callback conn-id))
         (funcall eval-callback eval-result)
-      (if-let (history-id (unrepl-project-pending-eval-history-idx conn-id))
-          (unrepl-repl-insert-evaluation conn-id history-id eval-result)
-        (message "%s" eval-result)))))
+      (message "%s" eval-result))))
 
 
 (defun unrepl-loop--client-out (conn-id payload group-id)

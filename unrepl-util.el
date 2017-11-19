@@ -31,10 +31,15 @@
 ;;
 ;;; Code:
 
+(require 'ansi-color)
 (require 'clojure-mode)
 (require 'dash)
 (require 'parseclj)
 (require 'treepy)
+
+
+(defvar unrepl--mode-buffers nil
+  "Alist with (mode . buffer) pairs.")
 
 
 (defun unrepl-conn-host-port (conn-id)
@@ -59,6 +64,39 @@ BORROWED FROM CIDER."
                         (skip-chars-forward "[:blank:]")
                         (when (looking-at-p "\n") (forward-char 1))
                         (point))))))
+
+
+(defun unrepl--make-buffer-for-mode (mode)
+  "Return a temp buffer using MODE as `major-mode'.
+Buffers are stored in `unrepl--mode-buffers', and are reused whenever
+possible.  `unrepl--mode-buffers' is updated each time this function runs,
+by eliminating killed buffers from it.
+
+BORROWED FROM CIDER."
+  (setq unrepl--mode-buffers (map-filter (lambda (_mode buffer) (buffer-live-p buffer))
+                                         unrepl--mode-buffers))
+  (or (map-elt unrepl--mode-buffers mode)
+      (let ((buffer (generate-new-buffer (format " *unrepl-temp %s*" mode))))
+        (map-put unrepl--mode-buffers mode buffer)
+        (with-current-buffer buffer
+          ;; suppress major mode hooks as we care only about their font-locking
+          ;; otherwise modes like whitespace-mode and paredit might interfere
+          (setq-local delay-mode-hooks t)
+          (setq delayed-mode-hooks nil)
+          (funcall mode)))))
+
+
+(defun unrepl-font-lock-as (mode string)
+  "Font-lock STRING as in MODE.
+BORROWED FROM CIDER."
+  (let ((string (if (string-match "^\\[" string)
+                    (substring-no-properties (ansi-color-apply string))
+                  string)))
+    (with-current-buffer (unrepl--make-buffer-for-mode mode)
+      (erase-buffer)
+      (insert string)
+      (font-lock-fontify-region (point-min) (point-max))
+      (buffer-string))))
 
 
 ;; AST Utilities

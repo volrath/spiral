@@ -58,6 +58,16 @@
   :risky t
   :group 'unrepl)
 
+(defcustom unrepl-use-overlays t
+  "Whether to display evaluation results with overlays."
+  :type 'boolean
+  :group 'unrepl)
+
+(defcustom unrepl-eval-result-prefix "=> "
+  "Prefix displayed before a evaluation result value."
+  :type 'string
+  :group 'unrepl)
+
 (defvar-local unrepl-conn-id nil
   "Port number used when creating a new Socket REPL.")
 
@@ -120,6 +130,37 @@ Return a UNREPL project"
   nil)
 
 
+;; Evaluation
+;; -------------------------------------------------------------------
+
+(defun unrepl-mode--make-result-overlay (_value _point)
+  "Display VALUE in an overlay at POINT."
+  )
+
+
+(defun unrepl-mode--display-evaluation (value &optional point)
+  "Display evaluation result VALUE.
+This function will put VALUE in the echo area, font-locked as Clojure.
+If POINT and `unrepl-use-overlays' are non-nil, VALUE will also be
+displayed in an overlay starting at POINT.
+
+BORROWED FROM CIDER."
+  (let ((font-locked-value (unrepl-font-lock-as 'clojure-mode value)))
+    (when (and point unrepl-use-overlays)
+      (unrepl-mode--make-result-overlay font-locked-value point))
+    (message "%s%s" unrepl-eval-result-prefix font-locked-value)))
+
+
+(declare-function unrepl-client-send "unrepl-repl")
+(defun unrepl-eval-last-sexp ()
+  "Evaluate the expression preceding point."
+  (interactive)
+  (unrepl-ensure-connected!)
+  (unrepl-client-send (unrepl-last-sexp)
+                      (lambda (result)
+                        (unrepl-mode--display-evaluation result (end-of-line)))))
+
+
 ;; Interactive Commands
 ;; -------------------------------------------------------------------
 
@@ -131,14 +172,6 @@ Return a UNREPL project"
      (if unrepl-display-repl-in-current-window
          (pop-to-buffer-same-window repl-buffer)
        (pop-to-buffer repl-buffer)))))
-
-
-(declare-function unrepl-client-send "unrepl-repl")
-(defun unrepl-eval-last-sexp ()
-  "Evaluate the expression preceding point."
-  (interactive)
-  (unrepl-ensure-connected!)
-  (unrepl-client-send (unrepl-last-sexp)))
 
 
 (declare-function unrepl-aux-send "unrepl-loop")
