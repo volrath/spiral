@@ -175,7 +175,7 @@ BORROWED FROM CIDER."
 
 
 (declare-function unrepl-aux-send "unrepl-loop")
-(defun unrepl-repl-interrupt ()
+(defun unrepl-eval-interrupt ()
   "Interrupt pending evaluation."
   (interactive)
   (with-current-project
@@ -205,7 +205,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
     (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
-    (define-key map (kbd "C-c C-c") #'unrepl-repl-interrupt)
+    (define-key map (kbd "C-c C-g") #'unrepl-eval-interrupt)
     (define-key map (kbd "C-c C-q") #'unrepl-quit)
     map))
 

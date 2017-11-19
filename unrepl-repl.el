@@ -486,6 +486,7 @@ prompt, which is use to show results of evaluations."
 (defvar unrepl-repl-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'unrepl-repl-return)
+    (define-key map (kbd "C-c C-c") #'unrepl-eval-interrupt)
     (define-key map (kbd "C-<up>") #'unrepl-repl-previous-input)
     (define-key map (kbd "C-<down>") #'unrepl-repl-next-input)
     map))
