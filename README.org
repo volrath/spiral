@@ -16,7 +16,7 @@
    git clone --recursive https://github.com/volrath/unrepl.el
    #+END_SRC
 
-   Then place this repository, and it's *parseclj* submodule copy, somewhere in
+   Then place this repository, and its *parseclj* submodule copy, somewhere in
    your load-path.
 
    You also need to install these [[https://github.com/plexus/a.el][a.el]], [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], [[https://github.com/magnars/dash.el][dash]], and [[https://github.com/volrath/treepy.el][treepy]].  All
@@ -82,18 +82,20 @@
      Multiple Socket REPLs can be created in the same running Emacs instance,
      ideally each for a different Clojure project.
 
-     In the UNREPL.el context, a /Project/ represents a connection with a
-     Clojure Socket REPL.  A project is identified by a /Connection ID/, which
-     is a symbol of the form =host:port=.
+     In the UNREPL.el context, a /Project/ represents a set of connections
+     (normally 3 different connections, explained below) to a Clojure Socket
+     REPL.  A project is identified by a /Connection ID/, which is a symbol of
+     the form =host:port=.
 
      Each project holds:
 
      - =:id=: Its connection id.
      - =:conn-pool=: An alist with 3 UNREPL connections for this project's
        Socket REPL.
-     - =:pending-evals=: An associative datastructure that holds pending
-       evaluations for this connection.
+     - =:pending-evals=: A queue of pending evaluations for this connection.
      - =:repl-buffer=: A buffer that holds human-focused REPL interaction.
+     - =:classpath=: An optional list of files/directories to append to
+       UNREPL.el's global classpath on a project basis.
      - =:project-dir=: An optional strinng pointing to the project's dir.
      - =:socket-repl=: An optional process referring to the Socket REPL server.
 

@@ -222,6 +222,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
     (apply #'unrepl-project-pending-eval-update conn-id
            :status :read
            :group-id group-id
+           :actions nil
            history-assoc)))
 
 

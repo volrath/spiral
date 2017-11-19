@@ -102,13 +102,14 @@ BORROWED FROM CIDER."
 ;; associative data structure that contains the following:
 ;; - `:status': either `:sent', `:read', `:started-eval', `:eval', or
 ;;   `:exception'.
-;; - `:group-id': (optional) an UNREPL group id.
+;; - `:group-id': An UNREPL group id.  Set after the pending evaluation gets
+;;    `:read'.
+;; - `actions': Evaluation actions as provided by the `started-eval' UNREPL.
+;;    Set after the pending has `started-eval'.
 ;; - `:repl-history-idx': (optional) only if the input was sent from the REPL,
-;;    this would be the index in history.
+;;    this would be the index in REPL history.
 ;; - `:prompt-marker': (optional) a REPL buffer position to which print either
 ;;    evaluation outputs or `:out' strings.
-;; - `actions': (optional) evaluation actions as provided by the
-;;    `started-eval' UNREPL message.
 ;;
 ;; Pending evaluations' life cycle start when an input string is sent to the
 ;; UNREPL server (either by using the human REPL interface, or by evaluating
@@ -124,15 +125,15 @@ BORROWED FROM CIDER."
 ;; The first `:read' message received after sending input stream will be used to
 ;; update the pending evaluation status, add a group id, and, if the input came
 ;; from the REPL, update its prompt marker.
-;; `:start-eval' messages will be used to add a set of actions to the pending
+;; `:started-eval' messages will be used to add a set of actions to the pending
 ;; evaluation structure.
 ;; When `:eval' messages are received (or `:exception's), we will display them
 ;; according to how the input was generated in the first place (REPL or buffer
 ;; eval)
 ;; Subsequent `:read' messages received for the same input (or put in a
 ;; different way, not interrupted by another `:prompt' message) will modify the
-;; same pending evaluation as their predecessors, making sure to from it the
-;; actions and group-id information.
+;; same pending evaluation as their predecessors, making sure to delete from it
+;; the actions and group-id information.
 ;;
 ;; When a `:prompt' is received again, the top of the queue (`:eval'ed pending
 ;; evaluation) will be taken out, and the process start again.
