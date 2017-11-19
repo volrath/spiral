@@ -325,8 +325,7 @@ Return the file contents encoded as a base64 string."
     (let ((encoded-buffer (lambda ()
                             (encode-coding-region (point-min) (point-max) 'utf-8)
                             (base64-encode-region (point-min) (point-max) t)
-                            (format "%S"
-                                    (buffer-substring-no-properties (point-min) (point-max))))))
+                            (format "%S" (buffer-string)))))
       (cond
        ;; path as a directory
        ((file-directory-p path)

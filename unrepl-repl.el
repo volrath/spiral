@@ -33,6 +33,7 @@
 
 (require 'clojure-mode)
 (require 'dash)
+(require 'subr-x)
 
 (require 'unrepl-mode)
 (require 'unrepl-project)
@@ -116,6 +117,16 @@ BORROWED FROM CIDER."
   "Insert a new line, then indent."
   (insert "\n")
   (lisp-indent-line))
+
+
+(defun unrepl-repl--newline-and-scroll ()
+  "Insert a new line and scroll til the end of the buffer."
+  (insert "\n")
+  (when (eobp)
+    (when-let (win (get-buffer-window (current-buffer) t))
+      (with-selected-window win
+        (set-window-point win (point-max))
+        (recenter -1)))))
 
 
 (defun unrepl-repl--input-str ()
@@ -277,7 +288,7 @@ Most of the behavior is BORROWED FROM CIDER."
                               (unrepl-repl-insert-evaluation unrepl-conn-id
                                                              eval-result)))
         (unrepl-repl--add-input-to-history))
-    (newline)
+    (unrepl-repl--newline-and-scroll)
     (setq-local unrepl-repl-inputting t))
    (t
     (unrepl-repl--newline-and-indent)
@@ -439,17 +450,16 @@ prompt, which is use to show results of evaluations."
    (setq-local unrepl-repl-inputting nil)))
 
 
-(defun unrepl-repl-insert-evaluation (conn-id history-id evaluation)
-  "In CONN-ID REPL buffer, get history entry with HISTORY-ID and print EVALUATION at the end of it."
+(defun unrepl-repl-insert-evaluation (conn-id evaluation)
+  "In CONN-ID REPL buffer, print EVALUATION at the end of it."
   (with-current-repl
    (unless (bolp)
      (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face)))
    (insert
-    ;; (unrepl-repl--build-prompt history-id
-    ;;                            (unrepl-project-namespace project)
-    ;;                            t)
-    (unrepl-repl--build-result-indicator history-id (unrepl-project-namespace project))
-    (format "%s\n" evaluation))))
+    (unrepl-repl--build-result-indicator (1+ (length unrepl-repl-history))
+                                         (unrepl-project-namespace project))
+    (format "%s" evaluation))
+   (unrepl-repl--newline-and-scroll)))
 
 
 (defun unrepl-repl-insert-out (conn-id history-id str)
