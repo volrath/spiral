@@ -38,6 +38,11 @@
 (require 'treepy)
 
 
+(defcustom unrepl-debug t
+  "Annoyingly raise errors."
+  :type 'boolean
+  :group 'unrepl)
+
 (defvar unrepl--mode-buffers nil
   "Alist with (mode . buffer) pairs.")
 
