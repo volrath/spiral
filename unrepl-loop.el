@@ -35,10 +35,10 @@
 (require 'parseclj)
 (require 'treepy)
 
+(require 'unrepl-ast)
 (require 'unrepl-mode)
 (require 'unrepl-project)
 (require 'unrepl-repl)
-(require 'unrepl-util)
 
 
 (defvar-local unrepl-loop-process-type nil

@@ -32,8 +32,8 @@
 ;;
 ;;; Code:
 
+(require 'unrepl-ast)
 (require 'unrepl-project)
-(require 'unrepl-util)
 
 (defcustom unrepl-ask-for-connection t
   "Automatically ask for host:port when trying to interact with UNREPL in an unconnected buffer."
