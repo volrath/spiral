@@ -120,15 +120,15 @@ Group-id is returned as an integer."
 ;; Client Process
 ;; =============================================================================
 
-(defun unrepl-client-send (str &optional eval-out-callback)
+(defun unrepl-client-send (str &optional eval-callback)
   "Send input STR to UNREPL client connection.
-EVAL-OUT-CALLBACK is a function that takes the evaluation payload and
-displays it in any given way.
+EVAL-CALLBACK is a function that takes the evaluation payload and displays
+it in any given way.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
   (prog1 (unrepl-loop--send unrepl-conn-id :client str)
     (unrepl-pending-eval-add :client unrepl-conn-id
                              :status :sent
-                             :eval-callback eval-out-callback)))
+                             :eval-callback eval-callback)))
 
 
 (defun unrepl-loop-client-dispatcher (conn-id tag payload &optional group-id)
@@ -147,7 +147,8 @@ GROUP-ID is a number."
     (:eval (unrepl-loop--client-eval conn-id payload group-id))
     (:out (unrepl-loop--client-out conn-id payload group-id))
     (:exception (unrepl-loop--client-placeholder-handler conn-id payload group-id))
-    (_ (error (format "[client] Unrecognized message: %S" tag)))))
+    (_ (when unrepl-debug
+         (error (format "[client] Unrecognized message: %S" tag))))))
 
 ;; Message Processing
 ;; ------------------
@@ -227,7 +228,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
 
 (defun unrepl-loop--client-started-eval (conn-id payload group-id)
   "Handle a `:started-eval' message transmitted through CONN-ID.
-PAYLOAD is the UNREPL payload for `:started-eval' as a hash table.
+PAYLOAD is the UNREPL payload for `:started-eval' as an AST node.
 GROUP-ID is an integer as described by UNREPL's documentation."
   (unrepl-loop--unpack-payload
       (actions)
@@ -239,7 +240,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
 
 (defun unrepl-loop--client-eval (conn-id payload _group-id)
   "Handle a `:eval' message transmitted through CONN-ID.
-PAYLOAD is the UNREPL payload for `:eval' as a hash table.
+PAYLOAD is the UNREPL payload for `:eval' as an AST node.
 GROUP-ID is an integer as described by UNREPL's documentation.
 
 This function will see if there's an evaluation display callback function,
@@ -271,17 +272,69 @@ GROUP-ID is an integer as described by UNREPL's documentation."
 ;; Aux Connection Process
 ;; =============================================================================
 
-(defun unrepl-aux-send (str)
+(defun unrepl-aux-send (str &optional eval-callback)
   "Send input STR to UNREPL aux connection.
+EVAL-CALLBACK is a function that takes the evaluation payload and displays
+it in any given way.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (unrepl-loop--send unrepl-conn-id :aux str))
+  (prog1 (unrepl-loop--send unrepl-conn-id :aux str)
+    (unrepl-pending-eval-add :aux unrepl-conn-id
+                             :status :sent
+                             :eval-callback eval-callback)))
 
 
-(defun unrepl-loop-aux-handler (&rest _args)
+(defun unrepl-loop-aux-handler (conn-id tag payload &optional group-id)
   "Dispatch MSG to an `unrepl-loop--aux-*' message handler.
 CONN-ID is provided to the handlers so they know which project/repl they
-will be affecting."
-  )  ;; All are noops, for now.
+will be affecting.
+TAG is the UNREPL tag, and it's used to select the handler function for the
+message.
+PAYLOAD is a parseclj AST node of the message's payload.
+GROUP-ID is an integer as described by UNREPL's documentation."
+  (pcase tag
+    (:prompt (unrepl-loop--aux-prompt conn-id))
+    (:read (unrepl-loop--aux-read conn-id group-id))
+    (:started-eval (unrepl-loop--aux-started-eval conn-id payload group-id))
+    (:eval (unrepl-loop--aux-eval conn-id payload))
+    (:out #'ignore)
+    (:exception #'ignore)))
+
+
+(defun unrepl-loop--aux-prompt (conn-id)
+  "Handle a `:prompt' message transmitted through CONN-ID.
+Shifts the pending evaluations queue for the `:aux' connection."
+  (unrepl-pending-evals-shift :aux conn-id))
+
+
+(defun unrepl-loop--aux-read (conn-id group-id)
+  "Handle a `:read' message transmitted through CONN-ID.
+GROUP-ID is an integer as described by UNREPL's documentation.
+Updates the top of the pending evaluations queue with the `:read' status,
+its group id, and its actions."
+  (unrepl-pending-eval-update :aux conn-id
+                              :status :read
+                              :group-id group-id
+                              :actions nil))
+
+(defun unrepl-loop--aux-started-eval (conn-id payload group-id)
+  "Handle a `:started-eval' message transmitted through CONN-ID.
+PAYLOAD is the UNREPL payload for `:started-eval' as an AST node.
+GROUP-ID is an integer as described by UNREPL's documentation."
+  (unrepl-loop--unpack-payload (actions)
+    (unrepl-pending-eval-update :aux conn-id
+                                :status :started-eval
+                                :group-id group-id
+                                :actions actions)))
+
+
+(defun unrepl-loop--aux-eval (conn-id payload)
+  "Handle a `:eval' message transmitted through CONN-ID.
+PAYLOAD is the UNREPL payload for `:eval' as an AST node.
+
+This function will see if there's an evaluation callback function, and it
+will use it to handle the PAYLOAD.  If not, it will just ignore it."
+  (when-let (eval-callback (unrepl-pending-eval-callback :aux conn-id))
+    (funcall eval-callback payload)))
 
 
 
