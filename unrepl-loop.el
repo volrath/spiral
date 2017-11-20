@@ -146,7 +146,7 @@ GROUP-ID is a number."
     (:started-eval (unrepl-loop--client-started-eval conn-id payload group-id))
     (:eval (unrepl-loop--client-eval conn-id payload group-id))
     (:out (unrepl-loop--client-out conn-id payload group-id))
-    (:exception (unrepl-loop--client-placeholder-handler conn-id payload group-id))
+    (:exception (unrepl-loop--client-exception-handler conn-id payload group-id))
     (_ (when unrepl-debug
          (error (format "[client] Unrecognized message: %S" tag))))))
 
@@ -258,14 +258,19 @@ accordingly."
 
 (defun unrepl-loop--client-out (conn-id payload group-id)
   "Handle a `:out' message transmitted through CONN-ID.
-PAYLOAD is the UNREPL payload for `:eval' as a hash table.
+PAYLOAD is the UNREPL payload for `:out' as a string or as a #unrepl/string
+tagged literal.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-repl-insert-out conn-id group-id payload))
+  (unrepl-repl-insert-out conn-id payload group-id))
 
 
-(defun unrepl-loop--client-placeholder-handler (conn-id payload group-id)
-  "Placeholder handler CONN-ID PAYLOAD GROUP-ID."
-  (unrepl-repl-insert-out conn-id group-id payload))
+(defun unrepl-loop--client-exception-handler (conn-id payload group-id)
+  "Handle `:exception' messages transmitted through CONN-ID.
+PAYLOAD is the UNREPL payload for `:exception' as an AST node.
+GROUP-ID is an integer as described by UNREPL'S documentation."
+  (unrepl-pending-eval-update :client conn-id
+                              :status :exception)
+  (unrepl-repl-exception conn-id payload group-id))
 
 
 

@@ -101,6 +101,12 @@ prompt position in buffer.")
 ;; Utilities
 ;; -------------------------------------------------------------------
 
+(defun unrepl-repl--newline-if-needed ()
+  "Go to max point in buffer and make sure it is the beginning of a new line."
+  (goto-char (point-max))
+  (unless (bolp)
+    (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face))))
+
 (defun unrepl-repl--newline-and-indent ()
   "Insert a new line, then indent."
   (insert "\n")
@@ -418,12 +424,20 @@ prompt, which is use to show results of evaluations."
               'rear-nonsticky '(field font-lock-face intangible read-only)))
 
 
+(defun unrepl-repl--build-exception-indicator (_history-id _namespace)
+  "Return an indicator for exception."
+  (propertize "~ "
+              'font-lock-face 'unrepl-repl-exception-prompt-face
+              'field 'unrepl-prompt-field
+              'intangible t
+              'read-only t
+              'rear-nonsticky '(field font-lock-face intangible read-only)))
+
+
 (defun unrepl-repl-prompt (conn-id)
   "Insert prompt in CONN-ID'S REPL."
   (with-current-repl
-   (unless (bolp)
-     (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face)))
-   (goto-char (point-max))
+   (unrepl-repl--newline-if-needed)
    ;; Tell previous history entry that the new prompt starts here
    (when unrepl-repl-history
      (unrepl-repl--history-set-prompt-pos (length unrepl-repl-history)
@@ -441,9 +455,7 @@ prompt, which is use to show results of evaluations."
 (defun unrepl-repl-insert-evaluation (conn-id eval-payload)
   "In CONN-ID REPL buffer, unparse EVAL-PAYLOAD AST node at the end of it."
   (with-current-repl
-   (goto-char (point-max))
-   (unless (bolp)
-     (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face)))
+   (unrepl-repl--newline-if-needed)
    (insert
     (unrepl-repl--build-result-indicator (1+ (length unrepl-repl-history))
                                          (unrepl-project-namespace project)))
@@ -451,7 +463,7 @@ prompt, which is use to show results of evaluations."
    (unrepl-repl--newline-and-scroll)))
 
 
-(defun unrepl-repl-insert-out (conn-id history-id out-payload)
+(defun unrepl-repl-insert-out (conn-id out-payload history-id)
   "Unparse OUT-PAYLOAD for HISTORY-ID in CONN-ID REPL."
   (with-current-repl
    (if (and unrepl-repl-group-stdout
@@ -465,6 +477,18 @@ prompt, which is use to show results of evaluations."
          (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
      (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
        (unrepl-ast-unparse-stdout-string out-payload)))))
+
+
+(defun unrepl-repl-exception (conn-id payload _group-id)
+  "Unparse exception's PAYLOAD for HISTORY-ID in CONN-ID's REPL."
+  (with-current-repl
+   (unrepl-repl--newline-if-needed)
+   (insert
+    (unrepl-repl--build-exception-indicator (1+ (length unrepl-repl-history))
+                                            (unrepl-project-namespace project)))
+   (unrepl-propertize-region '(font-lock-face unrepl-repl-exception-prompt-face)
+     (unrepl-ast-unparse payload))
+   (unrepl-repl--newline-and-scroll)))
 
 
 ;; UNREPL REPL mode
