@@ -454,18 +454,19 @@ prompt, which is use to show results of evaluations."
 (defun unrepl-repl-insert-out (conn-id history-id out-payload)
   "Unparse OUT-PAYLOAD for HISTORY-ID in CONN-ID REPL."
   (with-current-repl
-   ;; (propertize str 'font-lock-face 'unrepl-repl-stdout-face)
-   (if (and unrepl-repl-group-stdout
-            (< history-id (length unrepl-repl-history)))  ;; if there's another prompt already
-       (save-excursion
-         (goto-char (-> history-id
-                        (unrepl-repl--history-get)
-                        (unrepl-repl--history-entry-prompt-pos)))
-         (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
-           (unrepl-ast-unparse out-payload))
-         (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
-     (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
-       (unrepl-ast-unparse out-payload)))))
+   (let ((out-str (->> out-payload
+                       (unrepl-ast-unparse-to-string))))
+     (if (and unrepl-repl-group-stdout
+              (< history-id (length unrepl-repl-history)))  ;; if there's another prompt already
+         (save-excursion
+           (goto-char (-> history-id
+                          (unrepl-repl--history-get)
+                          (unrepl-repl--history-entry-prompt-pos)))
+           (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
+             (insert "%s" out-str))
+           (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
+       (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
+         (insert out-str))))))
 
 
 ;; UNREPL REPL mode

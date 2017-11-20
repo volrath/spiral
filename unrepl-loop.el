@@ -259,14 +259,12 @@ accordingly."
   "Handle a `:out' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-repl-insert-out conn-id group-id
-                          (parseclj-ast-value payload)))
+  (unrepl-repl-insert-out conn-id group-id payload))
 
 
 (defun unrepl-loop--client-placeholder-handler (conn-id payload group-id)
   "Placeholder handler CONN-ID PAYLOAD GROUP-ID."
-  (unrepl-repl-insert-out conn-id group-id
-                          (format "%s\n" (parseclj-unparse-clojure-to-string payload))))
+  (unrepl-repl-insert-out conn-id group-id payload))
 
 
 
