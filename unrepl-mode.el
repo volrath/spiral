@@ -138,17 +138,18 @@ Return a UNREPL project"
   )
 
 
-(defun unrepl-mode--display-evaluation (value &optional point)
-  "Display evaluation result VALUE.
-This function will put VALUE in the echo area, font-locked as Clojure.
+(defun unrepl-mode--display-evaluation (eval-payload &optional point)
+  "Display evaluation result EVAL-PAYLOAD as a string.
+This function will put an unparsed version of EVAL-PAYLOAD in the echo
+area, font-locked as Clojure.
 If POINT and `unrepl-use-overlays' are non-nil, VALUE will also be
 displayed in an overlay starting at POINT.
 
 BORROWED FROM CIDER."
-  (let ((font-locked-value (unrepl-font-lock-as 'clojure-mode value)))
+  (let ((value (unrepl-ast-unparse-to-string eval-payload)))
     (when (and point unrepl-use-overlays)
-      (unrepl-mode--make-result-overlay font-locked-value point))
-    (message "%s%s" unrepl-eval-result-prefix font-locked-value)))
+      (unrepl-mode--make-result-overlay value point))
+    (message "%s%s" unrepl-eval-result-prefix value)))
 
 
 (declare-function unrepl-client-send "unrepl-repl")

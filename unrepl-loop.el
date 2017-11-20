@@ -251,10 +251,9 @@ accordingly."
   (unrepl-project-pending-eval-update conn-id
                                       :status :eval)
   ;; Display the evaluation payload somewhere...
-  (let ((eval-result (parseclj-unparse-clojure-to-string payload)))
-    (if-let (eval-callback (unrepl-project-pending-eval-callback conn-id))
-        (funcall eval-callback eval-result)
-      (message "%s" eval-result))))
+  (if-let (eval-callback (unrepl-project-pending-eval-callback conn-id))
+      (funcall eval-callback payload)
+    (message "%s" (parseclj-unparse-clojure-to-string payload))))
 
 
 (defun unrepl-loop--client-out (conn-id payload group-id)

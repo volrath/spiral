@@ -272,9 +272,9 @@ Most of the behavior is BORROWED FROM CIDER."
     (add-text-properties unrepl-repl-input-start-mark (point)
                          '(read-only t rear-nonsticky (read-only)))
     (-> (unrepl-repl--input-str)
-        (unrepl-client-send (lambda (eval-result)
+        (unrepl-client-send (lambda (result-payload)
                               (unrepl-repl-insert-evaluation unrepl-conn-id
-                                                             eval-result)))
+                                                             result-payload)))
         (unrepl-repl--add-input-to-history))
     (unrepl-repl--newline-and-scroll)
     (setq-local unrepl-repl-inputting t))
@@ -438,31 +438,34 @@ prompt, which is use to show results of evaluations."
    (setq-local unrepl-repl-inputting nil)))
 
 
-(defun unrepl-repl-insert-evaluation (conn-id evaluation)
-  "In CONN-ID REPL buffer, print EVALUATION at the end of it."
+(defun unrepl-repl-insert-evaluation (conn-id eval-payload)
+  "In CONN-ID REPL buffer, unparse EVAL-PAYLOAD AST node at the end of it."
   (with-current-repl
+   (goto-char (point-max))
    (unless (bolp)
      (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face)))
    (insert
     (unrepl-repl--build-result-indicator (1+ (length unrepl-repl-history))
-                                         (unrepl-project-namespace project))
-    (format "%s" evaluation))
+                                         (unrepl-project-namespace project)))
+   (unrepl-ast-unparse eval-payload)
    (unrepl-repl--newline-and-scroll)))
 
 
-(defun unrepl-repl-insert-out (conn-id history-id str)
-  "Print STR with HISTORY-ID in CONN-ID REPL."
+(defun unrepl-repl-insert-out (conn-id history-id out-payload)
+  "Unparse OUT-PAYLOAD for HISTORY-ID in CONN-ID REPL."
   (with-current-repl
-   (let ((propertized-str (propertize str 'font-lock-face 'unrepl-repl-stdout-face)))
-     (if (and unrepl-repl-group-stdout
-              (< history-id (length unrepl-repl-history)))  ;; if there's another prompt already
-         (save-excursion
-           (goto-char (-> history-id
-                          (unrepl-repl--history-get)
-                          (unrepl-repl--history-entry-prompt-pos)))
-           (insert propertized-str)
-           (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
-       (insert propertized-str)))))
+   ;; (propertize str 'font-lock-face 'unrepl-repl-stdout-face)
+   (if (and unrepl-repl-group-stdout
+            (< history-id (length unrepl-repl-history)))  ;; if there's another prompt already
+       (save-excursion
+         (goto-char (-> history-id
+                        (unrepl-repl--history-get)
+                        (unrepl-repl--history-entry-prompt-pos)))
+         (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
+           (unrepl-ast-unparse out-payload))
+         (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
+     (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
+       (unrepl-ast-unparse out-payload)))))
 
 
 ;; UNREPL REPL mode
