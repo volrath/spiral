@@ -472,11 +472,9 @@ prompt, which is use to show results of evaluations."
          (goto-char (-> history-id
                         (unrepl-repl--history-get)
                         (unrepl-repl--history-entry-prompt-pos)))
-         (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
-           (unrepl-ast-unparse-stdout-string out-payload))
+         (unrepl-ast-unparse-stdout-string out-payload)
          (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
-     (unrepl-propertize-region '(font-lock-face unrepl-repl-stdout-face)
-       (unrepl-ast-unparse-stdout-string out-payload)))))
+     (unrepl-ast-unparse-stdout-string out-payload))))
 
 
 (defun unrepl-repl-exception (conn-id payload _group-id)

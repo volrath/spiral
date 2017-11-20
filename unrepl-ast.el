@@ -107,11 +107,11 @@ ommited."
                                                    (with-current-buffer (marker-buffer bstart-marker)
                                                      (save-excursion
                                                        (goto-char bstart-marker)
-                                                       (backward-char 2)
+                                                       (backward-char (if stdout-str 1 2))
                                                        (kill-line)
                                                        (funcall insert-fn eval-payload)
                                                        (goto-char bstart-marker)
-                                                       (delete-char 1)))))))))
+                                                       (unless stdout-str (delete-char 1))))))))))
         (insert-button unrepl-elision-label
                        'action button-action
                        'mouse-action button-action)))))
@@ -194,6 +194,7 @@ The returned string will be automatically font-locked as clojure code."
   (if (eql (parseclj-ast-node-type string-node) :string)
       (-> string-node
           (parseclj-ast-value)
+          (propertize 'font-lock-face 'unrepl-repl-stdout-face)
           (insert))
     (unrepl-ast--string-tag-unparse string-node nil t)))
 
