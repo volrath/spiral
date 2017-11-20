@@ -74,6 +74,12 @@ Pool', and optionally the `project-dir', `project-type', and `socket-repl'
 process.")
 
 
+(defvar-local unrepl-pending-evals nil
+  "Queue of pending evaluations.
+This variable is meant to be set on network buffers for `:client' and
+`:aux' interactions with an UNREPL server.")
+
+
 (defun unrepl--identify-buildtools-present ()
   "Identify build systems present by their build files in PROJECT-DIR.
 
@@ -98,8 +104,9 @@ BORROWED FROM CIDER."
 
 ;; Pending Evaluations
 ;; -------------------------------------------------------------------
-;; Projects store a queue of pending evaluations.  Each pending evaluation is an
-;; associative data structure that contains the following:
+;; Projects store a queue of pending evaluations in each of their connection
+;; process' buffers.  Each pending evaluation is an associative data structure
+;; that contains the following:
 ;; - `:status': either `:sent', `:read', `:started-eval', `:eval', or
 ;;   `:exception'.
 ;; - `:group-id': An UNREPL group id.  Set after the pending evaluation gets
@@ -138,77 +145,80 @@ BORROWED FROM CIDER."
 ;; When a `:prompt' is received again, the top of the queue (`:eval'ed pending
 ;; evaluation) will be taken out, and the process start again.
 
-(defun unrepl-project-pending-eval (conn-id)
-  "Return the beginning of CONN-ID's `:pending-evals' queue."
-  (car (unrepl-project-pending-evals conn-id)))
+(defmacro with-process-buffer (conn-id type &rest body)
+  "Execute BODY in the buffer for the TYPE connection of CONN-ID."
+  (declare (indent 2))
+  `(let* ((project (unrepl-projects-get ,conn-id))
+          (proc (unrepl-project-conn-pool-get-process project ,type)))
+     (with-current-buffer (process-buffer proc)
+       ,@body)))
+
+(defun unrepl-pending-eval (type conn-id)
+  "Return the beginning of CONN-ID TYPE's pending-evals queue."
+  (with-process-buffer conn-id type
+    (car unrepl-pending-evals)))
 
 
-(defun unrepl-project-pending-eval-add (conn-id &rest kwargs)
-  "Add a pending evaluation to the end of the CONN-ID'S `:pending-evals' queue.
+(defun unrepl-pending-eval-add (type conn-id &rest kwargs)
+  "Add a pending evaluation to CONN-ID TYPE'S pending-evals queue.
 KWARGS are key-values used to create the pending evaluation entry."
-  (let* ((project (unrepl-projects-get conn-id))
-         (pending-evals (unrepl-project-pending-evals project))
-         (entry (mapcar (lambda (pair)
-                          (cons (car pair) (cadr pair)))
-                        (-partition 2 kwargs))))
-    (unrepl-project-set-in conn-id
-                           :pending-evals (nconc pending-evals `(,entry)))))
+  (with-process-buffer conn-id type
+    (let* ((entry (mapcar (lambda (pair)
+                            (cons (car pair) (cadr pair)))
+                          (-partition 2 kwargs))))
+      (setq unrepl-pending-evals
+            (nconc unrepl-pending-evals `(,entry))))))
 
 
-(defun unrepl-project-pending-eval-update (conn-id &rest kwargs)
-  "Update the entry at the beginning of the CONN-ID's `:pending-evals' queue.
+(defun unrepl-pending-eval-update (type conn-id &rest kwargs)
+  "Update the first entry at CONN-ID TYPE's pending-evals queue.
 KWARGS are the key-values to update the pending evaluation entry."
-  (let* ((project (unrepl-projects-get conn-id))
-         (pending-evals (unrepl-project-pending-evals project))
-         (entry (car pending-evals)))
-    (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
-          (-partition 2 kwargs))
-    (unrepl-project-set-in conn-id
-                           :pending-evals (cons entry (cdr pending-evals)))))
+  (with-process-buffer conn-id type
+    (let* ((entry (car unrepl-pending-evals)))
+      (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
+            (-partition 2 kwargs))
+      (setq unrepl-pending-evals
+            (cons entry (cdr unrepl-pending-evals))))))
 
 
-(defun unrepl-project-pending-eval-history-idx (conn-id)
-  "Return the `:repl-history-idx' from the top of the CONN-ID's queue."
-  (-> conn-id
-      (unrepl-projects-get)
-      (unrepl-project-pending-evals)
-      (car)
-      (map-elt :repl-history-idx)))
+(defun unrepl-pending-eval-history-idx (type conn-id)
+  "Return the `:repl-history-idx' from the top of the CONN-ID TYPE's queue."
+  (with-process-buffer conn-id type
+    (-> unrepl-pending-evals
+        (car)
+        (map-elt :repl-history-idx))))
 
 
-(defun unrepl-project-pending-eval-callback (conn-id)
-  "Return the `:eval-callback' from the top of the CONN-ID's `:pending-evals' queue."
-  (-> conn-id
-      (unrepl-projects-get)
-      (unrepl-project-pending-evals)
-      (car)
-      (map-elt :eval-callback)))
+(defun unrepl-pending-eval-callback (type conn-id)
+  "Return the `:eval-callback' from the top of the CONN-ID TYPE's pending-evals queue."
+  (with-process-buffer conn-id type
+    (-> unrepl-pending-evals
+        (car)
+        (map-elt :eval-callback))))
 
 
-(defun unrepl-project-pending-eval-actions (conn-id)
-  "Return `:actions' form the top of the CONN-ID's `:pending-evals' queue."
-  (-> conn-id
-      (unrepl-projects-get)
-      (unrepl-project-pending-evals)
-      (car)
-      (map-elt :actions)))
+(defun unrepl-pending-eval-actions (type conn-id)
+  "Return `:actions' form the top of the CONN-ID TYPE's pending-evals queue."
+  (with-process-buffer conn-id type
+    (-> unrepl-pending-evals
+        (car)
+        (map-elt :actions))))
 
 
-(defun unrepl-project-pending-evals-shift (conn-id)
-  "Shift the CONN-ID's `:pending-evals' queue and return the shifted entry."
-  (let* ((project (unrepl-projects-get conn-id))
-         (pending-evals (unrepl-project-pending-evals project))
-         (entry (car pending-evals)))
-    (unrepl-project-set-in conn-id :pending-evals (cdr pending-evals))
-    entry))
+(defun unrepl-pending-evals-shift (type conn-id)
+  "Shift the CONN-ID TYPE's `:pending-evals' queue and return the shifted entry."
+  (with-process-buffer conn-id type
+    (let* ((entry (car unrepl-pending-evals)))
+      (setq unrepl-pending-evals (cdr unrepl-pending-evals))
+      entry)))
 
 
-(defun unrepl-project-pending-eval-entry-history-idx (entry)
+(defun unrepl-pending-eval-entry-history-idx (entry)
   "Return the `:repl-history-idx' from a pending eval ENTRY."
   (map-elt entry :repl-history-idx))
 
 
-(defun unrepl-project-pending-eval-entry-actions (entry)
+(defun unrepl-pending-eval-entry-actions (entry)
   "Return the `:actions' from a pending eval ENTRY."
   (map-elt entry :actions))
 
@@ -261,8 +271,7 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
       (:project-dir . ,project-dir)
       (:socket-repl . ,server-proc)
       (:repl-buffer . ,(unrepl-repl-create-buffer conn-id))
-      (:conn-pool . ,conn-pool)
-      (:pending-evals . nil))))
+      (:conn-pool . ,conn-pool))))
 
 
 (declare-function unrepl--conn-pool-procs "unrepl")
@@ -308,11 +317,6 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 (defun unrepl-project-port (proj)
   "Return the Socket REPL port for the given PROJ."
   (cdr (unrepl-conn-host-port (unrepl-project-id proj))))
-
-
-(defun unrepl-project-pending-evals (proj)
-  "Return the PROJ's pending evaluations data structure."
-  (map-elt proj :pending-evals))
 
 
 (defun unrepl-project-repl-buffer (proj)

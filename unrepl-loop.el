@@ -124,12 +124,11 @@ Group-id is returned as an integer."
   "Send input STR to UNREPL client connection.
 EVAL-OUT-CALLBACK is a function that takes the evaluation payload and
 displays it in any given way.
-Connection to sent the input to is inferred
-from `unrepl-conn-id'."
+Connection to sent the input to is inferred from `unrepl-conn-id'."
   (prog1 (unrepl-loop--send unrepl-conn-id :client str)
-    (unrepl-project-pending-eval-add unrepl-conn-id
-                                     :status :sent
-                                     :eval-callback eval-out-callback)))
+    (unrepl-pending-eval-add :client unrepl-conn-id
+                             :status :sent
+                             :eval-callback eval-out-callback)))
 
 
 (defun unrepl-loop-client-dispatcher (conn-id tag payload &optional group-id)
@@ -205,8 +204,8 @@ PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
                                         (parseclj-ast-children)
                                         (car)                                    ;; actual ns symbol
                                         (parseclj-ast-value)))
-  (if-let (pending-eval (unrepl-project-pending-evals-shift conn-id))
-      (when (unrepl-project-pending-eval-entry-history-idx pending-eval)
+  (if-let (pending-eval (unrepl-pending-evals-shift :client conn-id))
+      (when (unrepl-pending-eval-entry-history-idx pending-eval)
         (unrepl-repl-prompt conn-id))
     (unrepl-repl-prompt conn-id)))
 
@@ -219,7 +218,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
     ;; `history-assoc' is either nil or a tuple that contains
     ;; `:repl-history-idx' as its first element and a history entry id as its
     ;; second element.  For more information, read its documentation.
-    (apply #'unrepl-project-pending-eval-update conn-id
+    (apply #'unrepl-pending-eval-update :client conn-id
            :status :read
            :group-id group-id
            :actions nil
@@ -232,10 +231,10 @@ PAYLOAD is the UNREPL payload for `:started-eval' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
   (unrepl-loop--unpack-payload
       (actions)
-    (unrepl-project-pending-eval-update conn-id
-                                        :status :started-eval
-                                        :group-id group-id
-                                        :actions actions)))
+    (unrepl-pending-eval-update :client conn-id
+                                :status :started-eval
+                                :group-id group-id
+                                :actions actions)))
 
 
 (defun unrepl-loop--client-eval (conn-id payload _group-id)
@@ -248,10 +247,10 @@ and it will use it to show the result.  If not, it will try to determine
 where did this evaluation come from (REPL buffer, `unrepl-eval-last-sexp'
 command, etc), and will call a different function to display the result
 accordingly."
-  (unrepl-project-pending-eval-update conn-id
-                                      :status :eval)
+  (unrepl-pending-eval-update :client conn-id
+                              :status :eval)
   ;; Display the evaluation payload somewhere...
-  (if-let (eval-callback (unrepl-project-pending-eval-callback conn-id))
+  (if-let (eval-callback (unrepl-pending-eval-callback :client conn-id))
       (funcall eval-callback payload)
     (message "%s" (parseclj-unparse-clojure-to-string payload))))
 

@@ -117,7 +117,7 @@ The buffer will hold a `unrepl-conn-id' variable of the form:
 SERVER-HOST:SERVER-PORT.
 
 TYPE is a keyword, it can either be `:client', `:side-loader' or
-`:tooling', and it is only used to generate a correct name for the buffer.
+`:aux', and it is only used to generate a correct name for the buffer.
 
 This function makes sure to get or create a buffer to be used for the
 output of a network connection process."

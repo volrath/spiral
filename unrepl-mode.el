@@ -180,8 +180,8 @@ BORROWED FROM CIDER."
   "Interrupt pending evaluation."
   (interactive)
   (with-current-project
-   (if-let (pending-eval (unrepl-project-pending-eval project))
-       (let* ((actions (unrepl-project-pending-eval-entry-actions pending-eval))
+   (if-let (pending-eval (unrepl-pending-eval :client (unrepl-project-id project)))
+       (let* ((actions (unrepl-pending-eval-entry-actions pending-eval))
               (interrupt-templ (unrepl-ast-map-elt actions :interrupt)))
          (unrepl-aux-send (unrepl-command-template interrupt-templ)))
      (message "No operations pending..."))))
