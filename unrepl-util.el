@@ -99,7 +99,17 @@ BORROWED FROM CIDER."
       (buffer-string))))
 
 
+(defmacro unrepl-propertize-region (props &rest body)
+  "Add PROPS to all the inserted text while executing BODY.
+More precisely, PROPS are added to the region between the point's
+positions before and after executing BODY.
 
+BORROWED FROM CIDER."
+  (declare (indent 1))
+  (let ((start (make-symbol "start")))
+    `(let ((,start (point)))
+       (prog1 (progn ,@body)
+         (add-text-properties ,start (point) ,props)))))
 
 
 ;; Debugging
