@@ -183,7 +183,8 @@ BORROWED FROM CIDER."
    (if-let (pending-eval (unrepl-pending-eval :client (unrepl-project-id project)))
        (let* ((actions (unrepl-pending-eval-entry-actions pending-eval))
               (interrupt-templ (unrepl-ast-map-elt actions :interrupt)))
-         (unrepl-aux-send (unrepl-command-template interrupt-templ)))
+         (unrepl-aux-send (unrepl-command-template interrupt-templ)
+                          (lambda (_) (message "Evaluation interrupted!"))))
      (message "No operations pending..."))))
 
 
