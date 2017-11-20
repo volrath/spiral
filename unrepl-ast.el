@@ -59,6 +59,72 @@ Value is returned as an AST node."
 ;; Unparsing
 ;; -------------------------------------------------------------------
 
+(declare-function unrepl-aux-send "unrepl-loop")
+
+(defvar unrepl-elision-label "..."
+  "Label used to represent elisions.")
+
+(defvar unrepl-ast-tag-readers
+  '((unrepl/string . unrepl-ast--string-tag-unparse))
+  "A set of tag readers for common UNREPL tagged literals.")
+
+
+(defun unrepl-ast--elision-tag-map (elision-tag)
+  "Return template map associated with ELISION-TAG."
+  (-> elision-tag
+      (parseclj-ast-children)
+      (car)))
+
+
+(defun unrepl-ast--string-tag-unparse (string-tag-node &optional disallow-ui stdout-str)
+  "Insert a string representation of STRING-TAG-NODE.
+By default, elisions will be represented with buttons from the `button'
+package.  If DISALLOW-UI is non-nil, a simple '...' will be used instead.
+STDOUT-STR is a boolean value that indicates whether or not the
+STRING-TAG-NODE represents a stdout (`:out') message from UNREPL.  In case
+that STDOUT-STR is non-nil, surronding quotes for this string will be
+ommited."
+  (let* ((insert-fn (if stdout-str
+                        #'unrepl-ast-unparse-stdout-string
+                      #'unrepl-ast-unparse))
+         (string-tag-vector-elems (-> string-tag-node
+                                      (parseclj-ast-children)
+                                      (car)
+                                      (parseclj-ast-children)))
+         (string-node (car string-tag-vector-elems))
+         (elision-actions (unrepl-ast--elision-tag-map
+                           (cadr string-tag-vector-elems))))
+    (funcall insert-fn string-node)
+    (insert " ")
+    (if disallow-ui
+        (insert unrepl-elision-label)
+      (let* ((elision-get-templ (unrepl-ast-map-elt elision-actions :get))
+             (button-action (lambda (button)
+                              (let ((bstart-marker (make-marker)))
+                                (set-marker bstart-marker (button-start button))
+                                (unrepl-aux-send (unrepl-command-template elision-get-templ)
+                                                 (lambda (eval-payload)
+                                                   (with-current-buffer (marker-buffer bstart-marker)
+                                                     (save-excursion
+                                                       (goto-char bstart-marker)
+                                                       (backward-char 2)
+                                                       (kill-line)
+                                                       (funcall insert-fn eval-payload)
+                                                       (goto-char bstart-marker)
+                                                       (delete-char 1)))))))))
+        (insert-button unrepl-elision-label
+                       'action button-action
+                       'mouse-action button-action)))))
+
+
+(defun unrepl-ast--generic-tag-unparse (node)
+  "Insert a string representation of the given AST tag NODE into buffer."
+  (insert "#")
+  (insert (symbol-name (parseclj-ast-node-attr node :tag)))
+  (insert " ")
+  (unrepl-ast-unparse (car (parseclj-ast-children node))))
+
+
 (defun unrepl-ast--unparse-collection (node)
   "Insert a string representation of the given AST branch NODE into buffer."
   (let* ((token-type (parseclj-ast-node-type node))
@@ -79,53 +145,51 @@ Value is returned as an AST node."
     (insert (cdr delimiters))))
 
 
-(defun unrepl-ast--unparse-tag-generic (node)
-  "Insert a string representation of the given AST tag NODE into buffer."
-  (progn
-    (insert "#")
-    (insert (symbol-name (a-get node :tag)))
-    (insert " ")
-    (parseclj-unparse-clojure (car (a-get node :children)))))
-
-
-(defun unrepl-ast-unparse (ast-node &optional tag-readers-map silence-missing-tags)
+(defun unrepl-ast-unparse (ast-node &optional raise-on-missing-tags)
   "Unparse a parseclj AST-NODE into a human-friendly representation.
 For the most parts, this function behaves exactly as
 `parseclj-unparse-clojure-to-string', but it will also consume all tagged
-literals in AST-NODE using a merge of `unrepl-tag-readers' and
-TAG-READERS-MAP to generate a elisp code for better UI.
+literals in AST-NODE using `unrepl-ast-tag-readers' to generate a elisp
+code for better UI.
 If AST-NODE contains a tagged literal not represented in TAG-READERS-MAP,
-an error will be raised.  SILENCE-MISSING-TAGS overrides this behavior.
+an error will be raised.  RAISE-ON-MISSING-TAGS overrides this behavior.
 Return a string that may or may not be propertized, and may or may not
 include other UI elements."
   (if (parseclj-ast-leaf-node-p ast-node)
       (insert (parseclj-ast-node-attr ast-node :form))
     (if (eql (parseclj-ast-node-type ast-node) :tag)
         (let* ((tag-symbol (parseclj-ast-node-attr ast-node :tag))
-               (reader (map-elt tag-readers-map tag-symbol)))
+               (reader (map-elt unrepl-ast-tag-readers tag-symbol)))
           (if reader
               (funcall reader ast-node)
-            (if silence-missing-tags  ;; Generically unparse this tag
-                (unrepl-ast--unparse-tag-generic ast-node)
-              (error "Missing tag %s" tag-symbol))))
+            (if raise-on-missing-tags
+                (error "Missing tag %s" tag-symbol)
+              (unrepl-ast--generic-tag-unparse ast-node))))
       (unrepl-ast--unparse-collection ast-node))))
 
 
-(defun unrepl-ast-unparse-to-string (ast-node &optional tag-readers-map silence-missing-tags)
+(defun unrepl-ast-unparse-to-string (ast-node &optional raise-on-missing-tags)
   "Unparse a parseclj AST-NODE to a string representation.
 This function works like `unrepl-ast-unparse' but avoids adding UI
 elements (like buttons) to the returned string.
-TAG-READERS-MAP is an optional associative data structure
-containing (tag-symbol reader-fn) key-value pairs.
 If AST-NODE contains tagged literals not represented in TAG-READERS-MAP, an
-error will be raised.  SILENCE-MISSING-TAGS overrides this behavior.
+error will be raised.  RAISE-ON-MISSING-TAGS overrides this behavior.
 The returned string will be automatically font-locked as clojure code."
   (with-current-buffer (unrepl--make-buffer-for-mode 'clojure-mode)
     ;; TODO: add a flag to mute UI elements
     (erase-buffer)
-    (unrepl-ast-unparse ast-node tag-readers-map silence-missing-tags)
+    (unrepl-ast-unparse ast-node raise-on-missing-tags)
     (font-lock-fontify-region (point-min) (point-max))
     (buffer-string)))
+
+
+(defun unrepl-ast-unparse-stdout-string (string-node)
+  "Unparse STRING-NODE, which can be a simple string or a #unrepl/string tag."
+  (if (eql (parseclj-ast-node-type string-node) :string)
+      (-> string-node
+          (parseclj-ast-value)
+          (insert))
+    (unrepl-ast--string-tag-unparse string-node nil t)))
 
 
 ;; Template Management
