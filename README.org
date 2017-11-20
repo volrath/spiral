@@ -4,6 +4,9 @@
 
   Client interface with a Clojure's Socket REPL through the [[https://github.com/unrepl/unrepl][unrepl]] protocol.
 
+  *Warning:* This project is in ALPHA stage, there are several known (and
+  unknown) bugs.  Contributions are welcome.
+
 ** Usage
 
 *** Installing
