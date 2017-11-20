@@ -139,10 +139,16 @@ ommited."
       (when-let (node (car nodes))
         (unrepl-ast-unparse node))
       (seq-doseq (child (cdr nodes))
-        (when (not (parseclj-ast-lexical-preservation-p node))
+        (when (null (parseclj-ast-node-attr node :lexical-preservation))  ;; hack, read below.
           (insert " "))
         (unrepl-ast-unparse child)))
     (insert (cdr delimiters))))
+;; Here we're basically accessing parseclj's internal API to check if a node has
+;; lexical preservation.  It would be better if parseclj would expose a function
+;; for this, something like `parseclj-ast-node-lexical-preservation-p'.  Another
+;; possible solution would be to have `parseclj-unparse-clojure' take tag
+;; readers as an argument, but I'm not really sure that would be part of its
+;; scope.
 
 
 (defun unrepl-ast-unparse (ast-node &optional raise-on-missing-tags)
