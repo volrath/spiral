@@ -198,11 +198,19 @@ KWARGS are the key-values to update the pending evaluation entry."
 
 
 (defun unrepl-pending-eval-actions (type conn-id)
-  "Return `:actions' form the top of the CONN-ID TYPE's pending-evals queue."
+  "Return `:actions' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
     (-> unrepl-pending-evals
         (car)
         (map-elt :actions))))
+
+
+(defun unrepl-pending-eval-group-id (type conn-id)
+  "Return `:group-id' from the top of the CONN-ID TYPE's pending-evals queue."
+  (with-process-buffer conn-id type
+    (-> unrepl-pending-evals
+        (car)
+        (map-elt :group-id))))
 
 
 (defun unrepl-pending-evals-shift (type conn-id)

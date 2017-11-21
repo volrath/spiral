@@ -81,7 +81,7 @@ When nil, the REPL buffer will be created but not displayed."
   "Face for STDOUT output in the REPL buffer."
   :group 'unrepl-repl)
 
-(defvar-local unrepl-repl-input-start-mark 1
+(defvar-local unrepl-repl-input-start-mark (make-marker)
   "Point marker of current input start.")
 
 (defvar-local unrepl-repl-inputting nil
@@ -103,7 +103,6 @@ prompt position in buffer.")
 
 (defun unrepl-repl--newline-if-needed ()
   "Go to max point in buffer and make sure it is the beginning of a new line."
-  (goto-char (point-max))
   (unless (bolp)
     (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face))))
 
@@ -204,7 +203,7 @@ Indices, as saved in pending evaluations, start with 1."
   (cadr entry))
 
 
-(defun unrepl-repl--history-entry-prompt-pos (entry)
+(defun unrepl-repl--history-entry-prompt-marker (entry)
   "Return the prompt position of the given History ENTRY."
   (cl-caddr entry))
 
@@ -220,20 +219,14 @@ Indices, as saved in pending evaluations, start with 1."
   (setf (cadr (car unrepl-repl-history)) group-id))
 
 
-(defun unrepl-repl--history-set-prompt-pos (history-idx pos &optional override)
-  "Set POS as the HISTORY-IDX entry `prompt-pos'.
-Optional arg OVERRIDE indicates if previously set prompt pos should be
-ignored."
-  (let ((entry (unrepl-repl--history-get history-idx)))
-    (when (and entry
-               (or (not (unrepl-repl--history-entry-prompt-pos entry))
-                   override))
-      (setf
-       (cl-caddr
-        (nth
-         (- (length unrepl-repl-history) history-idx)
-         unrepl-repl-history))
-       pos))))
+(defun unrepl-repl--history-set-prompt-marker (history-idx)
+  "Set HISTORY-IDX entry `prompt-marker' to current point."
+  (setf
+   (cl-caddr
+    (nth
+     (- (length unrepl-repl-history) history-idx)
+     unrepl-repl-history))
+   (point-marker)))
 
 
 (defun unrepl-repl-input-history-assoc (conn-id group-id)
@@ -437,17 +430,17 @@ prompt, which is use to show results of evaluations."
 (defun unrepl-repl-prompt (conn-id)
   "Insert prompt in CONN-ID'S REPL."
   (with-current-repl
+   (goto-char (point-max))
    (unrepl-repl--newline-if-needed)
    ;; Tell previous history entry that the new prompt starts here
    (when unrepl-repl-history
-     (unrepl-repl--history-set-prompt-pos (length unrepl-repl-history)
-                                          (point)))
+     (unrepl-repl--history-set-prompt-marker (length unrepl-repl-history)))
    ;; Insert prompt
    (insert
     (unrepl-repl--build-prompt (1+ (length unrepl-repl-history))
                                (unrepl-project-namespace project)))
    ;; Mark current input start
-   (setq-local unrepl-repl-input-start-mark (point))
+   (set-marker unrepl-repl-input-start-mark (point))
    ;; Reset the `unrepl-repl-inputting' variable.
    (setq-local unrepl-repl-inputting nil)))
 
@@ -455,6 +448,7 @@ prompt, which is use to show results of evaluations."
 (defun unrepl-repl-insert-evaluation (conn-id eval-payload)
   "In CONN-ID REPL buffer, unparse EVAL-PAYLOAD AST node at the end of it."
   (with-current-repl
+   (goto-char (point-max))
    (unrepl-repl--newline-if-needed)
    (insert
     (unrepl-repl--build-result-indicator (1+ (length unrepl-repl-history))
@@ -463,23 +457,38 @@ prompt, which is use to show results of evaluations."
    (unrepl-repl--newline-and-scroll)))
 
 
-(defun unrepl-repl-insert-out (conn-id out-payload history-id)
-  "Unparse OUT-PAYLOAD for HISTORY-ID in CONN-ID REPL."
+(defun unrepl-repl-insert-out (conn-id out-payload group-id)
+  "Unparse OUT-PAYLOAD for GROUP-ID in CONN-ID REPL.
+OUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
+GROUP-ID is a number as described in UNREPL docs.
+If GROUP-ID is not the same as the current pending evaluation's, and
+`unrepl-repl-group-stdout' is non nil, this function will try to figure out
+a place in the REPL buffer where to print the OUT-PAYLOAD, by searching
+through history for an entry that shares its same GROUP-ID.  If it can't
+find a match, it will print it at the end of the buffer but before the last
+prompt."
   (with-current-repl
-   (if (and unrepl-repl-group-stdout
-            (< history-id (length unrepl-repl-history)))  ;; if there's another prompt already
-       (save-excursion
-         (goto-char (-> history-id
-                        (unrepl-repl--history-get)
-                        (unrepl-repl--history-entry-prompt-pos)))
-         (unrepl-ast-unparse-stdout-string out-payload)
-         (unrepl-repl--history-set-prompt-pos (1+ history-id) (point) t))
-     (unrepl-ast-unparse-stdout-string out-payload))))
+   (save-excursion
+     (if (and unrepl-repl-group-stdout
+              (not (eql group-id (unrepl-pending-eval-group-id :client unrepl-conn-id))))
+         ;; Find the best place to print the output.
+         (let ((h-entry (seq-find (lambda (e)
+                                    (eql (unrepl-repl--history-entry-group-id e)
+                                         group-id))
+                                  unrepl-repl-history
+                                  (car unrepl-repl-history))))
+           (goto-char (unrepl-repl--history-entry-prompt-marker h-entry))
+           (unrepl-ast-unparse-stdout-string out-payload)
+           (unrepl-repl--newline-if-needed))
+       ;; Just print at the end of the buffer
+       (goto-char (point-max))
+       (unrepl-ast-unparse-stdout-string out-payload)))))
 
 
 (defun unrepl-repl-exception (conn-id payload _group-id)
   "Unparse exception's PAYLOAD for HISTORY-ID in CONN-ID's REPL."
   (with-current-repl
+   (goto-char (point-max))
    (unrepl-repl--newline-if-needed)
    (insert
     (unrepl-repl--build-exception-indicator (1+ (length unrepl-repl-history))

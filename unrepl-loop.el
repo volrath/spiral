@@ -230,8 +230,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
   "Handle a `:started-eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:started-eval' as an AST node.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-loop--unpack-payload
-      (actions)
+  (unrepl-loop--unpack-payload (actions)
     (unrepl-pending-eval-update :client conn-id
                                 :status :started-eval
                                 :group-id group-id
