@@ -56,31 +56,6 @@ When nil, the REPL buffer will be created but not displayed."
   :type 'boolean
   :group 'unrepl-repl)
 
-(defface unrepl-repl-prompt-face
-  '((t (:inherit font-lock-keyword-face)))
-  "Face for the prompt in the REPL buffer."
-  :group 'unrepl-repl)
-
-(defface unrepl-repl-result-prompt-face
-  '((t (:inherit font-lock-function-name-face)))
-  "Face for the result prompt in the REPL buffer."
-  :group 'unrepl-repl)
-
-(defface unrepl-repl-exception-prompt-face
-  '((t (:inherit font-lock-warning-face)))
-  "Face for the result prompt in the REPL buffer."
-  :group 'unrepl-repl)
-
-(defface unrepl-repl-constant-face
-  '((t (:inherit font-lock-constant-face)))
-  "Face for constant things in the REPL buffer."
-  :group 'unrepl-repl)
-
-(defface unrepl-repl-stdout-face
-  '((t (:inherit font-lock-string-face)))
-  "Face for STDOUT output in the REPL buffer."
-  :group 'unrepl-repl)
-
 (defvar-local unrepl-repl-input-start-mark (make-marker)
   "Point marker of current input start.")
 
@@ -98,13 +73,48 @@ prompt position in buffer.")
   when searching through history.  When nil, search is inactive.")
 
 
+;; Common Faces
+;; -------------------------------------------------------------------
+
+(defface unrepl-font-prompt-face
+  '((t (:inherit font-lock-keyword-face)))
+  "Face for the prompt in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-font-result-prompt-face
+  '((t (:inherit font-lock-function-name-face)))
+  "Face for the result prompt in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-font-exception-prompt-face
+  '((t (:inherit font-lock-warning-face)))
+  "Face for the result prompt in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-font-constant-face
+  '((t (:inherit font-lock-constant-face)))
+  "Face for constant things in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-font-stdout-face
+  '((t (:inherit font-lock-string-face)))
+  "Face for STDOUT output in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-font-tooltip-face
+  '((t (:underline t)
+       (:background "black")))
+  "Face for tooltips."
+  :group 'unrepl-repl)
+
+
 ;; Utilities
 ;; -------------------------------------------------------------------
 
 (defun unrepl-repl--newline-if-needed ()
   "Go to max point in buffer and make sure it is the beginning of a new line."
   (unless (bolp)
-    (insert (propertize "%\n" 'font-lock-face 'unrepl-repl-constant-face))))
+    (insert (propertize "%\n" 'font-lock-face 'unrepl-font-constant-face))))
 
 (defun unrepl-repl--newline-and-indent ()
   "Insert a new line, then indent."
@@ -388,29 +398,21 @@ Associates to it some control local variables:
        (insert))))
 
 
-(defun unrepl-repl--build-prompt (history-id namespace &optional result)
-  "Build a prompt for HISTORY-ID and NAMESPACE.
-RESULT is a boolean flag.  When not nil, the prompt is said to be a result
-prompt, which is use to show results of evaluations."
-  (let ((ns (if result
-                (make-string (length namespace) ?\s)
-              namespace))
-        (font-face (if result
-                       'unrepl-repl-result-face
-                     'unrepl-repl-prompt-face)))
-    (-> "[%s] %s=> "
-        (format history-id ns)
-        (propertize 'font-lock-face font-face
-                    'field 'unrepl-repl-prompt-field
-                    'intangible t
-                    'read-only t
-                    'rear-nonsticky '(field font-lock-face intangible read-only)))))
+(defun unrepl-repl--build-prompt (history-id namespace)
+  "Build a prompt for HISTORY-ID and NAMESPACE."
+  (-> "[%s] %s=> "
+      (format history-id namespace)
+      (propertize 'font-lock-face 'unrepl-font-prompt-face
+                  'field 'unrepl-repl-prompt-field
+                  'intangible t
+                  'read-only t
+                  'rear-nonsticky '(field font-lock-face intangible read-only))))
 
 
 (defun unrepl-repl--build-result-indicator (_history-id _namespace)
   "Return an indicator for results of evaluation."
   (propertize "> "
-              'font-lock-face 'unrepl-repl-result-prompt-face
+              'font-lock-face 'unrepl-font-result-prompt-face
               'field 'unrepl-repl-prompt-field
               'intangible t
               'read-only t
@@ -420,7 +422,7 @@ prompt, which is use to show results of evaluations."
 (defun unrepl-repl--build-exception-indicator (_history-id _namespace)
   "Return an indicator for exception."
   (propertize "~ "
-              'font-lock-face 'unrepl-repl-exception-prompt-face
+              'font-lock-face 'unrepl-font-exception-prompt-face
               'field 'unrepl-prompt-field
               'intangible t
               'read-only t
@@ -493,7 +495,7 @@ prompt."
    (insert
     (unrepl-repl--build-exception-indicator (1+ (length unrepl-repl-history))
                                             (unrepl-project-namespace project)))
-   (unrepl-propertize-region '(font-lock-face unrepl-repl-exception-prompt-face)
+   (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face)
      (unrepl-ast-unparse payload))
    (unrepl-repl--newline-and-scroll)))
 

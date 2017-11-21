@@ -194,7 +194,7 @@ The returned string will be automatically font-locked as clojure code."
   (if (eql (parseclj-ast-node-type string-node) :string)
       (-> string-node
           (parseclj-ast-value)
-          (propertize 'font-lock-face 'unrepl-repl-stdout-face)
+          (propertize 'font-lock-face 'unrepl-font-stdout-face)
           (insert))
     (unrepl-ast--string-tag-unparse string-node nil t)))
 

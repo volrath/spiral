@@ -48,6 +48,9 @@
   "Alist with (mode . buffer) pairs.")
 
 
+;; Random utilities
+;; -------------------------------------------------------------------
+
 (defun unrepl-conn-host-port (conn-id)
   "Return a tuple of host<string>, port<integer> from CONN-ID."
   (let* ((s-host-port (split-string (symbol-name conn-id) ":"))
