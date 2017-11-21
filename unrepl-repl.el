@@ -96,14 +96,23 @@ prompt position in buffer.")
   "Face for constant things in the REPL buffer."
   :group 'unrepl-repl)
 
+(defface unrepl-font-variable-name-face
+  '((t (:inherit font-lock-variable-name-face)))
+  "Face for constant things in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-font-class-name-face
+  '((t (:inherit font-lock-variable-name-face)))
+  "Face for constant things in the REPL buffer."
+  :group 'unrepl-repl)
+
 (defface unrepl-font-stdout-face
-  '((t (:inherit font-lock-string-face)))
+  '((t (:inherit font-lock-doc-face)))
   "Face for STDOUT output in the REPL buffer."
   :group 'unrepl-repl)
 
 (defface unrepl-font-tooltip-face
-  '((t (:underline t)
-       (:background "black")))
+  '((t . (:inherit button)))
   "Face for tooltips."
   :group 'unrepl-repl)
 
