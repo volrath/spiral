@@ -147,6 +147,7 @@ GROUP-ID is a number."
     (:eval (unrepl-loop--client-eval conn-id payload group-id))
     (:out (unrepl-loop--client-out conn-id payload group-id))
     (:exception (unrepl-loop--client-exception-handler conn-id payload group-id))
+    (:bye (unrepl-loop--bye-handler :client conn-id payload))
     (_ (when unrepl-debug
          (error (format "[client] Unrecognized message: %S" tag))))))
 
@@ -301,7 +302,8 @@ GROUP-ID is an integer as described by UNREPL's documentation."
     (:started-eval (unrepl-loop--aux-started-eval conn-id payload group-id))
     (:eval (unrepl-loop--aux-eval conn-id payload))
     (:out #'ignore)
-    (:exception #'ignore)))
+    (:exception #'ignore)
+    (:bye (unrepl-loop--bye-handler :aux conn-id payload))))
 
 
 (defun unrepl-loop--aux-prompt (conn-id)
@@ -359,15 +361,13 @@ TAG is the UNREPL tag for side-loading, expected to be either `:class' or
 `:resource'.
 PAYLOAD is a parseclj AST node of the message's payload, which should be a
 string."
-  (unless (memq tag '(:unrepl.jvm.side-loader/hello :class :resource))
-    (error (format "[side-loader] Unrecognized message: %S" tag)))
-  (unless (eql tag :unrepl.jvm.side-loader/hello)
-    (let* ((payload-val (parseclj-ast-value payload))
-           (file-path (if (eql tag :class)
-                          (format "%s.class"
-                                  (replace-regexp-in-string "\\." "/" payload-val))
-                        payload-val)))
-      (unrepl-loop--side-loader-resource conn-id file-path))))
+  (pcase tag
+    (:unrepl.jvm.side-loader/hello #'ignore)
+    (:resource (unrepl-loop--side-loader-resource-handler conn-id payload))
+    (:class (unrepl-loop--side-loader-class-handler conn-id payload))
+    (:bye (unrepl-loop--bye-handler :side-loader conn-id payload))
+    (_ (when unrepl-debug
+         (error (format "[side-loader] Unrecognized message %S" tag))))))
 
 
 (defun unrepl-loop--side-loader-find-file (file-path classpath)
@@ -405,8 +405,8 @@ Return the file contents encoded as a base64 string."
              (unrepl-loop--side-loader-find-file file-path (cdr classpath))))))))))
 
 
-(defun unrepl-loop--side-loader-resource (conn-id file-path)
-  "Find a FILE-PATH in CONN-ID's classpath.
+(defun unrepl-loop--side-loader-load (conn-id file-path)
+  "Find a FILE-PATH in classpath and load it through the side-loader conn.
 Classpath is taken from CONN-ID'S project.
 The actual file is then sent back to the side-loader as a base64 string.
 If FILE-PATH cannot be found, send nil to side-loader."
@@ -415,6 +415,36 @@ If FILE-PATH cannot be found, send nil to side-loader."
                        (unrepl-project-classpath))))
     (let ((base64-contents (unrepl-loop--side-loader-find-file file-path classpath)))
       (unrepl-side-loader-send (or base64-contents "nil")))))
+
+
+(defun unrepl-loop--side-loader-resource-handler (conn-id payload)
+  "Handle a `:resource' message from CONN-ID's side-loader.
+PAYLOAD is a string pointing to the file-path, as an AST node."
+  (unrepl-loop--side-loader-load conn-id (parseclj-ast-value payload)))
+
+
+(defun unrepl-loop--side-loader-class-handler (conn-id payload)
+  "Handle a `:class' message from CONN-ID's side-loader.
+PAYLOAD is a string pointing to the file-path, as an AST node."
+  (let* ((payload-val (parseclj-ast-value payload))
+         (file-path (format "%s.class"
+                            (replace-regexp-in-string "\\." "/" payload-val))))
+    (unrepl-loop--side-loader-load conn-id file-path)))
+
+
+
+;; Generic handlers
+;; -------------------------------------------------------------------
+
+(defun unrepl-loop--bye-handler (type conn-id payload)
+  "Handle UNREPL `:bye' message for TYPE connection to CONN-ID.
+PAYLOAD is the `:bye' message payload as an AST node.
+Announce disconnection to the user and quit the project."
+  (let ((msg (format "UNREPL %s connection disconnected, shutting down." type))
+        (payload (unrepl-ast-unparse-to-string payload)))
+    (unrepl-project-quit conn-id)
+    (error (concat msg "%s") payload)))
+
 
 (provide 'unrepl-loop)
 
