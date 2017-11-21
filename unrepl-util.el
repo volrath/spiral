@@ -34,6 +34,7 @@
 (require 'ansi-color)
 (require 'clojure-mode)
 (require 'dash)
+(require 'find-func)
 (require 'parseclj)
 (require 'treepy)
 
@@ -125,23 +126,40 @@ BORROWED FROM CIDER."
   nil)
 
 
+(defun unrepl-make-blob ()
+  "Generate a new UNREPL blob, an place it in `unrepl--find-default-blob'."
+  (interactive)
+  (let* ((unrepl-file (cdr (find-function-library 'unrepl-connect)))
+         (unrepl-dir (file-name-directory unrepl-file))
+         (default-directory (expand-file-name "unrepl" unrepl-dir)))
+    (message "... generating new blob.clj")
+    (shell-command-to-string "lein unrepl-make-blob")
+    (copy-file (expand-file-name "resources/unrepl/blob.clj")
+               (expand-file-name "../blob.clj")
+               t)
+    (message "done.")))
+
+
 (comment  ;; For debugging purposes.
- (defun unrepl-retry ()
+ (defun unrepl-debug-retry ()
    "Reload everything and connect again."
    (interactive)
-   (let ((base-dir (file-name-directory buffer-file-name)))
-     (add-to-list 'load-path base-dir)
-     (add-to-list 'load-path (expand-file-name "parseclj" base-dir))
-     (load (expand-file-name "unrepl-util.el" base-dir))
-     (load (expand-file-name "unrepl-ast.el" base-dir))
-     (load (expand-file-name "unrepl-project.el" base-dir))
-     (load (expand-file-name "unrepl-mode.el" base-dir))
-     (load (expand-file-name "unrepl-loop.el" base-dir))
-     (load (expand-file-name "unrepl-repl.el" base-dir))
-     (load (expand-file-name "unrepl.el" base-dir)))
+   (let* ((unrepl-file (cdr (find-function-library 'unrepl-connect)))
+          (unrepl-dir (file-name-directory unrepl-file)))
+     (add-to-list 'load-path unrepl-dir)
+     (add-to-list 'load-path (expand-file-name "parseclj" unrepl-dir))
+     (load (expand-file-name "unrepl-util.el" unrepl-dir))
+     (load (expand-file-name "unrepl-ast.el" unrepl-dir))
+     (load (expand-file-name "unrepl-project.el" unrepl-dir))
+     (load (expand-file-name "unrepl-mode.el" unrepl-dir))
+     (load (expand-file-name "unrepl-loop.el" unrepl-dir))
+     (load (expand-file-name "unrepl-repl.el" unrepl-dir))
+     (load (expand-file-name "unrepl.el" unrepl-dir)))
    (unrepl-project-quit '127.0.0.1:5555)
    (unrepl-connect-to "localhost" 5555))
- (global-set-key (kbd "C-c C-y") #'unrepl-retry)
+
+ (global-set-key (kbd "C-c C-u r") #'unrepl-debug-retry)
+ (global-set-key (kbd "C-c C-u m") #'unrepl-make-blob)
  )
 
 
