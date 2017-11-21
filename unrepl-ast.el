@@ -65,7 +65,10 @@ Value is returned as an AST node."
   "Label used to represent elisions.")
 
 (defvar unrepl-ast-tag-readers
-  '((unrepl/string . unrepl-ast--string-tag-unparse))
+  '((unrepl/object . unrepl-ast--object-tag-unparse)
+    (unrepl/string . unrepl-ast--string-tag-unparse)
+    (unrepl.java/class . unrepl-ast--class-tag-unparse)
+    (clojure/var . unrepl-ast--var-tag-unparse))
   "A set of tag readers for common UNREPL tagged literals.")
 
 
@@ -74,6 +77,11 @@ Value is returned as an AST node."
   (-> elision-tag
       (parseclj-ast-children)
       (car)))
+
+
+(defun unrepl-ast--tag-child (tag-node)
+  "Return the child node of TAG-NODE."
+  (-> tag-node (parseclj-ast-children) (car)))
 
 
 (defun unrepl-ast--string-tag-unparse (string-tag-node &optional disallow-ui stdout-str)
@@ -88,8 +96,7 @@ ommited."
                         #'unrepl-ast-unparse-stdout-string
                       #'unrepl-ast-unparse))
          (string-tag-vector-elems (-> string-tag-node
-                                      (parseclj-ast-children)
-                                      (car)
+                                      (unrepl-ast--tag-child)
                                       (parseclj-ast-children)))
          (string-node (car string-tag-vector-elems))
          (elision-actions (unrepl-ast--elision-tag-map
@@ -117,12 +124,63 @@ ommited."
                        'mouse-action button-action)))))
 
 
-(defun unrepl-ast--generic-tag-unparse (node)
-  "Insert a string representation of the given AST tag NODE into buffer."
-  (insert "#")
-  (insert (symbol-name (parseclj-ast-node-attr node :tag)))
-  (insert " ")
-  (unrepl-ast-unparse (car (parseclj-ast-children node))))
+(defun unrepl-ast--object-tag-unparse (object-tag-node)
+  "Insert a string representation of OBJECT-TAG-NODE.
+OBJECT-TAG-NODE's child is a vector that has 4 elements, these are:
+- Class name, as a #unrepl.java/class tagged literal.
+- Identity hash code, as a string node.
+- Object representation, as a symbol node, a string node, or another tagged
+  literal.
+- A map node with extra information.
+
+By default, this function will create tooltips for the object
+representation with additional information.  DISABLE-UI overrides this
+behavior."
+  (let* ((obj-attrs (parseclj-ast-children (unrepl-ast--tag-child object-tag-node)))
+         (class-name (unrepl-ast-unparse-to-string (car obj-attrs)))
+         (id-hash (unrepl-ast-unparse-to-string (cadr obj-attrs)))
+         (object-rep-node (cl-caddr obj-attrs))
+         (create-object-repr (lambda (&optional obj-rep)
+                               (format "#object[%s %s%s]"
+                                       class-name id-hash
+                                       (if obj-rep
+                                           (format " %s" obj-rep)
+                                         "")))))
+    (if (eql (parseclj-ast-node-type object-rep-node) :symbol)
+        ;; This representation has been "demunged."
+        (progn
+          (unrepl-ast-unparse object-rep-node)
+          (insert " ["
+                  (propertize id-hash
+                              'help-echo (funcall create-object-repr))
+                  "]"))
+      ;; Regular object representation
+      (insert
+       (funcall create-object-repr (unrepl-ast-unparse-to-string object-rep-node))))))
+
+
+(defun unrepl-ast--var-tag-unparse (var-tag-node)
+  "Insert a string representation of VAR-TAG-NODE."
+  (unrepl-ast--generic-tag-child-unparse var-tag-node))
+
+
+(defun unrepl-ast--class-tag-unparse (class-tag-node)
+  "Insert a string representation of a java class CLASS-TAG-NODE."
+  (unrepl-propertize-region '(font-lock-face unrepl-font-constant-face)
+    (unrepl-ast--generic-tag-child-unparse class-tag-node)))
+
+
+(defun unrepl-ast--generic-tag-child-unparse (tag-node)
+  "Skip TAG-NODE's name and unparse its child."
+  (-> tag-node
+      (unrepl-ast--tag-child)
+      (unrepl-ast-unparse)))
+
+
+(defun unrepl-ast--generic-tag-unparse (tag-node)
+  "Insert a string representation of the given AST TAG-NODE into buffer."
+  (insert "#" (symbol-name (parseclj-ast-node-attr tag-node :tag)) " ")
+  (unrepl-ast--generic-tag-child-unparse tag-node))
 
 
 (defun unrepl-ast--unparse-collection (node)
