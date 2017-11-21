@@ -119,9 +119,10 @@ ommited."
                                                        (funcall insert-fn eval-payload)
                                                        (goto-char bstart-marker)
                                                        (unless stdout-str (delete-char 1))))))))))
-        (insert-button unrepl-elision-label
-                       'action button-action
-                       'mouse-action button-action)))))
+        (insert-text-button unrepl-elision-label
+                            'follow-link t
+                            'action button-action
+                            'mouse-action button-action)))))
 
 
 (defun unrepl-ast--object-tag-unparse (object-tag-node)
