@@ -35,6 +35,7 @@
 (require 'dash)
 (require 'map)
 
+(require 'unrepl-ast)
 (require 'unrepl-util)
 
 
@@ -384,6 +385,17 @@ KWARGS is expected to be pairs of keywords and processes."
             (map-put conn-pool (car pair) (cadr pair)))
           (-partition 2 kwargs))
     (unrepl-project-set-in conn-id :conn-pool conn-pool)))
+
+
+(defun unrepl-project-actions (project)
+  "Return all `:actions' in PROJECT."
+  (map-elt project :actions))
+
+
+(defun unrepl-project-actions-get (project action)
+  "Return ACTION in PROJECT's `:actions'.
+ACTION should be a key in the UNREPL session-actions map."
+  (unrepl-ast-map-elt (unrepl-project-actions project) action))
 
 
 (defun unrepl-projects-add (proj)
