@@ -309,8 +309,7 @@ children (the actual param name) and compares against the PARAMS alist to
 see if there's a valid replacement for it."
   (lambda (param-tag-node)
     (let* ((param-keyword (-> param-tag-node
-                              (parseclj-ast-children)
-                              (car)
+                              (unrepl-ast--tag-child)
                               (parseclj-ast-value)))
            (replacement (seq-find (lambda (p-kv)
                                     (eql (car p-kv) param-keyword))
@@ -322,7 +321,7 @@ see if there's a valid replacement for it."
           ;; will be later passed to `parseclj-unparse-clojure-to-string', which
           ;; only knows how to traverse/convert AST nodes into strings.
           (error "Not implemented! check code for details")
-        param-tag-node))))
+        (error "Parameter %S not set in %S" param-keyword params)))))
 
 
 (defun unrepl-ast--replace-param-tags (root params)
@@ -343,8 +342,9 @@ Return ROOT with all available param tags replaced."
         (treepy-root loc)))))
 
 
-(defun unrepl-command-template (template-ast &rest params)
-  "Process TEMPLATE-AST with PARAMS and return a string."
+(defun unrepl-command-template (template-ast &optional params)
+  "Process TEMPLATE-AST with PARAMS and return a string.
+PARAMS should be an alist of tagged literal symbols and readers."
   (let ((cmd (unrepl-ast--replace-param-tags template-ast params)))
     (format "%s\n"
             (parseclj-unparse-clojure-to-string cmd))))
