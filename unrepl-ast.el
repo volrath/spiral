@@ -65,10 +65,10 @@ Value is returned as an AST node."
   "Label used to represent elisions.")
 
 (defvar unrepl-ast-tag-readers
-  '((unrepl/object . unrepl-ast--object-tag-unparse)
+  '((clojure/var . unrepl-ast--var-tag-unparse)
+    (unrepl/object . unrepl-ast--object-tag-unparse)
     (unrepl/string . unrepl-ast--string-tag-unparse)
-    (unrepl.java/class . unrepl-ast--class-tag-unparse)
-    (clojure/var . unrepl-ast--var-tag-unparse))
+    (unrepl.java/class . unrepl-ast--class-tag-unparse))
   "A set of tag readers for common UNREPL tagged literals.")
 
 
@@ -82,6 +82,37 @@ Value is returned as an AST node."
 (defun unrepl-ast--tag-child (tag-node)
   "Return the child node of TAG-NODE."
   (-> tag-node (parseclj-ast-children) (car)))
+
+
+(defun unrepl-ast--insert-elision-button (get-more-action eval-callback kill-from &optional kill-to)
+  "Insert an elision button to send GET-MORE-ACTION to UNREPL through `:aux'.
+A callback function will be created for said `:aux' evaluation, and it will
+internally call EVAL-CALLBACK with the evaluation payload.  This callback
+will also automatically kill the region where the button is, which should
+be defined by KILL-FROM and KILL-TO.  KILL-TO is the end of the new created
+button by default.
+
+EVAL-CALLBACK can safely assume that the cursor will be at KILL-FROM, and
+it is responsible to decide where to leave the cursor when the contents of
+the evaluation payload have been inserted."
+  (let* ((kill-from-marker (make-marker))
+         (kill-to-marker (make-marker))
+         (eval-callback (lambda (eval-payload)
+                          (with-current-buffer (marker-buffer kill-from-marker)
+                            ;; Kill the button region
+                            (goto-char kill-from-marker)
+                            (kill-region kill-from-marker kill-to-marker)
+                            ;; Run the actual callback
+                            (funcall eval-callback eval-payload))))
+         (button-action (lambda (_button)
+                          (unrepl-aux-send get-more-action eval-callback))))
+    (set-marker kill-from-marker kill-from)
+    (insert " ")
+    (insert-text-button unrepl-elision-label
+                        'follow-link t
+                        'action button-action
+                        'help-echo "mouse-1, RET: Expand")
+    (set-marker kill-to-marker (or kill-to (point)))))
 
 
 (defun unrepl-ast--object-tag-unparse (object-tag-node)
@@ -121,10 +152,8 @@ behavior."
        (funcall create-object-repr (unrepl-ast-unparse-to-string object-rep-node))))))
 
 
-(defun unrepl-ast--string-tag-unparse (string-tag-node &optional disallow-ui stdout-str)
+(defun unrepl-ast--string-tag-unparse (string-tag-node &optional stdout-str)
   "Insert a string representation of STRING-TAG-NODE.
-By default, elisions will be represented with buttons from the `button'
-package.  If DISALLOW-UI is non-nil, a simple '...' will be used instead.
 STDOUT-STR is a boolean value that indicates whether or not the
 STRING-TAG-NODE represents a stdout (`:out') message from UNREPL.  In case
 that STDOUT-STR is non-nil, surronding quotes for this string will be
@@ -138,28 +167,19 @@ ommited."
          (string-node (car string-tag-vector-elems))
          (elision-actions (unrepl-ast--elision-tag-map
                            (cadr string-tag-vector-elems))))
+    ;; insert string
     (funcall insert-fn string-node)
-    (insert " ")
-    (if disallow-ui
-        (insert unrepl-elision-label)
-      (let* ((elision-get-templ (unrepl-ast-map-elt elision-actions :get))
-             (button-action (lambda (button)
-                              (let ((bstart-marker (make-marker)))
-                                (set-marker bstart-marker (button-start button))
-                                (unrepl-aux-send (unrepl-command-template elision-get-templ)
-                                                 (lambda (eval-payload)
-                                                   (with-current-buffer (marker-buffer bstart-marker)
-                                                     (save-excursion
-                                                       (goto-char bstart-marker)
-                                                       (backward-char (if stdout-str 1 2))
-                                                       (kill-line)
-                                                       (funcall insert-fn eval-payload)
-                                                       (goto-char bstart-marker)
-                                                       (unless stdout-str (delete-char 1))))))))))
-        (insert-text-button unrepl-elision-label
-                            'follow-link t
-                            'action button-action
-                            'mouse-action button-action)))))
+    ;; and then elision button
+    (unrepl-ast--insert-elision-button
+     (-> elision-actions
+         (unrepl-ast-map-elt :get)
+         (unrepl-command-template))
+     (lambda (eval-payload)
+       (let ((p (point)))
+         (funcall insert-fn eval-payload)
+         (unless stdout-str  ;; Delete the opening quote
+           (delete-region p (1+ p)))))
+     (- (point) (if stdout-str 0 1)))))
 
 
 (defun unrepl-ast--var-tag-unparse (var-tag-node)
@@ -257,7 +277,7 @@ The returned string will be automatically font-locked as clojure code."
           (parseclj-ast-value)
           (propertize 'font-lock-face 'unrepl-font-stdout-face)
           (insert))
-    (unrepl-ast--string-tag-unparse string-node nil t)))
+    (unrepl-ast--string-tag-unparse string-node t)))
 
 
 ;; Template Management
