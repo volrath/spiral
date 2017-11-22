@@ -56,6 +56,9 @@ When nil, the REPL buffer will be created but not displayed."
   :type 'boolean
   :group 'unrepl-repl)
 
+(defvar-local unrepl-repl-prompt-start-mark (make-marker)
+  "Point marker of current prompt start.")
+
 (defvar-local unrepl-repl-input-start-mark (make-marker)
   "Point marker of current input start.")
 
@@ -287,8 +290,6 @@ Most of the behavior is BORROWED FROM CIDER."
    ;;  (unrepl-client-send start (point)))
    ((unrepl-repl--input-complete-p (point-max))
     (goto-char (point-max))
-    (add-text-properties unrepl-repl-input-start-mark (point)
-                         '(read-only t rear-nonsticky (read-only)))
     (-> (unrepl-repl--input-str)
         (unrepl-client-send (lambda (result-payload)
                               (unrepl-repl-insert-evaluation unrepl-conn-id
@@ -409,33 +410,17 @@ Associates to it some control local variables:
 
 (defun unrepl-repl--build-prompt (history-id namespace)
   "Build a prompt for HISTORY-ID and NAMESPACE."
-  (-> "[%s] %s=> "
-      (format history-id namespace)
-      (propertize 'font-lock-face 'unrepl-font-prompt-face
-                  'field 'unrepl-repl-prompt-field
-                  'intangible t
-                  'read-only t
-                  'rear-nonsticky '(field font-lock-face intangible read-only))))
+  (format "[%s] %s=> " history-id namespace))
 
 
 (defun unrepl-repl--build-result-indicator (_history-id _namespace)
   "Return an indicator for results of evaluation."
-  (propertize "> "
-              'font-lock-face 'unrepl-font-result-prompt-face
-              'field 'unrepl-repl-prompt-field
-              'intangible t
-              'read-only t
-              'rear-nonsticky '(field font-lock-face intangible read-only)))
+  "> ")
 
 
 (defun unrepl-repl--build-exception-indicator (_history-id _namespace)
   "Return an indicator for exception."
-  (propertize "~ "
-              'font-lock-face 'unrepl-font-exception-prompt-face
-              'field 'unrepl-prompt-field
-              'intangible t
-              'read-only t
-              'rear-nonsticky '(field font-lock-face intangible read-only)))
+  "~ ")
 
 
 (defun unrepl-repl-prompt (conn-id)
@@ -443,13 +428,26 @@ Associates to it some control local variables:
   (with-current-repl
    (goto-char (point-max))
    (unrepl-repl--newline-if-needed)
+   ;; Remove 'field property from previous prompt
+   (when (marker-position unrepl-repl-prompt-start-mark)
+     (let ((inhibit-read-only t))
+       (remove-text-properties unrepl-repl-prompt-start-mark
+                               unrepl-repl-input-start-mark
+                               '(field nil))))
+   ;; The new prompt starts here, so we mark it.
+   (set-marker unrepl-repl-prompt-start-mark (point))
    ;; Tell previous history entry that the new prompt starts here
    (when unrepl-repl-history
      (unrepl-repl--history-set-prompt-marker (length unrepl-repl-history)))
    ;; Insert prompt
-   (insert
-    (unrepl-repl--build-prompt (1+ (length unrepl-repl-history))
-                               (unrepl-project-namespace project)))
+   (unrepl-propertize-region '(font-lock-face unrepl-font-prompt-face
+                                              field unrepl-repl-prompt-field
+                                              intangible t
+                                              read-only t
+                                              rear-nonsticky (field font-lock-face intangible read-only))
+     (insert
+      (unrepl-repl--build-prompt (1+ (length unrepl-repl-history))
+                                 (unrepl-project-namespace project))))
    ;; Mark current input start
    (set-marker unrepl-repl-input-start-mark (point))
    ;; Reset the `unrepl-repl-inputting' variable.
@@ -461,9 +459,13 @@ Associates to it some control local variables:
   (with-current-repl
    (goto-char (point-max))
    (unrepl-repl--newline-if-needed)
-   (insert
-    (unrepl-repl--build-result-indicator (1+ (length unrepl-repl-history))
-                                         (unrepl-project-namespace project)))
+   (unrepl-propertize-region '(font-lock-face unrepl-font-result-prompt-face
+                                              intangible t
+                                              read-only t
+                                              rear-nonsticky (font-lock-face intangible read-only))
+     (insert
+      (unrepl-repl--build-result-indicator (1+ (length unrepl-repl-history))
+                                           (unrepl-project-namespace project))))
    (unrepl-ast-unparse eval-payload)
    (unrepl-repl--newline-and-scroll)))
 
@@ -501,9 +503,13 @@ prompt."
   (with-current-repl
    (goto-char (point-max))
    (unrepl-repl--newline-if-needed)
-   (insert
-    (unrepl-repl--build-exception-indicator (1+ (length unrepl-repl-history))
-                                            (unrepl-project-namespace project)))
+   (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face
+                                              intangible t
+                                              read-only t
+                                              rear-nonsticky (font-lock-face intangible read-only))
+     (insert
+      (unrepl-repl--build-exception-indicator (1+ (length unrepl-repl-history))
+                                              (unrepl-project-namespace project))))
    (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face)
      (unrepl-ast-unparse payload))
    (unrepl-repl--newline-and-scroll)))
