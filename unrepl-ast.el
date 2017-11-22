@@ -116,14 +116,17 @@ the opening and closing tokens for the retrieved
 collection (i.e. opening/closing parens for lists, opening/closing brackets
 for vectors etc.)"
   (let ((elision-actions (unrepl-ast--tag-child elision-tag-node)))
-    (when (eql (parseclj-ast-node-type elision-actions) :map)
-      (let ((get-more-action (-> elision-actions
-                                 (unrepl-ast-map-elt :get)
-                                 (unrepl-command-template))))
-        (unrepl-ast--insert-elision-button
-         get-more-action
-         (lambda (eval-payload)
-           (unrepl-ast-unparse eval-payload (not with-delimiters))))))))
+    (pcase (parseclj-ast-node-type elision-actions)
+      (:nil (delete-char -1))  ;; delete the trailing space leading to this node.
+      (:map (let ((get-more-action (-> elision-actions
+                                       (unrepl-ast-map-elt :get)
+                                       (unrepl-command-template))))
+              (unrepl-ast--insert-elision-button
+               get-more-action
+               (lambda (eval-payload)
+                 (unrepl-ast-unparse eval-payload (not with-delimiters))))))
+      (_ (when unrepl-debug
+           (error "Unrecognized elision tagged form %S" elision-tag-node))))))
 
 
 (defun unrepl-ast--object-tag-unparse (object-tag-node)
