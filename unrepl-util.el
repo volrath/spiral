@@ -147,8 +147,7 @@ BORROWED FROM CIDER."
  (defun unrepl-debug-retry ()
    "Reload everything and connect again."
    (interactive)
-   (let* ((unrepl-file (cdr (find-function-library 'unrepl-connect)))
-          (unrepl-dir (file-name-directory unrepl-file)))
+   (let ((unrepl-dir (file-name-directory buffer-file-name)))
      (add-to-list 'load-path unrepl-dir)
      (add-to-list 'load-path (expand-file-name "parseclj" unrepl-dir))
      (load (expand-file-name "unrepl-util.el" unrepl-dir))
