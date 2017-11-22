@@ -66,17 +66,11 @@ Value is returned as an AST node."
 
 (defvar unrepl-ast-tag-readers
   '((clojure/var . unrepl-ast--var-tag-unparse)
+    (unrepl/... . unrepl-ast--elision-tag-unparse)
     (unrepl/object . unrepl-ast--object-tag-unparse)
     (unrepl/string . unrepl-ast--string-tag-unparse)
     (unrepl.java/class . unrepl-ast--class-tag-unparse))
   "A set of tag readers for common UNREPL tagged literals.")
-
-
-(defun unrepl-ast--elision-tag-map (elision-tag)
-  "Return template map associated with ELISION-TAG."
-  (-> elision-tag
-      (parseclj-ast-children)
-      (car)))
 
 
 (defun unrepl-ast--tag-child (tag-node)
@@ -84,14 +78,14 @@ Value is returned as an AST node."
   (-> tag-node (parseclj-ast-children) (car)))
 
 
-(defun unrepl-ast--insert-elision-button (get-more-action eval-callback kill-from &optional kill-to)
+(defun unrepl-ast--insert-elision-button (get-more-action eval-callback &optional kill-from kill-to)
   "Insert an elision button to send GET-MORE-ACTION to UNREPL through `:aux'.
 A callback function will be created for said `:aux' evaluation, and it will
 internally call EVAL-CALLBACK with the evaluation payload.  This callback
 will also automatically kill the region where the button is, which should
-be defined by KILL-FROM and KILL-TO.  KILL-TO is the end of the new created
-button by default.
-
+be defined by KILL-FROM and KILL-TO.
+KILL-FROM default value is =(point)=.  KILL-TO is the end of the new
+created button.
 EVAL-CALLBACK can safely assume that the cursor will be at KILL-FROM, and
 it is responsible to decide where to leave the cursor when the contents of
 the evaluation payload have been inserted."
@@ -106,13 +100,30 @@ the evaluation payload have been inserted."
                             (funcall eval-callback eval-payload))))
          (button-action (lambda (_button)
                           (unrepl-aux-send get-more-action eval-callback))))
-    (set-marker kill-from-marker kill-from)
+    (set-marker kill-from-marker (or kill-from (point)))
     (insert " ")
     (insert-text-button unrepl-elision-label
                         'follow-link t
                         'action button-action
                         'help-echo "mouse-1, RET: Expand")
     (set-marker kill-to-marker (or kill-to (point)))))
+
+
+(defun unrepl-ast--elision-tag-unparse (elision-tag-node &optional with-delimiters)
+  "Insert a generic elision button for ELISION-TAG-NODE.
+WITH-DELIMITERS is a boolean value that indicate whether to keep or remove
+the opening and closing tokens for the retrieved
+collection (i.e. opening/closing parens for lists, opening/closing brackets
+for vectors etc.)"
+  (let ((elision-actions (unrepl-ast--tag-child elision-tag-node)))
+    (when (eql (parseclj-ast-node-type elision-actions) :map)
+      (let ((get-more-action (-> elision-actions
+                                 (unrepl-ast-map-elt :get)
+                                 (unrepl-command-template))))
+        (unrepl-ast--insert-elision-button
+         get-more-action
+         (lambda (eval-payload)
+           (unrepl-ast-unparse eval-payload (not with-delimiters))))))))
 
 
 (defun unrepl-ast--object-tag-unparse (object-tag-node)
@@ -165,8 +176,7 @@ ommited."
                                       (unrepl-ast--tag-child)
                                       (parseclj-ast-children)))
          (string-node (car string-tag-vector-elems))
-         (elision-actions (unrepl-ast--elision-tag-map
-                           (cadr string-tag-vector-elems))))
+         (elision-actions (unrepl-ast--tag-child (cadr string-tag-vector-elems))))
     ;; insert string
     (funcall insert-fn string-node)
     ;; and then elision button
@@ -179,7 +189,7 @@ ommited."
          (funcall insert-fn eval-payload)
          (unless stdout-str  ;; Delete the opening quote
            (delete-region p (1+ p)))))
-     (- (point) (if stdout-str 0 1)))))
+     (unless stdout-str (1- (point))))))
 
 
 (defun unrepl-ast--var-tag-unparse (var-tag-node)
@@ -206,8 +216,10 @@ ommited."
   (unrepl-ast--generic-tag-child-unparse tag-node))
 
 
-(defun unrepl-ast--unparse-collection (node)
-  "Insert a string representation of the given AST branch NODE into buffer."
+(defun unrepl-ast--unparse-collection (node no-delimiters)
+  "Insert a string representation of the given AST branch NODE into buffer.
+When NO-DELIMITERS is non-nil, avoid inserting delimiters for this
+collection."
   (let* ((token-type (parseclj-ast-node-type node))
          (delimiters (cl-case token-type
                        (:root (cons "" ""))
@@ -215,7 +227,7 @@ ommited."
                        (:vector (cons "[" "]"))
                        (:set (cons "#{" "}"))
                        (:map (cons "{" "}")))))
-    (insert (car delimiters))
+    (unless no-delimiters (insert (car delimiters)))
     (let ((nodes (parseclj-ast-children node)))
       (when-let (node (car nodes))
         (unrepl-ast-unparse node))
@@ -223,7 +235,7 @@ ommited."
         (when (null (parseclj-ast-node-attr node :lexical-preservation))  ;; hack, read below.
           (insert " "))
         (unrepl-ast-unparse child)))
-    (insert (cdr delimiters))))
+    (unless no-delimiters (insert (cdr delimiters)))))
 ;; Here we're basically accessing parseclj's internal API to check if a node has
 ;; lexical preservation.  It would be better if parseclj would expose a function
 ;; for this, something like `parseclj-ast-node-lexical-preservation-p'.  Another
@@ -232,12 +244,16 @@ ommited."
 ;; scope.
 
 
-(defun unrepl-ast-unparse (ast-node &optional raise-on-missing-tags)
+(defun unrepl-ast-unparse (ast-node &optional no-delimiters raise-on-missing-tags)
   "Unparse a parseclj AST-NODE into a human-friendly representation.
 For the most parts, this function behaves exactly as
 `parseclj-unparse-clojure-to-string', but it will also consume all tagged
 literals in AST-NODE using `unrepl-ast-tag-readers' to generate a elisp
 code for better UI.
+NO-DELIMITERS is a boolean value that indicate whether to delete/remove
+the opening and closing tokens for the retrieved
+collection (i.e. opening/closing parens for lists, opening/closing brackets
+for vectors etc.)
 If AST-NODE contains a tagged literal not represented in TAG-READERS-MAP,
 an error will be raised.  RAISE-ON-MISSING-TAGS overrides this behavior.
 Return a string that may or may not be propertized, and may or may not
@@ -252,7 +268,7 @@ include other UI elements."
             (if raise-on-missing-tags
                 (error "Missing tag %s" tag-symbol)
               (unrepl-ast--generic-tag-unparse ast-node))))
-      (unrepl-ast--unparse-collection ast-node))))
+      (unrepl-ast--unparse-collection ast-node no-delimiters))))
 
 
 (defun unrepl-ast-unparse-to-string (ast-node &optional raise-on-missing-tags)
