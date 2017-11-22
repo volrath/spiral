@@ -95,7 +95,7 @@ the evaluation payload have been inserted."
                           (with-current-buffer (marker-buffer kill-from-marker)
                             ;; Kill the button region
                             (goto-char kill-from-marker)
-                            (kill-region kill-from-marker kill-to-marker)
+                            (delete-region kill-from-marker kill-to-marker)
                             ;; Run the actual callback
                             (funcall eval-callback eval-payload))))
          (button-action (lambda (_button)
