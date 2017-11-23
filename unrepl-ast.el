@@ -321,7 +321,14 @@ see if there's a valid replacement for it."
           ;; seq, or whatever.  This should be turned into a node, because it
           ;; will be later passed to `parseclj-unparse-clojure-to-string', which
           ;; only knows how to traverse/convert AST nodes into strings.
-          (error "Not implemented! check code for details")
+          (let* ((replacement (cdr replacement))
+                 (replacement-str (if (symbolp replacement)
+                                      (format "%s" replacement)
+                                    (format "%S" replacement))))
+            (-> replacement-str
+                (parseclj-parse-clojure)
+                (parseclj-ast-children)
+                (car)))
         (error "Parameter %S not set in %S" param-keyword params)))))
 
 
