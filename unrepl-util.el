@@ -137,10 +137,7 @@ BORROWED FROM CIDER."
          (unrepl-dir (file-name-directory unrepl-file))
          (default-directory (expand-file-name "unrepl" unrepl-dir)))
     (message "... generating new blob.clj")
-    (shell-command-to-string "lein unrepl-make-blob")
-    (copy-file (expand-file-name "resources/unrepl/blob.clj")
-               (expand-file-name "../blob.clj")
-               t)
+    (shell-command-to-string "lein unrepl-make-blob ../blob.clj ../session-actions.edn")
     (message "done.")))
 
 
