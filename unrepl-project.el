@@ -198,6 +198,14 @@ KWARGS are the key-values to update the pending evaluation entry."
         (map-elt :eval-callback))))
 
 
+(defun unrepl-pending-eval-stdout-callback (type conn-id)
+  "Return the `:stdout-callback' from the top of the CONN-ID TYPE's pending-evals queue."
+  (with-process-buffer conn-id type
+    (-> unrepl-pending-evals
+        (car)
+        (map-elt :stdout-callback))))
+
+
 (defun unrepl-pending-eval-actions (type conn-id)
   "Return `:actions' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type

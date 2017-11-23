@@ -278,15 +278,18 @@ GROUP-ID is an integer as described by UNREPL'S documentation."
 ;; Aux Connection Process
 ;; =============================================================================
 
-(defun unrepl-aux-send (str &optional eval-callback)
+(defun unrepl-aux-send (str &optional eval-callback stdout-callback)
   "Send input STR to UNREPL aux connection.
 EVAL-CALLBACK is a function that takes the evaluation payload and displays
 it in any given way.
+STDOUT-CALLBACK is a function that takes any possible output payload and
+handles it in any given way.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
   (prog1 (unrepl-loop--send unrepl-conn-id :aux str)
     (unrepl-pending-eval-add :aux unrepl-conn-id
                              :status :sent
-                             :eval-callback eval-callback)))
+                             :eval-callback eval-callback
+                             :stdout-callback stdout-callback)))
 
 
 (defun unrepl-loop-aux-handler (conn-id tag payload &optional group-id)
@@ -302,7 +305,7 @@ GROUP-ID is an integer as described by UNREPL's documentation."
     (:read (unrepl-loop--aux-read conn-id group-id))
     (:started-eval (unrepl-loop--aux-started-eval conn-id payload group-id))
     (:eval (unrepl-loop--aux-eval conn-id payload))
-    (:out #'ignore)
+    (:out (unrepl-loop--aux-out conn-id payload group-id))
     (:exception #'ignore)
     (:bye (unrepl-loop--bye-handler :aux conn-id payload))))
 
@@ -342,6 +345,20 @@ This function will see if there's an evaluation callback function, and it
 will use it to handle the PAYLOAD.  If not, it will just ignore it."
   (when-let (eval-callback (unrepl-pending-eval-callback :aux conn-id))
     (funcall eval-callback payload)))
+
+
+(defun unrepl-loop--aux-out (conn-id payload group-id)
+  "Handle a `:out' message transmitted through CONN-ID.
+PAYLOAD is the UNREPL payload for `:out' as an AST node.
+GROUP-ID is an integer as described by UNREPL's documentation.
+
+This function will only work if GROUP-ID matches the current pending
+evaluation's, or in other words, if the output is not async.  It will look
+for a STDOUT callback function in the pending evaluation's data and call it
+with PAYLOAD and GROUP-ID, if any."
+  (when (eql (unrepl-pending-eval-group-id :aux conn-id) group-id)
+    (when-let (out-callback (unrepl-pending-eval-stdout-callback :aux conn-id))
+      (funcall out-callback payload group-id))))
 
 
 
