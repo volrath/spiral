@@ -33,6 +33,7 @@
 
 (require 'dash)
 (require 'parseclj)
+(require 'subr-x)
 (require 'treepy)
 
 (require 'unrepl-util)

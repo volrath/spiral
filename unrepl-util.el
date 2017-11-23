@@ -36,6 +36,7 @@
 (require 'dash)
 (require 'find-func)
 (require 'parseclj)
+(require 'subr-x)
 (require 'treepy)
 
 

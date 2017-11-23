@@ -33,6 +33,7 @@
 
 (require 'arc-mode)
 (require 'parseclj)
+(require 'subr-x)
 (require 'treepy)
 
 (require 'unrepl-ast)
