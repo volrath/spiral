@@ -42,11 +42,20 @@
 ;; Utilities
 ;; -------------------------------------------------------------------
 
+(defun unrepl-ast--make-node (node children)
+  "Helper parseclj function to create nodes 'a la treepy'.
+NODE is an AST node.  CHILDREN is a list of AST nodes."
+  (mapcar (lambda (pair)
+            (if (eql (car pair) :children)
+                (cons :children children)
+              pair))
+          node))
+
 (defun unrepl-ast-zip (ast-node)
   "Create a treepy zipper for AST-NODE."
   (treepy-zipper #'parseclj-ast-branch-node-p
                  #'parseclj-ast-children
-                 #'parseclj-ast-node
+                 #'unrepl-ast--make-node
                  ast-node))
 
 (defun unrepl-ast-map-elt (map-node key)
