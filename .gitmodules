@@ -1,7 +1,7 @@
 [submodule "parseclj"]
 	path = parseclj
 	url = https://github.com/lambdaisland/parseclj
-	branch = docstrings-and-conventions
+	branch = master
 [submodule "unrepl"]
 	path = unrepl
 	url = https://github.com/Unrepl/unrepl.git
