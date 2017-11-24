@@ -363,8 +363,7 @@ Return ROOT with all available param tags replaced."
   "Process TEMPLATE-AST with PARAMS and return a string.
 PARAMS should be an alist of tagged literal symbols and readers."
   (let ((cmd (unrepl-ast--replace-param-tags template-ast params)))
-    (format "%s\n"
-            (parseclj-unparse-clojure-to-string cmd))))
+    (parseclj-unparse-clojure-to-string cmd)))
 
 
 (provide 'unrepl-ast)
