@@ -36,6 +36,7 @@
 (require 'subr-x)
 (require 'treepy)
 
+(require 'unrepl-button)
 (require 'unrepl-util)
 
 
@@ -69,11 +70,6 @@ Value is returned as an AST node."
 ;; Unparsing
 ;; -------------------------------------------------------------------
 
-(declare-function unrepl-aux-send "unrepl-loop")
-
-(defvar unrepl-elision-label "..."
-  "Label used to represent elisions.")
-
 (defvar unrepl-ast-tag-readers
   '((clojure/var . unrepl-ast--var-tag-unparse)
     (unrepl/... . unrepl-ast--elision-tag-unparse)
@@ -88,37 +84,6 @@ Value is returned as an AST node."
   (-> tag-node (parseclj-ast-children) (car)))
 
 
-(defun unrepl-ast--insert-elision-button (get-more-action eval-callback &optional kill-from kill-to)
-  "Insert an elision button to send GET-MORE-ACTION to UNREPL through `:aux'.
-A callback function will be created for said `:aux' evaluation, and it will
-internally call EVAL-CALLBACK with the evaluation payload.  This callback
-will also automatically kill the region where the button is, which should
-be defined by KILL-FROM and KILL-TO.
-KILL-FROM default value is =(point)=.  KILL-TO is the end of the new
-created button.
-EVAL-CALLBACK can safely assume that the cursor will be at KILL-FROM, and
-it is responsible to decide where to leave the cursor when the contents of
-the evaluation payload have been inserted."
-  (let* ((kill-from-marker (make-marker))
-         (kill-to-marker (make-marker))
-         (eval-callback (lambda (eval-payload)
-                          (with-current-buffer (marker-buffer kill-from-marker)
-                            ;; Kill the button region
-                            (goto-char kill-from-marker)
-                            (delete-region kill-from-marker kill-to-marker)
-                            ;; Run the actual callback
-                            (funcall eval-callback eval-payload))))
-         (button-action (lambda (_button)
-                          (unrepl-aux-send get-more-action eval-callback))))
-    (set-marker kill-from-marker (or kill-from (point)))
-    (insert " ")
-    (insert-text-button unrepl-elision-label
-                        'follow-link t
-                        'action button-action
-                        'help-echo "mouse-1, RET: Expand")
-    (set-marker kill-to-marker (or kill-to (point)))))
-
-
 (defun unrepl-ast--elision-tag-unparse (elision-tag-node &optional with-delimiters)
   "Insert a generic elision button for ELISION-TAG-NODE.
 WITH-DELIMITERS is a boolean value that indicate whether to keep or remove
@@ -131,7 +96,8 @@ for vectors etc.)"
       (:map (let ((get-more-action (-> elision-actions
                                        (unrepl-ast-map-elt :get)
                                        (unrepl-command-template))))
-              (unrepl-ast--insert-elision-button
+              (unrepl-button-insert-one-off
+               unrepl-button-elision-label
                get-more-action
                (lambda (eval-payload)
                  (unrepl-ast-unparse eval-payload (not with-delimiters))))))
@@ -193,7 +159,8 @@ ommited."
     ;; insert string
     (funcall insert-fn string-node)
     ;; and then elision button
-    (unrepl-ast--insert-elision-button
+    (unrepl-button-insert-one-off
+     unrepl-button-elision-label
      (-> elision-actions
          (unrepl-ast-map-elt :get)
          (unrepl-command-template))
@@ -202,6 +169,7 @@ ommited."
          (funcall insert-fn eval-payload)
          (unless stdout-str  ;; Delete the opening quote
            (delete-region p (1+ p)))))
+     nil
      (unless stdout-str (1- (point))))))
 
 
