@@ -66,6 +66,15 @@ When nil, the REPL buffer will be created but not displayed."
   "Boolean value that indicates if the latest input sent to the server sent
   using the REPL.")
 
+(defvar-local unrepl-repl-transient-text-gid nil
+  "Group ID of the last output displaying as transient text.")
+
+(defvar-local unrepl-repl-transient-text-start-marker (make-marker)
+  "Marker to the beginning of a transient text, or nil if there's none.")
+
+(defvar-local unrepl-repl-transient-text-end-marker (make-marker)
+  "Marker to the end of a transient text, or nil if there's none.")
+
 (defvar-local unrepl-repl-history nil
   "A list that holds history entries.
 A History Entry is a 3-tuple: the input string, an UNREPL group id, and a
@@ -112,6 +121,11 @@ prompt position in buffer.")
 (defface unrepl-font-stdout-face
   '((t (:inherit font-lock-doc-face)))
   "Face for STDOUT output in the REPL buffer."
+  :group 'unrepl-repl)
+
+(defface unrepl-font-doc-face
+  '((t (:inherit font-lock-comment-face)))
+  "Face for auto-documentation in the REPL buffer."
   :group 'unrepl-repl)
 
 (defface unrepl-font-tooltip-face
@@ -188,6 +202,64 @@ A `project' variable will be added to the local scope."
           (repl-buffer (unrepl-project-repl-buffer project)))
      (with-current-buffer repl-buffer
        ,@body)))
+
+
+;; Transient Text
+;; -------------------------------------------------------------------
+
+(defun unrepl-repl--transient-text-insert (group-id text &optional properties)
+  "Insert TEXT at the end of the REPL in a 'transient' way.
+This TEXT is meant to be shown momentarily and to disappear at some
+point (by calling `unrepl-repl--transient-text-remove').
+
+TEXT can be either a string or a AST node.  This function will either
+insert it or unparse it accordingly.
+GROUP-ID is an integer, and it's meant to identify text to be *appended* to
+a transient text block.  If there's already a transient text showing for
+GROUP-ID N, then any other subsequent call to
+`unrepl-repl--transient-text-insert' with the same GROUP-ID will be
+appended to it.  If there's a call with a different GROUP-ID, the text will
+be replaced.
+
+PROPERTIES is a plist of text properties."
+  (with-current-repl
+   (unless (eql unrepl-repl-transient-text-gid group-id)
+     (unrepl-repl--transient-text-remove)
+     (setq-local unrepl-repl-transient-text-gid group-id))
+   (save-excursion
+     ;; Find the right place to start inserting.
+     (if (marker-position unrepl-repl-transient-text-end-marker)
+         (goto-char unrepl-repl-transient-text-end-marker)
+       (goto-char (point-max))
+       (insert "\n"))
+     ;; If start is not set already, set it to current position.
+     (unless (marker-position unrepl-repl-transient-text-start-marker)
+       (set-marker unrepl-repl-transient-text-start-marker (point)))
+     ;; Insert text
+     (let ((inhibit-read-only t))
+       (unrepl-propertize-region (append properties
+                                         '(font-lock-face unrepl-font-doc-face
+                                                          read-only t
+                                                          intangible t
+                                                          field unrepl-repl-transient-field))
+         (unrepl-ast-unparse-stdout-string text)))
+     ;; And mark the end
+     (set-marker unrepl-repl-transient-text-end-marker (point)))))
+
+
+(defun unrepl-repl--transient-text-remove ()
+  "Remove transient text from the REPL buffer."
+  (with-current-repl
+   (when (and (marker-position unrepl-repl-transient-text-start-marker)
+              (marker-position unrepl-repl-transient-text-end-marker))
+     (save-excursion
+       (let ((inhibit-read-only t))
+         (goto-char unrepl-repl-transient-text-start-marker)
+         (delete-region unrepl-repl-transient-text-start-marker
+                        (point-max))
+         (delete-char -1)))
+     (set-marker unrepl-repl-transient-text-start-marker nil)
+     (set-marker unrepl-repl-transient-text-end-marker nil))))
 
 
 ;; History
@@ -270,6 +342,7 @@ latest history entry will be associated with GROUP-ID."
 ;; -------------------------------------------------------------------
 
 (declare-function unrepl-client-send "unrepl-loop")
+(declare-function unrepl-aux-send "unrepl-loop")
 (defun unrepl-repl-return (&optional _end-of-input)
   "Send the current input string to UNREPL for evaluation.
 
@@ -285,6 +358,7 @@ Most of the behavior is BORROWED FROM CIDER."
   (interactive "P")
   (unless (unrepl-repl--in-input-area-p)
     (error "No input at point"))
+  (unrepl-repl--transient-text-remove)
   (cond
    ;; (end-of-input
    ;;  (unrepl-client-send start (point)))
@@ -300,6 +374,27 @@ Most of the behavior is BORROWED FROM CIDER."
    (t
     (unrepl-repl--newline-and-indent)
     (message "[input not complete]"))))
+
+
+(defun unrepl-request-symbol-doc ()
+  "Request `clojure.repl/doc' for `symbol-at-point' through the `:aux' conn.
+Point needs to be in the REPL input.
+If `:aux' returns a string of data, display it temporarily as stdout.  This
+would get automatically removed after input is sent."
+  (interactive)
+  (when (unrepl-repl--in-input-area-p)
+    (when-let (sym (symbol-at-point))
+      (with-current-repl
+       (let ((doc-action-templ (unrepl-project-actions-get project :unrepl.el/doc)))
+         (unrepl--binding-print-limits '((:unrepl.print/string-length . Long/MAX_VALUE)
+                                         (:unrepl.print/coll-length . Long/MAX_VALUE)
+                                         (:unrepl.print/nesting-depth . Long/MAX_VALUE))
+           (unrepl-aux-send (unrepl-command-template doc-action-templ
+                                                     `((:unrepl.el/symbol . ,sym)))
+                            revert-bindings-back
+                            (lambda (stdout-payload group-id)
+                              (unrepl-repl--transient-text-insert group-id
+                                                                  stdout-payload)))))))))
 
 
 ;; history
@@ -525,6 +620,7 @@ prompt."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'unrepl-repl-return)
     (define-key map (kbd "C-c C-c") #'unrepl-eval-interrupt)
+    (define-key map (kbd "C-c C-d") #'unrepl-request-symbol-doc)
     (define-key map (kbd "C-<up>") #'unrepl-repl-previous-input)
     (define-key map (kbd "C-<down>") #'unrepl-repl-next-input)
     map))
