@@ -56,10 +56,10 @@ When nil, the REPL buffer will be created but not displayed."
   :type 'boolean
   :group 'unrepl-repl)
 
-(defvar-local unrepl-repl-prompt-start-mark (make-marker)
+(defvar-local unrepl-repl-prompt-start-mark nil
   "Point marker of current prompt start.")
 
-(defvar-local unrepl-repl-input-start-mark (make-marker)
+(defvar-local unrepl-repl-input-start-mark nil
   "Point marker of current input start.")
 
 (defvar-local unrepl-repl-inputting nil
@@ -69,10 +69,10 @@ When nil, the REPL buffer will be created but not displayed."
 (defvar-local unrepl-repl-transient-text-gid nil
   "Group ID of the last output displaying as transient text.")
 
-(defvar-local unrepl-repl-transient-text-start-marker (make-marker)
+(defvar-local unrepl-repl-transient-text-start-mark nil
   "Marker to the beginning of a transient text, or nil if there's none.")
 
-(defvar-local unrepl-repl-transient-text-end-marker (make-marker)
+(defvar-local unrepl-repl-transient-text-end-mark nil
   "Marker to the end of a transient text, or nil if there's none.")
 
 (defvar-local unrepl-repl-history nil
@@ -228,13 +228,13 @@ PROPERTIES is a plist of text properties."
      (setq-local unrepl-repl-transient-text-gid group-id))
    (save-excursion
      ;; Find the right place to start inserting.
-     (if (marker-position unrepl-repl-transient-text-end-marker)
-         (goto-char unrepl-repl-transient-text-end-marker)
+     (if (marker-position unrepl-repl-transient-text-end-mark)
+         (goto-char unrepl-repl-transient-text-end-mark)
        (goto-char (point-max))
        (insert "\n"))
      ;; If start is not set already, set it to current position.
-     (unless (marker-position unrepl-repl-transient-text-start-marker)
-       (set-marker unrepl-repl-transient-text-start-marker (point)))
+     (unless (marker-position unrepl-repl-transient-text-start-mark)
+       (set-marker unrepl-repl-transient-text-start-mark (point)))
      ;; Insert text
      (let ((inhibit-read-only t))
        (unrepl-propertize-region (append properties
@@ -244,22 +244,22 @@ PROPERTIES is a plist of text properties."
                                                           field unrepl-repl-transient-field))
          (unrepl-ast-unparse-stdout-string text)))
      ;; And mark the end
-     (set-marker unrepl-repl-transient-text-end-marker (point)))))
+     (set-marker unrepl-repl-transient-text-end-mark (point)))))
 
 
 (defun unrepl-repl--transient-text-remove ()
   "Remove transient text from the REPL buffer."
   (with-current-repl
-   (when (and (marker-position unrepl-repl-transient-text-start-marker)
-              (marker-position unrepl-repl-transient-text-end-marker))
+   (when (and (marker-position unrepl-repl-transient-text-start-mark)
+              (marker-position unrepl-repl-transient-text-end-mark))
      (save-excursion
        (let ((inhibit-read-only t))
-         (goto-char unrepl-repl-transient-text-start-marker)
-         (delete-region unrepl-repl-transient-text-start-marker
+         (goto-char unrepl-repl-transient-text-start-mark)
+         (delete-region unrepl-repl-transient-text-start-mark
                         (point-max))
          (delete-char -1)))
-     (set-marker unrepl-repl-transient-text-start-marker nil)
-     (set-marker unrepl-repl-transient-text-end-marker nil))))
+     (set-marker unrepl-repl-transient-text-start-mark nil)
+     (set-marker unrepl-repl-transient-text-end-mark nil))))
 
 
 ;; History
@@ -487,6 +487,10 @@ Associates to it some control local variables:
           (unrepl-repl-mode))
         ;; Init REPL
         (setq-local unrepl-conn-id conn-id)
+        (setq-local unrepl-repl-prompt-start-mark (make-marker))
+        (setq-local unrepl-repl-input-start-mark (make-marker))
+        (setq-local unrepl-repl-transient-text-start-mark (make-marker))
+        (setq-local unrepl-repl-transient-text-end-mark (make-marker))
         (-> ";; Waiting on UNREPL... "
             (propertize 'font-lock-face 'font-lock-comment-face)
             (insert))
