@@ -66,9 +66,8 @@ PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'.
 By default, this function will add a new line after STR.  NO-LINE-BREAK
 overrides this behavior."
   (let* ((project (unrepl-projects-get conn-id))
-         (proc (unrepl-project-conn-pool-get-process project proc-type))
-         (str (concat str (unless no-line-break "\n"))))
-    (process-send-string proc str)
+         (proc (unrepl-project-conn-pool-get-process project proc-type)))
+    (process-send-string proc (concat str (unless no-line-break "\n")))
     str))
 
 
