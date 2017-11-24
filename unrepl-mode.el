@@ -72,6 +72,10 @@
   "Port number used when creating a new Socket REPL.")
 
 
+
+;; Helpers
+;; -------------------------------------------------------------------
+
 (defun unrepl-mode--conn-id-prompt ()
   "Prompt the user for a HOST:PORT conn-id.
 Return a conn-id symbol."
@@ -125,11 +129,37 @@ Return a UNREPL project"
      ,@body))
 
 
+(defmacro unrepl--binding-print-limits (bindings &rest body)
+  "Edit UNREPL `:print-limits' with BINDINGS, exec BODY and revert limits back.
+This macro adds a `revert-bindings-back' function into BODY's lexical
+context.  BODY is in charge of calling this function whenever it seems
+appropriate."
+  (declare (indent 1))
+  `(with-current-project
+    (let ((print-limits-templ (unrepl-project-actions-get project :print-limits))
+          (ast-limits->alist (lambda (bindings-node)
+                               (mapcar
+                                (lambda (key)
+                                  (cons key (parseclj-ast-value (unrepl-ast-map-elt bindings-node key))))
+                                '(:unrepl.print/string-length
+                                  :unrepl.print/coll-length
+                                  :unrepl.print/nesting-depth)))))
+      (unrepl-aux-send (unrepl-command-template print-limits-templ ,bindings)
+                       (lambda (previous-limits)
+                         (let ((revert-bindings-back (lambda (&rest _args)
+                                                       (unrepl-aux-send (unrepl-command-template
+                                                                         print-limits-templ
+                                                                         (funcall ast-limits->alist
+                                                                                  previous-limits))))))
+                           ,@body))))))
+
+
 (defun unrepl-mode--find-connection-by-file-name ()
   "Check the current buffer file name and try to find a matching UNREPL connection."
   nil)
 
 
+
 ;; Evaluation
 ;; -------------------------------------------------------------------
 
@@ -162,6 +192,7 @@ BORROWED FROM CIDER."
                         (unrepl-mode--display-evaluation result (end-of-line)))))
 
 
+
 ;; Interactive Commands
 ;; -------------------------------------------------------------------
 
