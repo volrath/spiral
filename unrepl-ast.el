@@ -40,6 +40,12 @@
 (require 'unrepl-util)
 
 
+(defcustom unrepl-enable-pretty-object-representations t
+  "Whether or not to enable pretty object representations."
+  :type 'boolean
+  :group 'unrepl)
+
+
 ;; Utilities
 ;; -------------------------------------------------------------------
 
@@ -105,6 +111,29 @@ for vectors etc.)"
            (error "Unrecognized elision tagged form %S" elision-tag-node))))))
 
 
+(defun unrepl-ast--object-representation (type class id-hash repr &optional pretty-repr)
+  "Insert a prettified object representation.
+TYPE is a symbol that indicates the type of object (i.e object, function,
+atom, etc.)
+CLASS is the object's java class as a string.
+ID-HASH is the object's id hash as a string.
+REPR is the object's actual representation (as presented by
+clojure.main/repl) as a string.
+PRETTY-REPR is how UNREPL represents said object, i.e. functions come
+demunged from UNREPL.
+
+Return the representation as a string"
+  (let* ((pretty-repr (or pretty-repr class))
+         (actual-repr (format "#object[%s %S %s]" class id-hash repr)))
+    (if (eql type 'object)
+        actual-repr
+      (format "#%s[%s %s]"
+              type pretty-repr
+              (propertize id-hash
+                          'font-lock-face 'unrepl-font-tooltip-face
+                          'help-echo actual-repr)))))
+
+
 (defun unrepl-ast--object-tag-unparse (object-tag-node)
   "Insert a string representation of OBJECT-TAG-NODE.
 OBJECT-TAG-NODE's child is a vector that has 4 elements, these are:
@@ -118,28 +147,40 @@ By default, this function will create tooltips for the object
 representation with additional information.  DISABLE-UI overrides this
 behavior."
   (let* ((obj-attrs (parseclj-ast-children (unrepl-ast--tag-child object-tag-node)))
-         (class-name (unrepl-ast-unparse-to-string (car obj-attrs)))
-         (id-hash (parseclj-ast-value (cadr obj-attrs)))
-         (object-rep-node (cl-caddr obj-attrs))
-         (create-object-repr (lambda (&optional obj-rep)
-                               (format "#object[%s %S%s]"
-                                       class-name id-hash
-                                       (if obj-rep
-                                           (format " %s" obj-rep)
-                                         "")))))
-    (if (eql (parseclj-ast-node-type object-rep-node) :symbol)
-        ;; Representation for a "demunged" function.
-        (progn
-          (insert "#function[")
-          (unrepl-ast-unparse object-rep-node)
-          (insert " "
-                  (propertize id-hash
-                              'font-lock-face 'unrepl-font-tooltip-face
-                              'help-echo (funcall create-object-repr))
-                  "]"))
-      ;; Regular object representation
-      (insert
-       (funcall create-object-repr (unrepl-ast-unparse-to-string object-rep-node))))))
+         (object-repr "--"))  ;; TODO: placeholder for actual object repr
+    (if (not unrepl-enable-pretty-object-representations)
+        object-repr
+      (let* ((class-name (unrepl-ast-unparse-to-string (car obj-attrs)))
+             (id-hash (parseclj-ast-value (cadr obj-attrs)))
+             (unrepl-rep-node (cl-caddr obj-attrs))
+             (unrepl-rep (unrepl-ast-unparse-to-string unrepl-rep-node)))
+        (cond
+         ;; Representation for a "demunged" function.
+         ((eql (parseclj-ast-node-type unrepl-rep-node) :symbol)
+          (insert
+           (unrepl-ast--object-representation 'function
+                                              class-name
+                                              id-hash
+                                              object-repr
+                                              unrepl-rep)))
+         ;; Image
+         ((and (eql (parseclj-ast-node-type unrepl-rep-node) :map)
+               (unrepl-ast-map-elt unrepl-rep-node :attachment)
+               (unrepl-ast-map-elt unrepl-rep-node :width))  ;; hack
+          (let ((width (-> unrepl-rep-node
+                           (unrepl-ast-map-elt :width)
+                           (unrepl-ast-unparse-to-string)))
+                (height (-> unrepl-rep-node
+                            (unrepl-ast-map-elt :height)
+                            (unrepl-ast-unparse-to-string))))
+            (insert
+             (unrepl-ast--object-representation 'image class-name id-hash object-repr
+                                                (format "%s <%sx%s>" class-name width height)))
+            ))
+         ;; Any other type of object
+         (t (insert
+             (unrepl-ast--object-representation
+              'object class-name id-hash unrepl-rep))))))))
 
 
 (defun unrepl-ast--string-tag-unparse (string-tag-node &optional stdout-str)
