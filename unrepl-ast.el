@@ -79,6 +79,7 @@ Value is returned as an AST node."
 (defvar unrepl-ast-tag-readers
   '((clojure/var . unrepl-ast--var-tag-unparse)
     (unrepl/... . unrepl-ast--elision-tag-unparse)
+    (unrepl/mime . unrepl-ast--mime-tag-unparse)
     (unrepl/object . unrepl-ast--object-tag-unparse)
     (unrepl/string . unrepl-ast--string-tag-unparse)
     (unrepl.java/class . unrepl-ast--class-tag-unparse))
@@ -111,8 +112,23 @@ for vectors etc.)"
            (error "Unrecognized elision tagged form %S" elision-tag-node))))))
 
 
+(declare-function unrepl-attachment-find-handler "unrepl-attachment")
+(declare-function unrepl-attachment-insert-button "unrepl-attachment")
+(defun unrepl-ast--mime-tag-unparse (mime-tag-node)
+  "Insert a button to download any media in MIME-TAG-NODE."
+  (when unrepl-handle-rich-media
+    (let* ((mime-spec (unrepl-ast--tag-child mime-tag-node))
+           (content-type (parseclj-ast-value (unrepl-ast-map-elt mime-spec :content-type)))
+           (attachment-handler (unrepl-attachment-find-handler content-type)))
+      (when attachment-handler
+        (unrepl-attachment-insert-button attachment-handler
+                                         (-> mime-spec
+                                             (unrepl-ast-map-elt :get)
+                                             (unrepl-command-template)))))))
+
+
 (defun unrepl-ast--object-representation (type class id-hash repr &optional pretty-repr)
-  "Insert a prettified object representation.
+  "Return a prettified object representation as a string.
 TYPE is a symbol that indicates the type of object (i.e object, function,
 atom, etc.)
 CLASS is the object's java class as a string.
@@ -120,9 +136,7 @@ ID-HASH is the object's id hash as a string.
 REPR is the object's actual representation (as presented by
 clojure.main/repl) as a string.
 PRETTY-REPR is how UNREPL represents said object, i.e. functions come
-demunged from UNREPL.
-
-Return the representation as a string"
+demunged from UNREPL."
   (let* ((pretty-repr (or pretty-repr class))
          (actual-repr (format "#object[%s %S %s]" class id-hash repr)))
     (if (eql type 'object)
@@ -152,35 +166,36 @@ behavior."
         object-repr
       (let* ((class-name (unrepl-ast-unparse-to-string (car obj-attrs)))
              (id-hash (parseclj-ast-value (cadr obj-attrs)))
-             (unrepl-rep-node (cl-caddr obj-attrs))
-             (unrepl-rep (unrepl-ast-unparse-to-string unrepl-rep-node)))
+             (unrepl-repr-node (cl-caddr obj-attrs))
+             (unrepl-repr (unrepl-ast-unparse-to-string unrepl-repr-node)))
         (cond
          ;; Representation for a "demunged" function.
-         ((eql (parseclj-ast-node-type unrepl-rep-node) :symbol)
+         ((eql (parseclj-ast-node-type unrepl-repr-node) :symbol)
           (insert
            (unrepl-ast--object-representation 'function
                                               class-name
                                               id-hash
                                               object-repr
-                                              unrepl-rep)))
+                                              unrepl-repr)))
          ;; Image
-         ((and (eql (parseclj-ast-node-type unrepl-rep-node) :map)
-               (unrepl-ast-map-elt unrepl-rep-node :attachment)
-               (unrepl-ast-map-elt unrepl-rep-node :width))  ;; hack
-          (let ((width (-> unrepl-rep-node
-                           (unrepl-ast-map-elt :width)
-                           (unrepl-ast-unparse-to-string)))
-                (height (-> unrepl-rep-node
-                            (unrepl-ast-map-elt :height)
-                            (unrepl-ast-unparse-to-string))))
+         ((and (eql (parseclj-ast-node-type unrepl-repr-node) :map)
+               (unrepl-ast-map-elt unrepl-repr-node :attachment)
+               (unrepl-ast-map-elt unrepl-repr-node :width))  ;; hack
+          (let* ((width (-> unrepl-repr-node
+                            (unrepl-ast-map-elt :width)
+                            (unrepl-ast-unparse-to-string)))
+                 (height (-> unrepl-repr-node
+                             (unrepl-ast-map-elt :height)
+                             (unrepl-ast-unparse-to-string)))
+                 (attachment (unrepl-ast-map-elt unrepl-repr-node :attachment)))
             (insert
-             (unrepl-ast--object-representation 'image class-name id-hash object-repr
+             (unrepl-ast--object-representation 'image class-name id-hash unrepl-repr
                                                 (format "%s <%sx%s>" class-name width height)))
-            ))
+            (unrepl-ast-unparse attachment)))
          ;; Any other type of object
          (t (insert
              (unrepl-ast--object-representation
-              'object class-name id-hash unrepl-rep))))))))
+              'object class-name id-hash unrepl-repr))))))))
 
 
 (defun unrepl-ast--string-tag-unparse (string-tag-node &optional stdout-str)

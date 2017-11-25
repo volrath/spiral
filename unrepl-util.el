@@ -45,6 +45,11 @@
   :type 'boolean
   :group 'unrepl)
 
+(defcustom unrepl-handle-rich-media t
+  "Handle attachments and mime tags."
+  :type 'boolean
+  :group 'unrepl)
+
 (defvar unrepl--mode-buffers nil
   "Alist with (mode . buffer) pairs.")
 
