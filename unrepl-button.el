@@ -36,24 +36,35 @@
 
 
 (declare-function unrepl-aux-send "unrepl-loop")
-(defun unrepl-button-insert (label action eval-callback
-                                   &optional stdout-callback
+(defun unrepl-button-insert (label action
+                                   &optional eval-callback stdout-callback
                                    &rest extra-props)
-  "Insert a button with LABEL, that sends ACTION through the `:aux' connection.
-A callback function will be created for the ACTION's evaluation, and it
-will internally call EVAL-CALLBACK with the evaluation payload.
-If STDOUT-CALLBACK is non-nil, another callback function will be created
-for the ACTION's stdout, and it will internally call STDOUT-CALLBACK with
-any output payload given.
+  "Insert a button with LABEL that execute ACTION.
+ACTION can be either a string or a function.
+
+If ACTION is a function, it will be executed when the button is pressed,
+EVAL-CALLBACK and STDOUT-CALLBACK params will be ignored.
+
+If ACTION is a string, it will be interpreted as an UNREPL action that
+should be sent through the `:aux' connection.  A callback function will be
+created for the ACTION's evaluation, and it will internally call
+EVAL-CALLBACK with the evaluation payload.  If STDOUT-CALLBACK is non-nil,
+another callback function will be created for the ACTION's stdout, and it
+will internally call STDOUT-CALLBACK with any output payload given.
 EXTRA-PROPS are button properties to add to the button."
-  (let ((button-action (lambda (_button)
-                         (unrepl-aux-send action eval-callback stdout-callback))))
+  (when (and (stringp action)
+             (not eval-callback))
+    (error "Button created without a evaluation callback"))
+  (let ((button-action (if (stringp action)
+                           (lambda (_button)
+                             (message "sending %S" action)
+                             (unrepl-aux-send action eval-callback stdout-callback))
+                         action)))
     (insert " ")
     (apply #'insert-text-button
            label
            'follow-link t
            'action button-action
-           'help-echo "mouse-1, RET: "
            extra-props)))
 
 
