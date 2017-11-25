@@ -50,6 +50,9 @@ that they are easily distinguishable.")
 (defvar-local unrepl-loop-process-dispatcher nil
   "The EDN message dispatcher function for a process buffer.")
 
+(defvar-local unrepl-loop-process-output-start 1
+  "The start of the most recent output UNREPL message.")
+
 (defvar-local unrepl-loop-greeted-p nil
   "Predicate that defines if the client for the current buffer has been greeted already.")
 
@@ -107,14 +110,21 @@ Group-id is returned as an integer."
             (message "UNREPL says hi!"))))
       (when unrepl-loop-greeted-p
         (goto-char (point-max))
-        (save-excursion (insert output))
+        (insert output)
 
-        ;; There can be several EDN messages in OUTPUT, so we iterate over them.
-        (mapcar (lambda (msg-ast-node)
+        ;; There can either be several EDN messages in OUTPUT, or an incomplete
+        ;; message.
+        ;; If output ends in ]\n we assume it is complete, and we iterate over
+        ;; all possible forms in it.
+        (when (string-suffix-p "]\n" (buffer-substring-no-properties unrepl-loop-process-output-start
+                                                                     (point-max)))
+          (goto-char unrepl-loop-process-output-start)
+          (mapc (lambda (msg-ast-node)
                   (apply unrepl-loop-process-dispatcher
                          (unrepl-process-conn-id process)
                          (unrepl-loop--destructure-message-ast msg-ast-node)))
-                (parseclj-ast-children (parseclj-parse-clojure)))))))
+                (parseclj-ast-children (parseclj-parse-clojure)))
+          (setq-local unrepl-loop-process-output-start (point-max)))))))
 
 
 
