@@ -98,7 +98,8 @@ BORROWED FROM CIDER."
           ;; otherwise modes like whitespace-mode and paredit might interfere
           (setq-local delay-mode-hooks t)
           (setq delayed-mode-hooks nil)
-          (funcall mode)))))
+          (funcall mode))
+        buffer)))
 
 
 (defun unrepl-font-lock-as (mode string)
