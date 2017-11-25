@@ -69,11 +69,11 @@ DELETE-FROM to DELETE-TO"
       (unrepl-aux-send (format "(%s)" load-action-str)   ;; hack, read below
                        (lambda (eval-payload)
                          (with-current-buffer (marker-buffer delete-from)
-                           (funcall eval-callback eval-payload)
                            ;; 4.
                            (goto-char delete-from)
                            (delete-region delete-from delete-to)
-                           (funcall revert-bindings-back)))
+                           (funcall revert-bindings-back)
+                           (funcall eval-callback eval-payload)))
                        stdout-callback))))
 ;; In this line we're enclosing the command into parens (see `format') because
 ;; UNREPL mime tagged literal's `:get' action returns a function, so we need to
@@ -85,8 +85,15 @@ DELETE-FROM to DELETE-TO"
   (let* ((image-data (-> eval-payload
                          (parseclj-ast-value)
                          (base64-decode-string)
-                         (string-as-unibyte))))
-    (insert-image (create-image image-data 'png t))))
+                         (string-as-unibyte)))
+         (image (create-image image-data 'png t)))
+    (condition-case nil
+        (save-excursion
+          (insert "\n\n  ")
+          (insert-image image "image-data")
+          (insert "\n"))
+      (error (ding (message "Not a valid image"))))
+    (goto-char (point-max))))
 
 
 (defun unrepl-attachment-find-handler (content-type)
