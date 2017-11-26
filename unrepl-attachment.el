@@ -14,11 +14,6 @@
 ;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 
-;;; Change Log:
-;; 
-;; 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at
@@ -89,11 +84,12 @@ DELETE-FROM to DELETE-TO"
          (image (create-image image-data 'png t)))
     (condition-case nil
         (save-excursion
-          (insert "\n\n  ")
+          (insert "\n\n")
           (insert-image image "image-data")
           (insert "\n"))
       (error (ding (message "Not a valid image"))))
-    (goto-char (point-max))))
+    (goto-char (point-max))
+    (recenter -1)))
 
 
 (defun unrepl-attachment-find-handler (content-type)
