@@ -11,6 +11,9 @@
 ;;; Commentary:
 ;; 
 ;; Create and remove overlays with ease.
+;;
+;; Borrowed from CIDER.
+;; Original author: Artur Malabarba <bruce.connor.am@gmail.com>
 ;; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; 
