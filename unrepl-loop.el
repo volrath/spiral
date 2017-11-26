@@ -131,15 +131,18 @@ Group-id is returned as an integer."
 ;; Client Process
 ;; =============================================================================
 
-(defun unrepl-client-send (str &optional eval-callback)
+(defun unrepl-client-send (str &optional eval-callback stdout-callback)
   "Send input STR to UNREPL client connection.
 EVAL-CALLBACK is a function that takes the evaluation payload and displays
 it in any given way.
+STDOUT-CALLBACK is a function that takes any output payload taken from this
+evaluation and process it in any given way.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
   (prog1 (unrepl-loop--send unrepl-conn-id :client str)
     (unrepl-pending-eval-add :client unrepl-conn-id
                              :status :sent
-                             :eval-callback eval-callback)))
+                             :eval-callback eval-callback
+                             :stdout-callback stdout-callback)))
 
 
 (defun unrepl-loop-client-dispatcher (conn-id tag payload &optional group-id)
