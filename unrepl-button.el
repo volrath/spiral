@@ -57,7 +57,6 @@ EXTRA-PROPS are button properties to add to the button."
     (error "Button created without a evaluation callback"))
   (let ((button-action (if (stringp action)
                            (lambda (_button)
-                             (message "sending %S" action)
                              (unrepl-aux-send action eval-callback stdout-callback))
                          action)))
     (insert " ")
