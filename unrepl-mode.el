@@ -34,6 +34,8 @@
 
 (require 'unrepl-ast)
 (require 'unrepl-project)
+(require 'unrepl-overlay)
+(require 'unrepl-util)
 
 (defcustom unrepl-ask-for-connection t
   "Automatically ask for host:port when trying to interact with UNREPL in an unconnected buffer."
@@ -58,14 +60,11 @@
   :risky t
   :group 'unrepl)
 
-(defcustom unrepl-use-overlays t
-  "Whether to display evaluation results with overlays."
-  :type 'boolean
-  :group 'unrepl)
-
-(defcustom unrepl-eval-result-prefix "=> "
-  "Prefix displayed before a evaluation result value."
-  :type 'string
+(defcustom unrepl-eval-result-display 'both
+  "Whether to display evaluation results with overlays, in the echo area, or both."
+  :type '(choice (const :tag "End of line" overlay)
+                 (const :tag "Echo area" echo)
+                 (const :tag "Both" both))
   :group 'unrepl)
 
 (defvar-local unrepl-conn-id nil
@@ -163,33 +162,57 @@ appropriate."
 ;; Evaluation
 ;; -------------------------------------------------------------------
 
-(defun unrepl-mode--make-result-overlay (_value _point)
-  "Display VALUE in an overlay at POINT."
-  )
+(declare-function unrepl-client-send "unrepl-loop")
+(defun unrepl-eval (form eval-callback &optional stdout-callback)
+  "Send FORM to UNREPL Socket Server for evaluation.
+FORM can either be a string or a list tuple of buffer start, end positions.
+This function sends everything through the `:client' connection, and
+dispatches the evaluation payload (as an AST node) to EVAL-CALLBACK, which
+can expect it as its only argument.  STDOUT-CALLBACK is also a function
+that expects just one argument, any STDOUT belonging to this evaluation."
+  (let ((form (if (consp form)
+                  (apply #'buffer-substring-no-properties form)
+                form)))
+    (unrepl-client-send form eval-callback stdout-callback)))
 
 
-(defun unrepl-mode--display-evaluation (eval-payload &optional point)
+(defun unrepl-mode--interactive-eval-display-callback (eval-payload &optional bounds)
   "Display evaluation result EVAL-PAYLOAD as a string.
-This function will put an unparsed version of EVAL-PAYLOAD in the echo
-area, font-locked as Clojure.
-If POINT and `unrepl-use-overlays' are non-nil, VALUE will also be
-displayed in an overlay starting at POINT.
-
-BORROWED FROM CIDER."
-  (let ((value (unrepl-ast-unparse-to-string eval-payload)))
-    (when (and point unrepl-use-overlays)
-      (unrepl-mode--make-result-overlay value point))
+This function will put a string version of EVAL-PAYLOAD in the echo area,
+font-locked as Clojure.
+If BOUNDS is non-nil and `unrepl-eval-result-display' is something else
+than 'echo, VALUE will also be displayed in an overlay starting at the end
+bound."
+  (let ((value (unrepl-ast-unparse-to-string eval-payload))
+        (point (cadr bounds)))
+    (when (and point (not (eql unrepl-eval-result-display 'echo)))
+      (unrepl--make-result-overlay value point))
     (message "%s%s" unrepl-eval-result-prefix value)))
 
 
-(declare-function unrepl-client-send "unrepl-repl")
-(defun unrepl-eval-last-sexp ()
-  "Evaluate the expression preceding point."
-  (interactive)
+(defun unrepl-mode--interactive-eval-replace-callback (eval-payload bounds)
+  "Replace whatever it is in BOUNDS with the evaluation result EVAL-PAYLOAD.
+This function will delete whatever it is between BOUNDS in BUFFER, and
+replace it with a string version of EVAL-PAYLOAD."
+  (with-current-buffer (marker-buffer (car bounds))
+    (apply #'delete-region bounds)
+    (goto-char (car bounds))
+    (unrepl-ast-unparse eval-payload)))
+
+
+(defun unrepl-eval-last-sexp (&optional prefix)
+  "Evaluate the expression preceding point.
+If invoked with PREFIX, replace the evaluated for with its result in
+current buffer."
+  (interactive "P")
   (unrepl-ensure-connected!)
-  (unrepl-client-send (unrepl-last-sexp)
-                      (lambda (result)
-                        (unrepl-mode--display-evaluation result (end-of-line)))))
+  (let ((bounds (unrepl-last-sexp 'marker-bounds))
+        (callback (if prefix
+                      #'unrepl-mode--interactive-eval-replace-callback
+                    #'unrepl-mode--interactive-eval-display-callback)))
+    (unrepl-eval bounds
+                 (lambda (eval-payload)
+                   (funcall callback eval-payload bounds)))))
 
 
 

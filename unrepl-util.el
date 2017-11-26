@@ -45,6 +45,11 @@
   :type 'boolean
   :group 'unrepl)
 
+(defcustom unrepl-eval-result-prefix "=> "
+  "Prefix displayed before a evaluation result value."
+  :type 'string
+  :group 'unrepl)
+
 (defcustom unrepl-handle-rich-media t
   "Handle attachments and mime tags."
   :type 'boolean
@@ -69,16 +74,26 @@
   "Return the sexp preceding the point.
 If BOUNDS is non-nil, return a list of its starting and ending position
 instead.
+If BOUNDS is 'marker-bounds, this list will have markers instead of
+numbered positions.
 
 BORROWED FROM CIDER."
-  (apply (if bounds #'list #'buffer-substring-no-properties)
-         (save-excursion
-           (clojure-backward-logical-sexp 1)
-           (list (point)
-                 (progn (clojure-forward-logical-sexp 1)
-                        (skip-chars-forward "[:blank:]")
-                        (when (looking-at-p "\n") (forward-char 1))
-                        (point))))))
+  (let* ((bound-points (save-excursion
+                         (clojure-backward-logical-sexp 1)
+                         (list (point)
+                               (progn (clojure-forward-logical-sexp 1)
+                                      (skip-chars-forward "[:blank:]")
+                                      (when (looking-at-p "\n") (forward-char 1))
+                                      (point)))))
+         (bound-points (if (eql bounds 'marker-bounds)
+                           (mapcar (lambda (bp)
+                                     (let ((m (make-marker)))
+                                       (set-marker m bp)
+                                       m))
+                                   bound-points)
+                         bounds)))
+    (apply (if bounds #'list #'buffer-substring-no-properties)
+           bound-points)))
 
 
 (defun unrepl--make-buffer-for-mode (mode)
