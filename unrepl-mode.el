@@ -70,6 +70,9 @@
 (defvar-local unrepl-conn-id nil
   "Port number used when creating a new Socket REPL.")
 
+(defvar-local unrepl-last-eval nil
+  "Latest evaluation for the current buffer.")
+
 
 
 ;; Helpers

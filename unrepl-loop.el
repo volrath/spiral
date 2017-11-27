@@ -131,16 +131,21 @@ Group-id is returned as an integer."
 ;; Client Process
 ;; =============================================================================
 
-(defun unrepl-client-send (str &optional eval-callback stdout-callback)
+(defun unrepl-client-send (str &optional eval-callback stdout-callback buffer)
   "Send input STR to UNREPL client connection.
 EVAL-CALLBACK is a function that takes the evaluation payload and displays
 it in any given way.
 STDOUT-CALLBACK is a function that takes any output payload taken from this
 evaluation and process it in any given way.
+If the given STR input is interactive, BUFFER gets saved into the new
+pending evaluation so that it can be moved to said buffer as 'latest
+evaluation' before being discarded from the pending evaluations queue.
 Connection to sent the input to is inferred from `unrepl-conn-id'."
   (prog1 (unrepl-loop--send unrepl-conn-id :client str)
     (unrepl-pending-eval-add :client unrepl-conn-id
                              :status :sent
+                             :input str
+                             :buffer buffer
                              :eval-callback eval-callback
                              :stdout-callback stdout-callback)))
 
@@ -221,8 +226,12 @@ PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
                                         (car)                                    ;; actual ns symbol
                                         (parseclj-ast-value)))
   (if-let (pending-eval (unrepl-pending-evals-shift :client conn-id))
-      (when (unrepl-pending-eval-entry-history-idx pending-eval)
-        (unrepl-repl-prompt conn-id))
+      (progn
+        (when (unrepl-pending-eval-entry-history-idx pending-eval)
+          (unrepl-repl-prompt conn-id))
+        (when-let (buffer (unrepl-pending-eval-entry-buffer pending-eval))
+          (with-current-buffer buffer
+            (setq-local unrepl-last-eval pending-eval))))
     (unrepl-repl-prompt conn-id)))
 
 
@@ -263,7 +272,8 @@ where did this evaluation come from (REPL buffer, `unrepl-eval-last-sexp'
 command, etc), and will call a different function to display the result
 accordingly."
   (unrepl-pending-eval-update :client conn-id
-                              :status :eval)
+                              :status :eval
+                              :payload payload)
   ;; Display the evaluation payload somewhere...
   (if-let (eval-callback (unrepl-pending-eval-callback :client conn-id))
       (funcall eval-callback payload)
@@ -275,7 +285,7 @@ accordingly."
 PAYLOAD is the UNREPL payload for `:out' as a string or as a #unrepl/string
 tagged literal.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-repl-insert-out conn-id payload group-id))
+  (unrepl-repl-handle-out conn-id payload group-id))
 
 
 (defun unrepl-loop--client-exception-handler (conn-id payload group-id)
@@ -284,7 +294,7 @@ PAYLOAD is the UNREPL payload for `:exception' as an AST node.
 GROUP-ID is an integer as described by UNREPL'S documentation."
   (unrepl-pending-eval-update :client conn-id
                               :status :exception)
-  (unrepl-repl-exception conn-id payload group-id))
+  (unrepl-repl-handle-exception conn-id payload group-id))
 
 
 

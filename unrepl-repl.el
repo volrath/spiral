@@ -191,6 +191,20 @@ BORROWED FROM CIDER."
             (t t)))))
 
 
+(defun unrepl-repl--interactive-input-p (group-id)
+  "Return whether GROUP-ID belongs to an interactive input.
+Interactive inputs are those that were not sent via REPL, hence do not have
+a REPL history entry.
+
+This function should only be called inside REPL buffers."
+  (let ((last-history-group-id (-> unrepl-repl-history
+                                   (car)
+                                   (unrepl-repl--history-entry-group-id)))
+        (pending-eval-group-id (unrepl-pending-eval-group-id :client unrepl-conn-id)))
+    (and (eql group-id pending-eval-group-id)
+         (not (eql group-id last-history-group-id)))))
+
+
 (defmacro with-current-repl (&rest body)
   "Automatically switch to the inferred REPL buffer and eval BODY.
 This macro needs a `conn-id' variable in the scope, otherwise it will throw
@@ -204,6 +218,52 @@ A `project' variable will be added to the local scope."
        ,@body)))
 
 
+
+;; Phantom Input Entries
+;; -------------------------------------------------------------------
+
+(defun unrepl-repl-insert-phantom-input (evaluation &optional payload _switch-to-repl)
+  "Insert a phantom input for EVALUATION.
+Adds a History Entry for this new input, as if it were typed by a ghost.
+
+Saves whatever there might be in the current input area, and inserts the
+pending evaluation input, with its related PAYLOAD.  Then inserts a fresh
+new prompt as if it were created by a `:prompt' message, and restores the
+saved input.
+
+If SWITCH-TO-REPL is non-nil, switches to the REPL buffer in another
+window."
+  (with-current-repl
+   (unrepl-repl--transient-text-remove)
+   (let ((current-input (buffer-substring unrepl-repl-input-start-mark (point-max)))
+         (evaluation-input (unrepl-pending-eval-entry-input evaluation))
+         (payload (or payload (unrepl-pending-eval-entry-payload evaluation)))
+         (group-id (unrepl-pending-eval-entry-group-id evaluation))
+         (insert-payload-fn (pcase (unrepl-pending-eval-entry-status evaluation)
+                              (:eval #'unrepl-repl-insert-evaluation)
+                              (:exception #'unrepl-repl-insert-exception)
+                              (_ #'unrepl-repl-insert-out))))
+     (goto-char unrepl-repl-input-start-mark)
+     ;; Insert phantom input and payload
+     (delete-region unrepl-repl-input-start-mark (point-max))
+     (insert evaluation-input)
+     (funcall insert-payload-fn
+              payload
+              (point)
+              (1+ (length unrepl-repl-history))
+              (unrepl-project-namespace project))
+     ;; Insert it into history
+     (unrepl-repl--add-input-to-history (substring evaluation-input 0 -1))
+     (unrepl-repl--history-add-gid-to-top-entry group-id)
+     ;; Insert new prompt
+     (unrepl-repl-prompt unrepl-conn-id)
+     ;; Restore current input
+     (insert current-input)
+     (switch-to-buffer-other-window (current-buffer))  ;; need to switch so that `goto-char' works
+     (goto-char (point-max)))))
+
+
+
 ;; Transient Text
 ;; -------------------------------------------------------------------
 
@@ -378,11 +438,15 @@ Most of the behavior is BORROWED FROM CIDER."
    ;;  (unrepl-client-send start (point)))
    ((unrepl-repl--input-complete-p (point-max))
     (goto-char (point-max))
-    (-> (unrepl-repl--input-str)
-        (unrepl-client-send (lambda (result-payload)
-                              (unrepl-repl-insert-evaluation unrepl-conn-id
-                                                             result-payload)))
-        (unrepl-repl--add-input-to-history))
+    (let ((history-idx (1+ (length unrepl-repl-history))))
+      (-> (unrepl-repl--input-str)
+          (unrepl-client-send (lambda (result-payload)
+                                (with-current-repl
+                                 (unrepl-repl-insert-evaluation
+                                  result-payload nil
+                                  (unrepl-project-namespace project)
+                                  history-idx))))
+          (unrepl-repl--add-input-to-history)))
     (unrepl-repl--newline-and-scroll)
     (setq-local unrepl-repl-inputting t))
    (t
@@ -567,65 +631,95 @@ Associates to it some control local variables:
    (setq-local unrepl-repl-inputting nil)))
 
 
-(defun unrepl-repl-insert-evaluation (conn-id eval-payload)
-  "In CONN-ID REPL buffer, unparse EVAL-PAYLOAD AST node at the end of it."
-  (with-current-repl
-   (goto-char (point-max))
-   (unrepl-repl--newline-if-needed)
-   (unrepl-propertize-region '(font-lock-face unrepl-font-result-prompt-face
-                                              intangible t
-                                              read-only t
-                                              rear-nonsticky (font-lock-face intangible read-only))
-     (insert
-      (unrepl-repl--build-result-indicator (1+ (length unrepl-repl-history))
-                                           (unrepl-project-namespace project))))
-   (unrepl-ast-unparse eval-payload)
-   (unrepl-repl--newline-and-scroll)))
+(defun unrepl-repl-insert-evaluation (eval-payload &optional point history-idx namespace)
+  "In CONN-ID REPL buffer, unparse EVAL-PAYLOAD AST node at POINT.
+If POINT is nil, unparse at the end of the buffer.
+HISTORY-IDX and NAMESPACE are used to format/populate an exception prompt
+for the REPL.  If any of them is nil, the exception prompt won't be
+inserted."
+  (goto-char (or point (point-max)))
+  (unrepl-repl--newline-if-needed)
+  (unrepl-propertize-region '(font-lock-face unrepl-font-result-prompt-face
+                                             intangible t
+                                             read-only t
+                                             rear-nonsticky (font-lock-face intangible read-only))
+    (insert
+     (unrepl-repl--build-result-indicator history-idx namespace)))
+  (unrepl-ast-unparse eval-payload)
+  (unrepl-repl--newline-and-scroll))
 
 
-(defun unrepl-repl-insert-out (conn-id out-payload group-id)
-  "Unparse OUT-PAYLOAD for GROUP-ID in CONN-ID REPL.
-OUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
+(defun unrepl-repl-insert-out (stdout-payload &optional point &rest _)
+  "Insert stdout STDOUT-PAYLOAD at POINT.
+STDOUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
+If POINT is nil, prints the payload right before the last prompt"
+  (goto-char (or point unrepl-repl-prompt-start-mark))
+  (unrepl-ast-unparse-stdout-string stdout-payload)
+  (unrepl-repl--newline-if-needed))
+
+
+(defun unrepl-repl-handle-out (conn-id stdout-payload group-id)
+  "Figure out where to unparse STDOUT-PAYLOAD for GROUP-ID in CONN-ID REPL.
+STDOUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
 GROUP-ID is a number as described in UNREPL docs.
+
 If GROUP-ID is not the same as the current pending evaluation's, and
 `unrepl-repl-group-stdout' is non nil, this function will try to figure out
-a place in the REPL buffer where to print the OUT-PAYLOAD, by searching
+a place in the REPL buffer where to print the STDOUT-PAYLOAD, by searching
 through history for an entry that shares its same GROUP-ID.  If it can't
 find a match, it will print it at the end of the buffer but before the last
 prompt."
   (with-current-repl
    (save-excursion
-     (if (and unrepl-repl-group-stdout
-              (not (eql group-id (unrepl-pending-eval-group-id :client unrepl-conn-id))))
+     (if unrepl-repl-group-stdout
          ;; Find the best place to print the output.
-         (let ((h-entry (seq-find (lambda (e)
-                                    (eql (unrepl-repl--history-entry-group-id e)
-                                         group-id))
-                                  unrepl-repl-history
-                                  (car unrepl-repl-history))))
-           (goto-char (unrepl-repl--history-entry-prompt-marker h-entry))
-           (unrepl-ast-unparse-stdout-string out-payload)
-           (unrepl-repl--newline-if-needed))
-       ;; Just print at the end of the buffer
-       (goto-char (point-max))
-       (unrepl-ast-unparse-stdout-string out-payload)))))
+         (let ((pending-eval (unrepl-pending-eval :client conn-id)))
+           (if (unrepl-repl--interactive-input-p group-id)
+               (unrepl-repl-insert-phantom-input pending-eval stdout-payload)
+             (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))
+                 (if (eql (unrepl-repl--history-entry-group-id h-entry)
+                          (unrepl-pending-eval-entry-group-id pending-eval))
+                     (unrepl-repl-insert-out stdout-payload (point-max))
+                   (unrepl-repl-insert-out
+                    stdout-payload
+                    (unrepl-repl--history-entry-prompt-marker h-entry)))
+               (unrepl-repl-insert-out stdout-payload))))
+       ;; Just print right before the last prompt
+       (unrepl-repl-insert-out stdout-payload)))))
 
 
-(defun unrepl-repl-exception (conn-id payload _group-id)
-  "Unparse exception's PAYLOAD for HISTORY-ID in CONN-ID's REPL."
+(defun unrepl-repl-insert-exception (payload &optional point history-idx namespace)
+  "Insert exception PAYLOAD at POINT.
+HISTORY-IDX and NAMESPACE are used to format/populate an exception prompt
+for the REPL.  If any of them is nil, the exception prompt won't be
+inserted."
+  (goto-char (or point (point-max)))
+  (unrepl-repl--newline-if-needed)
+  (when (and history-idx namespace)
+    (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face
+                                               intangible t
+                                               read-only t
+                                               rear-nonsticky (font-lock-face intangible read-only))
+      (insert
+       (unrepl-repl--build-exception-indicator history-idx namespace))))
+  (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face)
+    (unrepl-ast-unparse payload)))
+
+
+(defun unrepl-repl-handle-exception (conn-id payload group-id)
+  "Figure out where to insert exception's PAYLOAD for GROUP-ID in CONN-ID's REPL."
   (with-current-repl
-   (goto-char (point-max))
-   (unrepl-repl--newline-if-needed)
-   (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face
-                                              intangible t
-                                              read-only t
-                                              rear-nonsticky (font-lock-face intangible read-only))
-     (insert
-      (unrepl-repl--build-exception-indicator (1+ (length unrepl-repl-history))
-                                              (unrepl-project-namespace project))))
-   (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face)
-     (unrepl-ast-unparse payload))
-   (unrepl-repl--newline-and-scroll)))
+   (let ((namespace (unrepl-project-namespace project)))
+     (if (unrepl-repl--interactive-input-p group-id)  ;; Interactive input
+         (let ((pending-eval (unrepl-pending-eval :client conn-id)))
+           (unrepl-repl-insert-phantom-input pending-eval payload))
+       (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))  ;; REPL input
+           (unrepl-repl-insert-exception
+            payload
+            (unrepl-repl--history-entry-prompt-marker h-entry)
+            (unrepl-repl--history-entry-idx h-entry)
+            namespace)
+         (error "[%S] Unhandled exception %S" group-id payload))))))
 
 
 ;; UNREPL REPL mode
