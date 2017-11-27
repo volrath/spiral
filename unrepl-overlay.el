@@ -67,6 +67,17 @@ applied with lower priority than the syntax highlighting."
   :group 'unrepl)
 
 
+(defun unrepl-overlay--should-truncate-string-p (str)
+  "Return non-nil if STR should be truncated.
+Base decision on string length, and a guess over STR properties: it checks
+for a 'unrepl-elision category property or whether the string starts like
+an inspectable object."
+  ;; TODO: figure out if UNREPL protocol can be improved so that we don't have
+  ;; to guess.
+  (or (> (string-width str) (window-width))
+      (text-property-any 0 (length str) 'category 'unrepl-elision str)
+      (string-prefix-p (format " %s#image" unrepl-eval-result-prefix) str)))
+
 
 (defun unrepl--delete-overlay (o &rest _)
   "Safely delete overlay O.
@@ -166,11 +177,13 @@ overlay."
           ;; Put the cursor property only once we're done manipulating the
           ;; string, since we want it to be at the first char.
           (put-text-property 0 1 'cursor 0 display-string)
-          (when (> (string-width display-string) (window-width))
-            (setq display-string
-                  (concat (substring display-string 0 (window-width))
-                          (substitute-command-keys
-                           "...\nResult truncated. Type `\\[unrepl-inspect-last-result]' to inspect it."))))
+          (when (unrepl-overlay--should-truncate-string-p display-string)
+            (let ((sub-display-string (substring display-string 0 (min (length display-string)
+                                                                       (window-width)))))
+              (setq display-string
+                    (concat sub-display-string
+                            (substitute-command-keys
+                             "\n... Result truncated. Type `\\[unrepl-inspect-last-eval]' to inspect it.")))))
           ;; Create the result overlay.
           (setq o (apply #'unrepl--make-overlay
                          beg end type
