@@ -5,4 +5,5 @@
   (fill-column . 80)
   (sentence-end-double-space . t)
   (emacs-lisp-docstring-fill-column . 75)
-  (checkdoc-arguments-in-order-flag)))
+  (checkdoc-arguments-in-order-flag)
+  (checkdoc-symbol-words . ("UNREPL" "unrepl" "stdout" "print-level" "print-length"))))
