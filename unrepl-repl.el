@@ -262,6 +262,7 @@ PROPERTIES is a plist of text properties."
      (set-marker unrepl-repl-transient-text-end-mark nil))))
 
 
+
 ;; History
 ;; -------------------------------------------------------------------
 
@@ -273,9 +274,10 @@ PROPERTIES is a plist of text properties."
 (defun unrepl-repl--make-history-entry (str)
   "Create a History Entry for STR and return it."
   (list
-   str
-   nil ;; pending eval's group-id -- optional
-   nil ;; next prompt position
+   (1+ (length unrepl-repl-history))  ;; index
+   str                                ;; input
+   nil                                ;; pending eval's group-id -- optional
+   nil                                ;; next prompt marker
    ))
 
 
@@ -287,19 +289,32 @@ Indices, as saved in pending evaluations, start with 1."
    unrepl-repl-history))
 
 
+(defun unrepl-repl--history-get-by-group-id (group-id)
+  "Return a history entry for GROUP-ID, if any."
+  (seq-find (lambda (e)
+              (eql (unrepl-repl--history-entry-group-id e)
+                   group-id))
+            unrepl-repl-history))
+
+
+(defun unrepl-repl--history-entry-idx (entry)
+  "Return the index of the given History ENTRY."
+  (car entry))
+
+
 (defun unrepl-repl--history-entry-str (entry)
   "Return the string of the given History ENTRY."
-  (car entry))
+  (cadr entry))
 
 
 (defun unrepl-repl--history-entry-group-id (entry)
   "Return the UNREPL group id of the given History ENTRY."
-  (cadr entry))
+  (cl-caddr entry))
 
 
 (defun unrepl-repl--history-entry-prompt-marker (entry)
   "Return the prompt position of the given History ENTRY."
-  (cl-caddr entry))
+  (cl-cadddr entry))
 
 
 (defun unrepl-repl--add-input-to-history (str)
@@ -310,13 +325,13 @@ Indices, as saved in pending evaluations, start with 1."
 
 (defun unrepl-repl--history-add-gid-to-top-entry (group-id)
   "Add GROUP-ID to the top entry in history."
-  (setf (cadr (car unrepl-repl-history)) group-id))
+  (setf (cl-caddr (car unrepl-repl-history)) group-id))
 
 
 (defun unrepl-repl--history-set-prompt-marker (history-idx)
   "Set HISTORY-IDX entry `prompt-marker' to current point."
   (setf
-   (cl-caddr
+   (cl-cadddr
     (nth
      (- (length unrepl-repl-history) history-idx)
      unrepl-repl-history))
@@ -324,10 +339,9 @@ Indices, as saved in pending evaluations, start with 1."
 
 
 (defun unrepl-repl-input-history-assoc (conn-id group-id)
-  "Possibly return a list =(:history-entry-id <some id>)=.
+  "Possibly return a list =(:repl-history-idx <some index>)=.
 Check CONN-ID REPL to see if `unrepl-repl-inputting' is true.  If so,
-return the tuple using the latest history id
-available.  nil otherwise.
+return the tuple using the latest history index available.  nil otherwise.
 
 This function includes an important side effect: If REPL is inputting, the
 latest history entry will be associated with GROUP-ID."
