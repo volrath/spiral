@@ -173,10 +173,12 @@ This function sends everything through the `:client' connection, and
 dispatches the evaluation payload (as an AST node) to EVAL-CALLBACK, which
 can expect it as its only argument.  STDOUT-CALLBACK is also a function
 that expects just one argument, any STDOUT belonging to this evaluation."
+  (when (listp form)
+    (remove-overlays (car form) (cadr form) 'temporary t))
   (let ((form (if (consp form)
                   (apply #'buffer-substring-no-properties form)
                 form)))
-    (unrepl-client-send form eval-callback stdout-callback)))
+    (unrepl-client-send form eval-callback stdout-callback (current-buffer))))
 
 
 (defun unrepl-mode--interactive-eval-display-callback (eval-payload &optional bounds)
@@ -232,6 +234,13 @@ current buffer."
        (pop-to-buffer repl-buffer)))))
 
 
+(declare-function unrepl-repl-insert-phantom-input "unrepl-repl")
+(defun unrepl-inspect-last-eval ()
+  "Replicate last evaluation in REPL buffer for further inspection."
+  (interactive)
+  (unrepl-repl-insert-phantom-input unrepl-last-eval))
+
+
 (declare-function unrepl-aux-send "unrepl-loop")
 (defun unrepl-eval-interrupt ()
   "Interrupt pending evaluation."
@@ -264,6 +273,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
     (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
+    (define-key map (kbd "C-c C-r") #'unrepl-inspect-last-eval)
     (define-key map (kbd "C-c C-g") #'unrepl-eval-interrupt)
     (define-key map (kbd "C-c C-q") #'unrepl-quit)
     map))
