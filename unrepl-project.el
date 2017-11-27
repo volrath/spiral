@@ -154,6 +154,7 @@ BORROWED FROM CIDER."
      (with-current-buffer (process-buffer proc)
        ,@body)))
 
+
 (defun unrepl-pending-eval (type conn-id)
   "Return the beginning of CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
@@ -230,9 +231,34 @@ KWARGS are the key-values to update the pending evaluation entry."
       entry)))
 
 
+(defun unrepl-pending-eval-entry-status (entry)
+  "Return the `:status' from a pending eval ENTRY."
+  (map-elt entry :status))
+
+
 (defun unrepl-pending-eval-entry-history-idx (entry)
   "Return the `:repl-history-idx' from a pending eval ENTRY."
   (map-elt entry :repl-history-idx))
+
+
+(defun unrepl-pending-eval-entry-buffer (entry)
+  "Return the `:buffer' from a pending eval ENTRY."
+  (map-elt entry :buffer))
+
+
+(defun unrepl-pending-eval-entry-group-id (entry)
+  "Return the `:group-id' from a pending eval ENTRY."
+  (map-elt entry :group-id))
+
+
+(defun unrepl-pending-eval-entry-input (entry)
+  "Return the `:input' from a pending eval ENTRY."
+  (map-elt entry :input))
+
+
+(defun unrepl-pending-eval-entry-payload (entry)
+  "Return the `:payload' from a pending eval ENTRY."
+  (map-elt entry :payload))
 
 
 (defun unrepl-pending-eval-entry-actions (entry)
