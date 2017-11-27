@@ -231,7 +231,7 @@ PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
           (unrepl-repl-prompt conn-id))
         (when-let (buffer (unrepl-pending-eval-entry-buffer pending-eval))
           (with-current-buffer buffer
-            (setq-local unrepl-last-eval pending-eval))))
+            (setq-local unrepl-latest-eval pending-eval))))
     (unrepl-repl-prompt conn-id)))
 
 

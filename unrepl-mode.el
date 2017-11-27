@@ -70,7 +70,7 @@
 (defvar-local unrepl-conn-id nil
   "Port number used when creating a new Socket REPL.")
 
-(defvar-local unrepl-last-eval nil
+(defvar-local unrepl-latest-eval nil
   "Latest evaluation for the current buffer.")
 
 
@@ -238,7 +238,7 @@ current buffer."
 (defun unrepl-inspect-last-eval ()
   "Replicate last evaluation in REPL buffer for further inspection."
   (interactive)
-  (unrepl-repl-insert-phantom-input unrepl-last-eval))
+  (unrepl-repl-insert-phantom-input unrepl-latest-eval))
 
 
 (declare-function unrepl-aux-send "unrepl-loop")
