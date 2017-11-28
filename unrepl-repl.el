@@ -37,6 +37,7 @@
 
 (require 'unrepl-mode)
 (require 'unrepl-project)
+(require 'unrepl-stacktrace)
 (require 'unrepl-util)
 
 
@@ -702,8 +703,7 @@ inserted."
                                                rear-nonsticky (font-lock-face intangible read-only))
       (insert
        (unrepl-repl--build-exception-indicator history-idx namespace))))
-  (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face)
-    (unrepl-ast-unparse payload)))
+  (unrepl-stacktrace-insert payload))
 
 
 (defun unrepl-repl-handle-exception (conn-id payload group-id)

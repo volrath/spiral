@@ -79,7 +79,7 @@ Value is returned as an AST node."
 
 (defvar unrepl-ast-tag-readers
   `((clojure/var . unrepl-ast--var-tag-unparse)
-    (unrepl/... . unrepl-ast--elision-tag-unparse)
+    (unrepl/... . unrepl-ast-elision-tag-unparse)
     (unrepl/mime . unrepl-ast--mime-tag-unparse)
     (unrepl/object . unrepl-ast--object-tag-unparse)
     (unrepl/string . unrepl-ast--string-tag-unparse)
@@ -102,14 +102,18 @@ when no readers are found for TAG-SYMBOL."
       (error "Missing tag: %S" tag-symbol))))
 
 
-(defun unrepl-ast--elision-tag-unparse (elision-tag-node mute-ui &optional with-delimiters)
+(defun unrepl-ast-elision-tag-unparse (elision-tag-node mute-ui
+                                                        &optional with-delimiters unparse-fn)
   "Insert a generic elision button for ELISION-TAG-NODE.
 MUTE-UI is a flag that indicates whether or not to insert UI elements like
 buttons.
 WITH-DELIMITERS is a boolean value that indicate whether to keep or remove
 the opening and closing tokens for the retrieved
 collection (i.e. opening/closing parens for lists, opening/closing brackets
-for vectors etc.)"
+for vectors etc.)
+UNPARSE-FN is an optional function to unparse the resulting evaluation
+payload from calling the elision action, if not given, uses
+`unrepl-ast-unparse'."
   (let ((elision-actions (unrepl-ast-tag-child elision-tag-node)))
     (pcase (parseclj-ast-node-type elision-actions)
       (:nil (delete-char -1))  ;; delete the trailing space leading to this node.
@@ -122,7 +126,9 @@ for vectors etc.)"
                  unrepl-button-elision-label
                  get-more-action
                  (lambda (eval-payload)
-                   (unrepl-ast-unparse eval-payload (not with-delimiters)))))))
+                   (funcall (or unparse-fn #'unrepl-ast-unparse)
+                            eval-payload
+                            (not with-delimiters)))))))
       (_ (when unrepl-debug
            (error "Unrecognized elision tagged form %S" elision-tag-node))))))
 
