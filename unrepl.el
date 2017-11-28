@@ -100,11 +100,6 @@ that its corresponding connection pool can be created.")
       (buffer-string))))
 
 
-(defun unrepl--keyword-name (keyword)
-  "Return the name of KEYWORD, without the leading colon `:'."
-  (substring (symbol-name keyword) 1))
-
-
 (defun unrepl--make-conn-id (host port)
   "Return a symbol of the form HOST:PORT."
   (intern (format "%s:%S" host port)))
@@ -123,7 +118,7 @@ This function makes sure to get or create a buffer to be used for the
 output of a network connection process."
   (let ((buff (get-buffer-create
                (format "*unrepl-%s[%s:%S]*"
-                       (unrepl--keyword-name type)
+                       (unrepl-keyword-name type)
                        server-host server-port))))
     (when (and server-host server-port)
       (with-current-buffer buff
@@ -204,7 +199,7 @@ and to properly set the filter function for the process output.
 
 Return a network connection process."
   (make-network-process
-   :name (format "unrepl-%s" (unrepl--keyword-name type))
+   :name (format "unrepl-%s" (unrepl-keyword-name type))
    :buffer (unrepl--get-network-buffer type host port)
    :host host
    :service port

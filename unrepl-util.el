@@ -70,6 +70,11 @@
     (cons host port)))
 
 
+(defun unrepl-keyword-name (keyword)
+  "Return the name of KEYWORD, without the leading colon `:'."
+  (substring (symbol-name keyword) 1))
+
+
 (defun unrepl-last-sexp (&optional bounds)
   "Return the sexp preceding the point.
 If BOUNDS is non-nil, return a list of its starting and ending position
