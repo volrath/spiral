@@ -110,7 +110,7 @@ WITH-DELIMITERS is a boolean value that indicate whether to keep or remove
 the opening and closing tokens for the retrieved
 collection (i.e. opening/closing parens for lists, opening/closing brackets
 for vectors etc.)"
-  (let ((elision-actions (unrepl-ast--tag-child elision-tag-node)))
+  (let ((elision-actions (unrepl-ast-tag-child elision-tag-node)))
     (pcase (parseclj-ast-node-type elision-actions)
       (:nil (delete-char -1))  ;; delete the trailing space leading to this node.
       (:map (if mute-ui
@@ -134,7 +134,7 @@ for vectors etc.)"
 If MUTE-UI is non-nil, don't do anything."
   (when (and unrepl-handle-rich-media
              (not mute-ui))
-    (let* ((mime-spec (unrepl-ast--tag-child mime-tag-node))
+    (let* ((mime-spec (unrepl-ast-tag-child mime-tag-node))
            (content-type (parseclj-ast-value (unrepl-ast-map-elt mime-spec :content-type)))
            (attachment-handler (unrepl-attachment-find-handler content-type)))
       (when attachment-handler
@@ -181,7 +181,7 @@ OBJECT-TAG-NODE's child is a vector that has 4 elements, these are:
 By default, this function will create tooltips for the object
 representation with additional information.  MUTE-UI overrides this
 behavior."
-  (let* ((obj-attrs (parseclj-ast-children (unrepl-ast--tag-child object-tag-node)))
+  (let* ((obj-attrs (parseclj-ast-children (unrepl-ast-tag-child object-tag-node)))
          (class-name (unrepl-ast-unparse-to-string (car obj-attrs)))
          (id-hash (parseclj-ast-value (cadr obj-attrs)))
          (object-repr "--"))  ;; TODO: placeholder for actual object repr
@@ -229,10 +229,10 @@ buttons."
                         #'unrepl-ast-unparse-stdout-string
                       #'unrepl-ast-unparse))
          (string-tag-vector-elems (-> string-tag-node
-                                      (unrepl-ast--tag-child)
+                                      (unrepl-ast-tag-child)
                                       (parseclj-ast-children)))
          (string-node (car string-tag-vector-elems))
-         (elision-actions (unrepl-ast--tag-child (cadr string-tag-vector-elems))))
+         (elision-actions (unrepl-ast-tag-child (cadr string-tag-vector-elems))))
     ;; insert string
     (funcall insert-fn string-node)
     ;; and then elision button
@@ -268,7 +268,7 @@ buttons."
 MUTE-UI is a flag that indicates whether or not to insert UI elements like
 buttons."
   (-> tag-node
-      (unrepl-ast--tag-child)
+      (unrepl-ast-tag-child)
       (unrepl-ast-unparse nil mute-ui)))
 
 
@@ -284,7 +284,7 @@ buttons."
 ;; Unparsing
 ;; -------------------------------------------------------------------
 
-(defun unrepl-ast--tag-child (tag-node)
+(defun unrepl-ast-tag-child (tag-node)
   "Return the child node of TAG-NODE."
   (-> tag-node (parseclj-ast-children) (car)))
 
@@ -385,7 +385,7 @@ children (the actual param name) and compares against the PARAMS alist to
 see if there's a valid replacement for it."
   (lambda (param-tag-node)
     (let* ((param-keyword (-> param-tag-node
-                              (unrepl-ast--tag-child)
+                              (unrepl-ast-tag-child)
                               (parseclj-ast-value)))
            (replacement (seq-find (lambda (p-kv)
                                     (eql (car p-kv) param-keyword))
