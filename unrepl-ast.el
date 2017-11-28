@@ -118,7 +118,7 @@ for vectors etc.)"
               (let ((get-more-action (-> elision-actions
                                          (unrepl-ast-map-elt :get)
                                          (unrepl-command-template))))
-                (unrepl-button-insert-one-off
+                (unrepl-button-aux-action-throwaway-insert
                  unrepl-button-elision-label
                  get-more-action
                  (lambda (eval-payload)
@@ -238,7 +238,7 @@ buttons."
     ;; and then elision button
     (if mute-ui
         (insert (propertize "..." 'category 'unrepl-elision))
-      (unrepl-button-insert-one-off
+      (unrepl-button-aux-action-throwaway-insert
        unrepl-button-elision-label
        (-> elision-actions
            (unrepl-ast-map-elt :get)

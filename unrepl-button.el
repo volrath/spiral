@@ -35,64 +35,67 @@
   "Label used to represent elisions.")
 
 
-(declare-function unrepl-aux-send "unrepl-loop")
-(defun unrepl-button-insert (label action
-                                   &optional eval-callback stdout-callback
-                                   &rest extra-props)
-  "Insert a button with LABEL that execute ACTION.
-ACTION can be either a string or a function.
-
+(defun unrepl-button-insert (label action-fn &rest extra-props)
+  "Insert a button with LABEL that execute ACTION-FN when pressed.
 If ACTION is a function, it will be executed when the button is pressed,
 EVAL-CALLBACK and STDOUT-CALLBACK params will be ignored.
-
-If ACTION is a string, it will be interpreted as an UNREPL action that
-should be sent through the `:aux' connection.  A callback function will be
-created for the ACTION's evaluation, and it will internally call
-EVAL-CALLBACK with the evaluation payload.  If STDOUT-CALLBACK is non-nil,
-another callback function will be created for the ACTION's stdout, and it
-will internally call STDOUT-CALLBACK with any output payload given.
 EXTRA-PROPS are button properties to add to the button."
-  (when (and (stringp action)
-             (not eval-callback))
-    (error "Button created without a evaluation callback"))
-  (let ((button-action (if (stringp action)
-                           (lambda (_button)
-                             (unrepl-aux-send action eval-callback stdout-callback))
-                         action)))
-    (insert " ")
-    (apply #'insert-text-button
-           label
-           'follow-link t
-           'action button-action
-           extra-props)))
+  (insert " ")
+  (apply #'insert-text-button
+         label
+         'follow-link t
+         'action action-fn
+         extra-props))
 
 
-(defun unrepl-button-insert-one-off (label action eval-callback
-                                           &optional stdout-callback kill-from kill-to
-                                           &rest extra-props)
+(defun unrepl-button-throwaway-insert (label action-fn
+                                             &optional kill-from kill-to
+                                             &rest extra-props)
   "Same as `unrepl-button-insert' but only clickable once.
 This button will delete itself after the user interacts with it the first
 time.
-LABEL, ACTION, EVAL-CALLBACK, STDOUT-CALLBACK, and EXTRA-PROPS are the same
-as explained in `unrepl-button-insert'.
-The evaluation callback for this button will delete the region where the
-button is, which should be defined by KILL-FROM and KILL-TO.
+The ACTION-FN will be wrapped so that the button deletes the region marked
+from KILL-FROM to KILL-TO.
 KILL-FROM default value is =(point)=.  KILL-TO default value is the end of
 the new created button.
-EVAL-CALLBACK can safely assume that the cursor will be at KILL-FROM, and
-it is responsible to decide where to leave the cursor when finished."
+ACTION-FN can safely assume that the cursor will be at KILL-FROM, and
+it is responsible to decide where to leave the cursor when finished.
+LABEL and EXTRA-PROPS are the same as in `unrepl-button-insert'."
   (let* ((kill-from-marker (make-marker))
          (kill-to-marker (make-marker))
-         (eval-callback (lambda (eval-payload)
+         (button-action (lambda (button)
                           (with-current-buffer (marker-buffer kill-from-marker)
                             ;; Kill the button region
                             (goto-char kill-from-marker)
                             (delete-region kill-from-marker kill-to-marker)
-                            ;; Run the actual callback
-                            (funcall eval-callback eval-payload)))))
+                            ;; Run the button action
+                            (funcall action-fn button)))))
     (set-marker kill-from-marker (or kill-from (point)))
-    (apply #'unrepl-button-insert label action eval-callback stdout-callback extra-props)
+    (apply #'unrepl-button-insert label button-action nil nil extra-props)
     (set-marker kill-to-marker (or kill-to (point)))))
+
+
+(declare-function unrepl-aux-send "unrepl-loop")
+(defun unrepl-button-aux-action-throwaway-insert (label action eval-callback
+                                                        &optional stdout-callback kill-from kill-to
+                                                        &optional extra-props)
+  "Create a throwaway button that send ACTION through the `:aux' connection.
+ACTION is expected to be an input string to be sent through `:aux'.
+EVAL-CALLBACK and STDOUT-CALLBACK are attached to this new pending
+evaluation.
+KILL-FROM and KILL-TO are the same as in `unrepl-button-throwaway-insert'.
+LABEL and EXTRA-PROPS are the same as in `unrepl-button-insert'."
+  (let* ((buf (current-buffer))
+         (button-action (lambda (_button)
+                          (unrepl-aux-send action
+                                           (lambda (eval-payload)
+                                             (with-current-buffer buf
+                                               (funcall eval-callback eval-payload)))
+                                           (when stdout-callback
+                                             (lambda (out-payload)
+                                               (with-current-buffer buf
+                                                 (funcall stdout-callback out-payload))))))))
+    (apply #'unrepl-button-throwaway-insert label button-action kill-from kill-to extra-props)))
 
 
 (provide 'unrepl-button)
