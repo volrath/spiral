@@ -236,7 +236,9 @@ Stacktrace' button will be inserted in its place."
         (if show-trace
             (unrepl-stacktrace--insert-trace ex-trace)
           (unrepl-stacktrace--insert-trace-button ex-trace)))
-      (recenter -1))))
+      (when (and (get-buffer-window (current-buffer))
+                 (eql (current-buffer) (window-buffer (selected-window))))
+        (recenter -1)))))
 
 (provide 'unrepl-stacktrace)
 
