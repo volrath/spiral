@@ -223,7 +223,7 @@ A `project' variable will be added to the local scope."
 ;; Phantom Input Entries
 ;; -------------------------------------------------------------------
 
-(defun unrepl-repl-insert-phantom-input (evaluation &optional payload _switch-to-repl)
+(defun unrepl-repl-insert-phantom-input (evaluation &optional payload switch-to-repl)
   "Insert a phantom input for EVALUATION.
 Adds a History Entry for this new input, as if it were typed by a ghost.
 
@@ -260,7 +260,12 @@ window."
      (unrepl-repl-prompt unrepl-conn-id)
      ;; Restore current input
      (insert current-input)
-     (switch-to-buffer-other-window (current-buffer))  ;; need to switch so that `goto-char' works
+     ;; Move to the end of the repl
+     (unless (eq (current-buffer) (window-buffer (selected-window)))
+       (if switch-to-repl
+           (switch-to-buffer-other-window (current-buffer))
+         (dolist (window (get-buffer-window-list (current-buffer)))
+           (set-window-point window (point-max)))))
      (goto-char (point-max)))))
 
 
@@ -680,22 +685,22 @@ through history for an entry that shares its same GROUP-ID.  If it can't
 find a match, it will print it at the end of the buffer but before the last
 prompt."
   (with-current-repl
-   (save-excursion
-     (if unrepl-repl-group-stdout
-         ;; Find the best place to print the output.
-         (let ((pending-eval (unrepl-pending-eval :client conn-id)))
-           (if (unrepl-repl--interactive-input-p group-id)
-               (unrepl-repl-insert-phantom-input pending-eval stdout-payload)
-             (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))
-                 (if (eql (unrepl-repl--history-entry-group-id h-entry)
-                          (unrepl-pending-eval-entry-group-id pending-eval))
-                     (unrepl-repl-insert-out stdout-payload (point-max))
+   (if unrepl-repl-group-stdout
+       ;; Find the best place to print the output.
+       (let ((pending-eval (unrepl-pending-eval :client conn-id)))
+         (if (unrepl-repl--interactive-input-p group-id)  ;; interactive input
+             (unrepl-repl-insert-phantom-input pending-eval stdout-payload)
+           (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))
+               (if (eql (unrepl-repl--history-entry-group-id h-entry)
+                        (unrepl-pending-eval-entry-group-id pending-eval))  ;; last repl input
+                   (unrepl-repl-insert-out stdout-payload (point-max))
+                 (save-excursion  ;; old repl input
                    (unrepl-repl-insert-out
                     stdout-payload
-                    (unrepl-repl--history-entry-prompt-marker h-entry)))
-               (unrepl-repl-insert-out stdout-payload))))
-       ;; Just print right before the last prompt
-       (unrepl-repl-insert-out stdout-payload)))))
+                    (unrepl-repl--history-entry-prompt-marker h-entry))))
+             (unrepl-repl-insert-out stdout-payload))))
+     ;; Just print right before the last prompt
+     (unrepl-repl-insert-out stdout-payload))))
 
 
 (defun unrepl-repl-insert-exception (payload &optional point history-idx namespace)
