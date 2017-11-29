@@ -656,7 +656,16 @@ STDOUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
 If POINT is nil, prints the payload right before the last prompt"
   (goto-char (or point unrepl-repl-prompt-start-mark))
   (unrepl-ast-unparse-stdout-string stdout-payload)
-  (unrepl-repl--newline-if-needed))
+  (unrepl-repl--newline-if-needed)
+  ;; Update marker.
+  ;; If point was a marker, move it forward
+  ;; If there was no point (*philosophical sadness rushes in*), move
+  ;; `unrepl-repl-prompt-start-mark' forward
+  ;; Else, point was just a point, nothing to do.
+  (when (markerp point)
+    (set-marker point (point)))
+  (unless point
+    (set-marker unrepl-repl-prompt-start-mark (point))))
 
 
 (defun unrepl-repl-handle-out (conn-id stdout-payload group-id)
