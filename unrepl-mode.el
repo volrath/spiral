@@ -275,6 +275,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
     (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
     (define-key map (kbd "C-c C-r") #'unrepl-inspect-last-eval)
     (define-key map (kbd "C-c C-g") #'unrepl-eval-interrupt)
+    (define-key map (kbd "C-c q") #'unrepl-quit)
     (define-key map (kbd "C-c C-q") #'unrepl-quit)
     map))
 
