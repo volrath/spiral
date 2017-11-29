@@ -164,7 +164,7 @@ demunged from UNREPL."
   (let* ((pretty-repr (or pretty-repr class))
          (actual-repr (format "#object[%s %S %s]" class id-hash object-repr)))
     (if (eql type 'object)
-        actual-repr
+        (insert actual-repr)
       (when (eql (current-buffer) (unrepl--make-buffer-for-mode 'clojure-mode))
         (erase-buffer))
       (insert
