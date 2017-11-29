@@ -238,7 +238,7 @@ current buffer."
 (defun unrepl-inspect-last-eval ()
   "Replicate last evaluation in REPL buffer for further inspection."
   (interactive)
-  (unrepl-repl-insert-phantom-input unrepl-latest-eval))
+  (unrepl-repl-insert-phantom-input unrepl-latest-eval nil 'switch-to-repl))
 
 
 (declare-function unrepl-aux-send "unrepl-loop")

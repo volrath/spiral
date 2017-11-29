@@ -726,7 +726,7 @@ inserted."
    (let ((namespace (unrepl-project-namespace project)))
      (if (unrepl-repl--interactive-input-p group-id)  ;; Interactive input
          (let ((pending-eval (unrepl-pending-eval :client conn-id)))
-           (unrepl-repl-insert-phantom-input pending-eval payload))
+           (unrepl-repl-insert-phantom-input pending-eval payload 'switch-to-repl))
        (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))  ;; REPL input
            (unrepl-repl-insert-exception
             payload
