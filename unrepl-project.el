@@ -310,6 +310,7 @@ The returned data structure is meant to be placed in `unrepl-projects'.
 SERVER-PROC is an optional process representing the Clojure Socket REPL."
   (let ((project-dir (clojure-project-dir (unrepl--current-dir))))
     `((:id . ,conn-id)
+      (:created . ,(current-time))
       (:namespace . nil)
       (:project-dir . ,project-dir)
       (:socket-repl . ,server-proc)
@@ -355,6 +356,20 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
 (defun unrepl-project-id (proj)
   "Return the ID of the given PROJ."
   (map-elt proj :id))
+
+
+(defun unrepl-project-repr (proj)
+  "Return a human focused string representation of PROJ."
+  (let* ((dir (unrepl-project-dir proj))
+         (name (when dir
+                 (file-name-nondirectory (substring dir 0 -1)))))
+    (format "%s [%s]"
+            (or name "*No Project*")
+            (unrepl-project-id proj))))
+
+(defun unrepl-project-created (proj)
+  "Return the created time for PROJ."
+  (map-elt proj :created))
 
 
 (defun unrepl-project-port (proj)
@@ -448,11 +463,16 @@ When RAISE-NOT-FOUND is nil, raises an `error' if CONN-ID is not found in
     proj))
 
 
-(defun unrepl-projects-find-by-file ()
-  "Try to guess the project to which the current buffer belongs too.
-This function looks at the buffer's file path and searches through
-`unrepl-projects' that have a true-ish `:project-dir' for a match."
-  (error "Not implemented"))
+(defun unrepl-projects-get-by-dir (project-dir)
+  "Find a project in `unrepl-projects' for PROJECT-DIR.
+If more than one project matches with PROJECT-DIR, return the most recently
+created.
+Return matching project or nil"
+  (-find (lambda (p) (eql (unrepl-project-dir p) project-dir))
+         (-sort (lambda (p1 p2)
+                  (time-less-p (unrepl-project-created p2)
+                               (unrepl-project-created p1)))
+                unrepl-projects)))
 
 
 (defun unrepl-project-set-in (conn-id key val)
