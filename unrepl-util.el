@@ -178,7 +178,7 @@ BORROWED FROM CIDER."
              (load (expand-file-name filename unrepl-dir)))
            (directory-files default-directory nil "^unrepl.*\\.el$")))
    (unrepl-project-quit '127.0.0.1:5555)
-   (unrepl-connect-to "localhost" 5555))
+   (unrepl--connect-to "localhost" 5555))
 
  (global-set-key (kbd "C-c C-u r") #'unrepl-debug-retry)
  (global-set-key (kbd "C-c C-u m") #'unrepl-make-blob)
