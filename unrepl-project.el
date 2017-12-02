@@ -45,28 +45,6 @@ Ideal for REPL tooling."
   :type 'list
   :group 'unrepl)
 
-(defcustom unrepl-default-socket-repl-command 'boot
-  "The default command to be used when creating a Clojure Socket REPL."
-  :type '(choice (const boot)
-                 (const lein)
-                 (const gradle))
-  :group 'unrepl)
-
-(defcustom unrepl-preferred-build-tool nil
-  "Allow choosing a build system when there are many.
-When there are artifacts from multiple build systems (\"lein\", \"boot\",
-\"gradle\") the user is prompted to select one of them.  When non-nil, this
-variable will suppress this behavior and will select whatever build system
-is indicated by the variable if present.  Note, this is only when CIDER
-cannot decide which of many build systems to use and will never override a
-command when there is no ambiguity."
-  :type '(choice (const "lein")
-                 (const "boot")
-                 (const "gradle")
-                 (const :tag "Always ask" nil))
-  :group 'unrepl
-  :safe #'stringp)
-
 (defvar unrepl-projects nil
   "AList containing all projects identified by a Connection ID \"host:port\".
 
@@ -79,28 +57,6 @@ process.")
   "Queue of pending evaluations.
 This variable is meant to be set on network buffers for `:client' and
 `:aux' interactions with an UNREPL server.")
-
-
-(defun unrepl--identify-buildtools-present ()
-  "Identify build systems present by their build files in PROJECT-DIR.
-
-BORROWED FROM CIDER."
-  (let* ((default-directory (clojure-project-dir (unrepl--current-dir)))
-         (build-files '((lein . "project.clj")
-                        (boot . "build.boot")
-                        (gradle . "build.gradle"))))
-    (delq nil
-          (mapcar (lambda (candidate)
-                    (when (file-exists-p (cdr candidate))
-                      (car candidate)))
-                  build-files))))
-
-
-(defun unrepl--current-dir ()
-  "Return the directory of the current buffer."
-  (if buffer-file-name
-      (file-name-directory buffer-file-name)
-    default-directory))
 
 
 ;; Pending Evaluations
@@ -279,43 +235,21 @@ KWARGS are the key-values to update the pending evaluation entry."
 ;; - `:project-type': An optional string referring to the type of project.
 ;; - `:socket-repl': An optional process referring to the Socket REPL server.
 
-(defun unrepl-project-type ()
-  "Determine the type of Clojure project.
-
-BORROWED FROM CIDER.
-
-If more than one project file types are present, check for a preferred
-build tool in `unrepl-preferred-build-tool', otherwise prompt the user to
-choose."
-  (let* ((choices (unrepl--identify-buildtools-present))
-         (multiple-project-choices (> (length choices) 1))
-         (default (car choices)))
-    (cond ((and multiple-project-choices
-                (member unrepl-preferred-build-tool choices))
-           unrepl-preferred-build-tool)
-          (multiple-project-choices
-           (completing-read (format "Which command should be used (default %s): " default)
-                            choices nil t nil nil default))
-          (choices
-           (car choices))
-          (t unrepl-default-socket-repl-command))))
-
-
 (declare-function unrepl-repl-create-buffer "unrepl-repl")
-(defun unrepl-create-project (conn-id conn-pool server-proc)
-  "Create a new project structure with id CONN-ID for a CONN-POOL.
+(defun unrepl-create-project (conn-id project-dir conn-pool server-proc)
+  "Create a new project structure with id CONN-ID.
+PROJECT-DIR is the Clojure project's directory, it can be nil.
+CONN-POOL is the connection pool, as described in the documentation.
+SERVER-PROC is an optional process representing the Clojure Socket REPL.
 
-The returned data structure is meant to be placed in `unrepl-projects'.
-
-SERVER-PROC is an optional process representing the Clojure Socket REPL."
-  (let ((project-dir (clojure-project-dir (unrepl--current-dir))))
-    `((:id . ,conn-id)
-      (:created . ,(current-time))
-      (:namespace . nil)
-      (:project-dir . ,project-dir)
-      (:socket-repl . ,server-proc)
-      (:repl-buffer . ,(unrepl-repl-create-buffer conn-id))
-      (:conn-pool . ,conn-pool))))
+The returned data structure is meant to be placed in `unrepl-projects'."
+  `((:id . ,conn-id)
+    (:created . ,(current-time))
+    (:namespace . nil)
+    (:project-dir . ,project-dir)
+    (:socket-repl . ,server-proc)
+    (:repl-buffer . ,(unrepl-repl-create-buffer conn-id))
+    (:conn-pool . ,conn-pool)))
 
 
 (declare-function unrepl--conn-pool-procs "unrepl")
@@ -334,13 +268,14 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL."
     (when server-buf
       (kill-buffer server-buf))
     ;; Kill the pool connection processes.
-    (mapc (lambda (p-conn-proc)
-            (let ((p-conn-buf (process-buffer p-conn-proc)))
+    (mapc (lambda (p-conn)
+            (let* ((p-conn-proc (cdr p-conn))
+                   (p-conn-buf (process-buffer p-conn-proc)))
               (when p-conn-proc
                 (delete-process p-conn-proc))
               (when p-conn-buf
                 (kill-buffer p-conn-buf))))
-          (unrepl--conn-pool-procs pool))
+          pool)
     ;; Kill the REPL buffer
     (when repl-buf
       (kill-buffer repl-buf))
@@ -445,6 +380,11 @@ KWARGS is expected to be pairs of keywords and processes."
   "Return ACTION in PROJECT's `:actions'.
 ACTION should be a key in the UNREPL session-actions map."
   (unrepl-ast-map-elt (unrepl-project-actions project) action))
+
+
+(defun unrepl-projects-as-list ()
+  "Return all available projects as a list."
+  (map-values unrepl-projects))
 
 
 (defun unrepl-projects-add (proj)

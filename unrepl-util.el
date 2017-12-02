@@ -59,8 +59,14 @@
   "Alist with (mode . buffer) pairs.")
 
 
-;; Random utilities
+
+;; Connection utilities
 ;; -------------------------------------------------------------------
+
+(defun unrepl-make-conn-id (host port)
+  "Return a symbol of the form HOST:PORT."
+  (intern (format "%s:%S" host port)))
+
 
 (defun unrepl-conn-host-port (conn-id)
   "Return a tuple of host<string>, port<integer> from CONN-ID."
@@ -68,6 +74,14 @@
          (host (car s-host-port))
          (port (string-to-number (cadr s-host-port))))
     (cons host port)))
+
+
+;; Random utilities
+;; -------------------------------------------------------------------
+
+(defun unrepl-clojure-dir ()
+  "Try to guess current buffer's project dir."
+  (clojure-project-dir))  ;; TODO: self-hosted clojurescript
 
 
 (defun unrepl-keyword-name (keyword)
