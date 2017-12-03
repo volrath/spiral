@@ -56,7 +56,7 @@
                :to-equal (list (unrepl-projects-get conn-id) nil))))
           '(("secr TAB RET" . localhost:5566)
             ("bar TAB RET" . localhost:5555)
-            ("*No SPC TAB RET" . 159.98.201.23:60100))))
+            ("159 TAB RET" . 159.98.201.23:60100))))
 
   
   (it "accepts <host>:<port> values that are not listed in choices"
@@ -116,15 +116,15 @@
               :to-equal
               '("bar [localhost:5544]"
                 "bar [localhost:5555]"
-                "*No Project* [159.98.201.23:60100]"
+                "159.98.201.23:60100"
                 "secret [localhost:5566]"))
       (spy-on 'delete-process)
       (unrepl-project-quit 'localhost:5544))
 
-    (it "when called nil project-dir, returns *No Project* first"
+    (it "when called nil project-dir, returns projects with no dir first"
       (expect (unrepl--connection-prompt-choices nil)
               :to-equal
-              '("*No Project* [159.98.201.23:60100]"
+              '("159.98.201.23:60100"
                 "secret [localhost:5566]"
                 "bar [localhost:5555]")))))
 
@@ -199,7 +199,7 @@
     (it "prompts the user for a Socket REPL HOST:PORT"
       (spy-on 'unrepl-clojure-dir :and-return-value nil)
       (spy-on 'unrepl--connection-prompt
-              :and-return-value (list '((:id 'localhost:5555)) nil))
+              :and-return-value (list '((:id . localhost:5555)) nil))
       (with-temp-buffer
         (clojure-mode)
         (let ((inhibit-message t))

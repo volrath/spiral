@@ -295,12 +295,11 @@ The returned data structure is meant to be placed in `unrepl-projects'."
 
 (defun unrepl-project-repr (proj)
   "Return a human focused string representation of PROJ."
-  (let* ((dir (unrepl-project-dir proj))
-         (name (when dir
-                 (file-name-nondirectory (substring dir 0 -1)))))
-    (format "%s [%s]"
-            (or name "*No Project*")
-            (unrepl-project-id proj))))
+  (let* ((dir (unrepl-project-dir proj)))
+    (if-let (name (when dir
+                    (file-name-nondirectory (substring dir 0 -1))))
+        (format "%s [%s]" name (unrepl-project-id proj))
+      (format "%s" (unrepl-project-id proj)))))
 
 (defun unrepl-project-created (proj)
   "Return the created time for PROJ."

@@ -119,18 +119,21 @@ already created for PROJECT-DIR will appear first in the list."
                                      nil nil nil
                                      'unrepl-connect--history
                                      (car connection-choices)))
-         (conn-id-regexp "\\([^\\:]+\\):\\([0-9]+\\)")
-         (project-repr-regexp (format "[a-zA-Z0-9].* \\[\\(%s\\)\\]"
-                                      conn-id-regexp)))
-    (if (string-match project-repr-regexp selection)
-        (list (unrepl-projects-get (intern (match-string 1 selection)))
-              nil)
-      (if (string-match conn-id-regexp selection)
-          (let ((host (match-string 1 selection))
-                (port (string-to-number (match-string 2 selection))))
-            (list (unrepl--init-project-connection host port project-dir)
-                  'new))
-        (user-error "%S does not look like a valid <host>:<port>" selection)))))
+         (conn-id-regexp "[^\\:]+:[0-9]+")
+         (named-project-repr-regexp (format "[a-zA-Z0-9].* \\[\\(%s\\)\\]"
+                                            conn-id-regexp))
+         (conn-id (cond ((string-match named-project-repr-regexp selection)
+                         (intern (match-string 1 selection)))
+                        ((string-match-p conn-id-regexp selection)
+                         (intern selection))
+                        (t (user-error "%S does not look like a valid <host>:<port>" selection)))))
+    (if-let (project (unrepl-projects-get conn-id))
+        (list (unrepl-projects-get conn-id) nil)
+      (let* ((host-port (unrepl-conn-host-port conn-id))
+             (host (car host-port))
+             (port (cdr host-port)))
+        (list (unrepl--init-project-connection host port project-dir)
+              'new)))))
 
 
 (defun unrepl--connect-to (host port &optional buffer)
