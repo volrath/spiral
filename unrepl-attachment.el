@@ -61,7 +61,7 @@ DELETE-FROM to DELETE-TO"
                                     (:unrepl.print/coll-length . Long/MAX_VALUE)
                                     (:unrepl.print/nesting-depth . Long/MAX_VALUE))
       ;; 3.
-      (unrepl-aux-send (format "(%s)" load-action-str)   ;; hack, read below
+      (unrepl-aux-send load-action-str
                        (lambda (eval-payload)
                          (with-current-buffer (marker-buffer delete-from)
                            ;; 4.
@@ -70,14 +70,12 @@ DELETE-FROM to DELETE-TO"
                            (funcall revert-bindings-back)
                            (funcall eval-callback eval-payload)))
                        stdout-callback))))
-;; In this line we're enclosing the command into parens (see `format') because
-;; UNREPL mime tagged literal's `:get' action returns a function, so we need to
-;; call it again.  TODO: make sure this is not an UNREPL bug.
 
 
 (defun unrepl-attachment--handle-image (eval-payload)
   "Load a base64 encoded image from EVAL-PAYLOAD and display it."
   (let* ((image-data (-> eval-payload
+                         (unrepl-ast-tag-child)
                          (parseclj-ast-value)
                          (base64-decode-string)
                          (string-as-unibyte)))

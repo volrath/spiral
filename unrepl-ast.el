@@ -146,6 +146,8 @@ If MUTE-UI is non-nil, don't do anything."
       (when attachment-handler
         (unrepl-attachment-insert-button attachment-handler
                                          (-> mime-spec
+                                             (unrepl-ast-map-elt :content)
+                                             (unrepl-ast-tag-child)
                                              (unrepl-ast-map-elt :get)
                                              (unrepl-command-template)))))))
 
