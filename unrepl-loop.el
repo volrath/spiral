@@ -97,7 +97,6 @@ Group-id is returned as an integer."
     (list tag payload group-id)))
 
 
-(declare-function unrepl-process-conn-id "unrepl")
 (defun unrepl-loop-handle-proc-message (process output)
   "Decode OUTPUT's EDN messages from PROCESS, and dispatch accordingly."
   (let ((proc-buf (process-buffer process)))
@@ -121,7 +120,7 @@ Group-id is returned as an integer."
           (goto-char unrepl-loop-process-output-start)
           (mapc (lambda (msg-ast-node)
                   (apply unrepl-loop-process-dispatcher
-                         (unrepl-process-conn-id process)
+                         unrepl-conn-id
                          (unrepl-loop--destructure-message-ast msg-ast-node)))
                 (parseclj-ast-children (parseclj-parse-clojure)))
           (setq-local unrepl-loop-process-output-start (point-max)))))))
