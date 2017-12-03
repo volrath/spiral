@@ -201,7 +201,7 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
                      (port (cdr unrepl-server-host-port)))
                 (message "Clojure Socket REPL server started on %s:%S." host port)
                 (with-current-buffer calling-buffer
-                  (funcall connected-callback host port))))
+                  (funcall connected-callback process host port))))
             (goto-char (point-max))
             (insert output)))))))
 
