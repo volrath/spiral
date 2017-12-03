@@ -64,8 +64,8 @@ cyclical data structures."
 (defvar unrepl-stacktrace-detail-max 2
   "The maximum detail level for causes.")
 
-(defvar unrepl-stacktrace--calm-down-indent-dot
-  (concat (propertize "."
+(defvar unrepl-stacktrace--calm-down-indent
+  (concat (propertize " "
                       'font-lock-face 'unrepl-font-exception-prompt-face
                       'rear-nonsticky '(font-lock-face))
           " ")
@@ -122,7 +122,7 @@ cyclical data structures."
 FORMAT-SPACING is a number of char spaces to be left blank to the left of
 the inserted text.  For more information, see
 `unrepl-stacktrace--insert-causes'."
-  (insert unrepl-stacktrace--calm-down-indent-dot)
+  (insert unrepl-stacktrace--calm-down-indent)
   ;; Insert the actual cause
   (let ((padded-format (concat "%" (format "%ds: " format-spacing)))
         (type (parseclj-ast-value (unrepl-ast-map-elt cause :type)))
@@ -193,7 +193,7 @@ be used for each trace entry's file name and line number"
                  (lambda (eval-payload &rest _args)
                    (unrepl-stacktrace--insert-trace eval-payload paddings)))
               (insert
-               unrepl-stacktrace--calm-down-indent-dot
+               unrepl-stacktrace--calm-down-indent
                (concat
                 (propertize (format file-format (funcall get-file frame))
                             'font-lock-face 'unrepl-font-stacktrace-file-face)
