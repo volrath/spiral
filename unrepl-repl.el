@@ -86,6 +86,7 @@ prompt position in buffer.")
   when searching through history.  When nil, search is inactive.")
 
 
+
 ;; Common Faces
 ;; -------------------------------------------------------------------
 
@@ -135,6 +136,7 @@ prompt position in buffer.")
   :group 'unrepl-repl)
 
 
+
 ;; Utilities
 ;; -------------------------------------------------------------------
 
@@ -418,6 +420,7 @@ latest history entry will be associated with GROUP-ID."
      `(:repl-history-idx ,(length unrepl-repl-history)))))
 
 
+
 ;; Interactive
 ;; -------------------------------------------------------------------
 
@@ -547,6 +550,7 @@ This function makes sure to not get out of history boundaries."
      (unrepl-repl--history-search-tuple (1+ idx)))))
 
 
+
 ;; REPL Buffer
 ;; -------------------------------------------------------------------
 
@@ -607,6 +611,16 @@ This function only if it's not displayed in another window already."
        (format conn-id)
        (propertize 'font-lock-face 'font-lock-comment-face)
        (insert))))
+
+
+(defun unrepl-repl-disconnect (conn-id message)
+  "Disconnect REPL buffer for CONN-ID, and display explanation MESSAGE to user."
+  (with-current-buffer (unrepl-repl-display conn-id 'pop)
+    (goto-char (point-max))
+    (insert "\n\n"
+            (propertize message 'font-lock-face 'unrepl-font-exception-title-face))
+    (let ((inhibit-read-only t))
+      (add-text-properties (point-min) (point-max) '(read-only t)))))
 
 
 (defun unrepl-repl--build-prompt (history-id namespace)
@@ -754,6 +768,7 @@ inserted."
          (error "[%S] Unhandled exception %S" group-id payload))))))
 
 
+
 ;; UNREPL REPL mode
 ;; -------------------------------------------------------------------
 

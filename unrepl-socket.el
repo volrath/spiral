@@ -215,8 +215,17 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
                         (buffer-substring (point-min) (point-max)))
                     "")))
     (unrepl-project-quit conn-id)
-    (unless (string-match-p "^killed\\|^interrupt\\|^hangup" event)
-      (error "Could not start nREPL server: %s" problem))))
+    (unless (string-match-p "^killed\\|^interrupt\\|^hangup\\|^broken" event)
+      (error "Could not start Socket REPL server: %s" problem))))
+
+
+(defun unrepl-socket--client-sentinel (process event)
+  "Handle a Socket REPL client PROCESS EVENT.
+When a 'disconnect' EVENT comes from PROCESS, quit the PROCESS' project and
+shares the message with the user."
+  (when (string-match-p "^killed\\|^interrupt\\|^hangup\\|broken" event)
+    (unrepl-project-quit (buffer-local-value 'unrepl-conn-id (process-buffer process))
+                         event)))
 
 
 
@@ -262,6 +271,8 @@ Returns a pair (TYPE . new-process)."
                     :filter #'unrepl-loop-handle-proc-message)))
     ;; Setup process
     (process-send-string new-proc (or upgrade-msg (unrepl-socket--blob)))
+    (when (eql type :client)
+      (set-process-sentinel new-proc #'unrepl-socket--client-sentinel))
     (with-current-buffer (process-buffer new-proc)
       (clojure-mode)
       (setq-local unrepl-conn-id conn-id)

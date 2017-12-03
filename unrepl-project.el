@@ -254,8 +254,11 @@ The returned data structure is meant to be placed in `unrepl-projects'."
 
 (declare-function unrepl--conn-pool-procs "unrepl")
 (declare-function unrepl-connected-buffers "unrepl-mode")
-(defun unrepl-project-quit (conn-id)
-  "Kill and remove project with CONN-ID."
+(declare-function unrepl-repl-disconnect "unrepl-repl")
+(defun unrepl-project-quit (conn-id &optional message)
+  "Kill and remove project with CONN-ID.
+If MESSAGE is non-nil, it will be displayed at the end of the REPL
+buffer, which won't be automatically killed."
   (interactive)
   (let* ((proj (unrepl-projects-get conn-id))
          (repl-buf (unrepl-project-repl-buffer proj))
@@ -276,9 +279,11 @@ The returned data structure is meant to be placed in `unrepl-projects'."
               (when p-conn-buf
                 (kill-buffer p-conn-buf))))
           pool)
-    ;; Kill the REPL buffer
-    (when repl-buf
-      (kill-buffer repl-buf))
+    ;; Handle REPL buffer, if there's a message display it, if not, kill it
+    (if message
+        (unrepl-repl-disconnect conn-id message)
+      (when repl-buf
+        (kill-buffer repl-buf)))
     ;; Search for all buffers connected to this project and unbind their connection.
     (mapc (lambda (unrepl-buf)
             (with-current-buffer unrepl-buf

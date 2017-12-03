@@ -31,6 +31,7 @@
 ;;; Code:
 
 (require 'buttercup)
+(require 'dash)
 (require 'seq)
 (require 'with-simulated-input)
 
@@ -65,6 +66,7 @@
       (spy-on 'make-network-process :and-return-value mocked-proc)
       (spy-on 'unrepl-socket--get-network-buffer :and-return-value proc-buffer)
       (spy-on 'process-send-string)
+      (spy-on 'set-process-sentinel)
       (spy-on 'process-buffer :and-return-value proc-buffer)
       (spy-on 'delete-process)
 
@@ -86,12 +88,12 @@
               :host "barreto.tech"
               :service 12345
               :filter #'unrepl-loop-handle-proc-message)
-
       (expect 'unrepl-socket--get-network-buffer :to-have-been-called-with
               :client "barreto.tech" 12345)
-
-      (expect 'process-send-string :to-have-been-called-with mocked-proc (unrepl-socket--blob))
-
+      (expect 'process-send-string
+              :to-have-been-called-with mocked-proc (unrepl-socket--blob))
+      (expect 'set-process-sentinel
+              :to-have-been-called-with mocked-proc #'unrepl-socket--client-sentinel)
       (expect 'process-buffer :to-have-been-called-with mocked-proc)
 
       (with-current-buffer proc-buffer
@@ -169,6 +171,7 @@
         (clojure-mode)
         (let ((inhibit-message t))
           (call-interactively #'unrepl-connect)))
+
       (expect 'start-file-process-shell-command :to-have-been-called-times 1)
       (let ((call-args (spy-calls-args-for 'start-file-process-shell-command 0)))
         (expect (car call-args) :to-equal "unrepl-socket-server")
@@ -186,11 +189,13 @@
         (unrepl-projects-add project)
         (with-temp-buffer
           (clojure-mode)
+          (expect (not unrepl-mode))
           (expect unrepl-conn-id :to-equal nil)
 
           (let ((inhibit-message t))
             (call-interactively #'unrepl-connect))
 
+          (expect unrepl-mode)
           (expect unrepl-conn-id :to-equal (unrepl-project-id project))
           (unrepl-project-quit '127.0.0.1:60189)))))
 
@@ -205,5 +210,36 @@
         (let ((inhibit-message t))
           (call-interactively #'unrepl-connect))
         (expect 'unrepl--connection-prompt :to-have-been-called)))))
+
+
+(describe "When socket connection gets broken"
+  (before-each
+    (unrepl-projects-add (unrepl-create-project 'localhost:5555 "/foo/bar/" nil nil))
+    (let ((mocked-buf-name "*temp proc buffer*"))
+      (when (get-buffer mocked-buf-name)
+        (kill-buffer mocked-buf-name))
+      (let ((mocked-proc-buffer (get-buffer-create mocked-buf-name)))
+        (with-current-buffer mocked-proc-buffer
+          (setq-local unrepl-conn-id 'localhost:5555))
+        (spy-on 'process-buffer :and-return-value mocked-proc-buffer))))
+
+  (after-all
+    (setq unrepl-projects nil))
+
+  (it "user gets notified through the REPL"
+    (let ((repl-buffer (-> 'localhost:5555
+                           (unrepl-projects-get)
+                           (unrepl-project-repl-buffer))))
+      (unrepl-socket--client-sentinel 'mocked-proc "connection broken by peer.")
+
+      (expect (get-buffer-window repl-buffer))
+      (with-current-buffer repl-buffer
+        (expect (string-match-p
+                 "connection broken by peer.$"
+                 (buffer-substring-no-properties (point-min) (point-max)))))))
+
+  (it "project is removed from `unrepl-projects'"
+    (unrepl-socket--client-sentinel 'mocked-proc "connection broken by peer.")
+    (expect (not unrepl-projects))))
 
 ;;; test-unrepl-connect.el ends here
