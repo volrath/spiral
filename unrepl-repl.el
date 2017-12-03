@@ -223,7 +223,7 @@ A `project' variable will be added to the local scope."
 ;; Phantom Input Entries
 ;; -------------------------------------------------------------------
 
-(defun unrepl-repl-insert-phantom-input (evaluation &optional payload switch-to-repl)
+(defun unrepl-repl-insert-phantom-input (evaluation &optional payload display)
   "Insert a phantom input for EVALUATION.
 Adds a History Entry for this new input, as if it were typed by a ghost.
 
@@ -232,8 +232,8 @@ pending evaluation input, with its related PAYLOAD.  Then inserts a fresh
 new prompt as if it were created by a `:prompt' message, and restores the
 saved input.
 
-If SWITCH-TO-REPL is non-nil, switches to the REPL buffer in another
-window."
+DISPLAY is expected to be either 'pop or 'switch.  When non-nil, pops or
+switches to the REPL buffer in another window."
   (with-current-repl
    (unrepl-repl--transient-text-remove)
    (let ((current-input (buffer-substring unrepl-repl-input-start-mark (point-max)))
@@ -262,10 +262,10 @@ window."
      (insert current-input)
      ;; Move to the end of the repl
      (unless (eq (current-buffer) (window-buffer (selected-window)))
-       (if switch-to-repl
-           (switch-to-buffer-other-window (current-buffer))
-         (dolist (window (get-buffer-window-list (current-buffer)))
-           (set-window-point window (point-max)))))
+       (when display
+         (unrepl-repl-display (current-buffer) display))
+       (dolist (window (get-buffer-window-list (current-buffer)))
+         (set-window-point window (point-max))))
      (goto-char (point-max)))))
 
 
@@ -582,6 +582,24 @@ Associates to it some control local variables:
           (pop-to-buffer repl-buffer))))))
 
 
+(defun unrepl-repl-display (conn-id-or-buffer method)
+  "Display REPL buffer using METHOD.
+METHOD can be either 'switch or 'pop.  Defaults to 'pop.
+CONN-ID-OR-BUFFER is either a connection id or a REPL buffer.
+This function only if it's not displayed in another window already."
+  (let ((repl-buffer (if (bufferp conn-id-or-buffer)
+                         conn-id-or-buffer
+                       (unrepl-project-repl-buffer
+                        (unrepl-projects-get conn-id-or-buffer)))))
+    (pcase method
+      ('switch (switch-to-buffer-other-window repl-buffer t))
+      ('pop (when (not (get-buffer-window repl-buffer))
+              (pop-to-buffer repl-buffer nil t)))
+      (_ (when unrepl-debug
+           (error "Unrecognized `unrepl-repl-display' method: %S" method))))
+    repl-buffer))
+
+
 (defun unrepl-repl-connected (conn-id)
   "Init the REPL buffer for CONN-ID."
   (with-current-repl
@@ -689,7 +707,7 @@ prompt."
        ;; Find the best place to print the output.
        (let ((pending-eval (unrepl-pending-eval :client conn-id)))
          (if (unrepl-repl--interactive-input-p group-id)  ;; interactive input
-             (unrepl-repl-insert-phantom-input pending-eval stdout-payload)
+             (unrepl-repl-insert-phantom-input pending-eval stdout-payload 'pop)
            (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))
                (if (eql (unrepl-repl--history-entry-group-id h-entry)
                         (unrepl-pending-eval-entry-group-id pending-eval))  ;; last repl input
@@ -726,7 +744,7 @@ inserted."
    (let ((namespace (unrepl-project-namespace project)))
      (if (unrepl-repl--interactive-input-p group-id)  ;; Interactive input
          (let ((pending-eval (unrepl-pending-eval :client conn-id)))
-           (unrepl-repl-insert-phantom-input pending-eval payload 'switch-to-repl))
+           (unrepl-repl-insert-phantom-input pending-eval payload 'switch))
        (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))  ;; REPL input
            (unrepl-repl-insert-exception
             payload

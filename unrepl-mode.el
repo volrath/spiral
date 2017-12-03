@@ -230,15 +230,15 @@ current buffer."
   (with-current-project
    (let ((repl-buffer (unrepl-project-repl-buffer project)))
      (if unrepl-display-repl-in-current-window
-         (pop-to-buffer-same-window repl-buffer)
-       (pop-to-buffer repl-buffer)))))
+         (pop-to-buffer-same-window repl-buffer t)
+       (pop-to-buffer repl-buffer nil t)))))
 
 
 (declare-function unrepl-repl-insert-phantom-input "unrepl-repl")
 (defun unrepl-inspect-last-eval ()
   "Replicate last evaluation in REPL buffer for further inspection."
   (interactive)
-  (unrepl-repl-insert-phantom-input unrepl-latest-eval nil 'switch-to-repl))
+  (unrepl-repl-insert-phantom-input unrepl-latest-eval nil 'switch))
 
 
 (declare-function unrepl-aux-send "unrepl-loop")
