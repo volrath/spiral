@@ -67,6 +67,11 @@
                  (const :tag "Both" both))
   :group 'unrepl)
 
+(defcustom unrepl-auto-mode t
+  "Whether or not to automatically enable `unrepl-mode' for all Clojure buffer."
+  :type 'boolean
+  :group 'unrepl)
+
 (defvar-local unrepl-conn-id nil
   "Port number used when creating a new Socket REPL.")
 
@@ -78,38 +83,70 @@
 ;; Helpers
 ;; -------------------------------------------------------------------
 
-(defun unrepl-mode--conn-id-prompt ()
-  "Prompt the user for a HOST:PORT conn-id.
-Return a conn-id symbol."
-  (intern (format "%s:%s"
-                  (read-string "Host: ")
-                  (read-string "Port: "))))
+(defun unrepl-mode--find-project-by-file-name (&optional allow-nil)
+  "Check the current buffer file name and try to find a matching UNREPL project.
+If ALLOW-NIL is non-nil, allows returning projects with nil directory.
+If there is more than one project for this buffers file name, return the
+most recently created."
+  (let ((projects (unrepl-projects-as-list))
+        (project-dir (unrepl-clojure-dir)))
+    (cond (project-dir
+           (-find (lambda (p) (string= (unrepl-project-dir p) project-dir))
+                  projects))
+          (allow-nil
+           (-find (lambda (p) (not (unrepl-project-dir p)))
+                  projects)))))
 
 
+(defun unrepl-mode-enable-auto ()
+  "Automatically enable UNREPL's minor mode in every new Clojure buffer.
+Setup a `clojure-mode-hook' that checks for a possible project connection
+each time a new Clojure buffer gets opened."
+  (add-hook 'clojure-mode-hook #'unrepl-mode-conditionally-turn-on))
+
+
+(defun unrepl-mode--turn-on (project)
+  "Turn on `unrepl-mode' in current buffer and associate PROJECT to it."
+  (setq-local unrepl-conn-id (unrepl-project-id project))
+  (unrepl-mode t)
+  project)
+
+
+(defun unrepl-mode-turn-on (conn-id-or-project &optional buffer)
+  "Turn on `unrepl-mode' in BUFFER and associate CONN-ID-OR-PROJECT to it.
+If BUFFER is nil, use current buffer.
+Return the connected project."
+  (with-current-buffer (or buffer (current-buffer))
+    (let ((project (if (symbolp conn-id-or-project)
+                       (unrepl-projects-get conn-id-or-project))))
+      (unrepl-mode--turn-on project))))
+
+
+(defun unrepl-mode-conditionally-turn-on ()
+  "Turn on `unrepl-mode' only if variable `buffer-file-name' belongs to an existing project."
+  (when-let (project (unrepl-mode--find-project-by-file-name))
+    (unrepl-mode--turn-on project)))
+
+
+(declare-function unrepl--connection-prompt "unrepl")
 (defun unrepl-ensure-connected! ()
   "Make sure an `unrepl-conn-id' exists for current buffer.
 If this local variable is not already set, tries to find a good candidate
 by looking at the buffer's file path and comparing to existing
 `unrepl-projects'.
-If that fails and `unrepl-ask-for-connection' is t-ish, asks the user for
-an *existing* host:port connection to connect to.
-If everything else fails, raise an error.
+If that fails and `unrepl-ask-for-connection' is non-nil, asks the user for
+an *existing* host:port connection to connect to.  If everything else
+fails, raise an error.
 
 Return a UNREPL project"
   (if-let (project (and unrepl-conn-id
                         (unrepl-projects-get unrepl-conn-id)))
       project
-    (if-let (conn-id (unrepl-mode--find-connection-by-file-name))
-        (progn
-          (setq-local unrepl-conn-id conn-id)
-          (unrepl-projects-get conn-id))
+    (if-let (project (unrepl-mode-conditionally-turn-on))
+        project
       (if unrepl-ask-for-connection
-          (let ((conn-id (unrepl-mode--conn-id-prompt)))
-            (if-let (project (unrepl-projects-get conn-id))
-                (progn
-                  (setq-local unrepl-conn-id conn-id)
-                  project)
-              (error "Could not find an UNREPL connection for %s" conn-id)))
+          (seq-let [project _] (unrepl--connection-prompt (unrepl-clojure-dir))
+            (unrepl-mode--turn-on project))
         (error "Could not find an UNREPL connection for this buffer")))))
 
 
@@ -142,11 +179,6 @@ appropriate."
                                                                          (funcall ast-limits->alist
                                                                                   previous-limits))))))
                            ,@body))))))
-
-
-(defun unrepl-mode--find-connection-by-file-name ()
-  "Check the current buffer file name and try to find a matching UNREPL connection."
-  nil)
 
 
 
@@ -247,8 +279,7 @@ current buffer."
 If JUST-DO-IT is non-nil, don't ask for confirmation."
   (interactive "P")
   (let ((conn-id (or conn-id
-                     unrepl-conn-id
-                     (unrepl-mode--conn-id-prompt))))
+                     unrepl-conn-id)))
     (if-let (project (unrepl-projects-get conn-id))
         (when (or just-do-it
                   (y-or-n-p (format "Are you sure you want to quit connection to %s? " conn-id)))
