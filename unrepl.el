@@ -6,7 +6,7 @@
 ;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Thu Nov  9 23:26:00 2017 (+0100)
-;; Version:
+;; Version: 0.1.0-alpha
 ;; Package-Requires: ((emacs "25.1") (clojure-mode "5.6.0") (dash "2.13.0") (treepy "1.0.0"))
 ;; URL: https://github.com/volrath/unrepl.el
 ;; Keywords: languages, clojure
