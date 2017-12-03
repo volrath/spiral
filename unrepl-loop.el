@@ -190,7 +190,7 @@ gets executed."
      ,@body))
 
 
-(declare-function unrepl-create-connection-process "unrepl")
+(declare-function unrepl-socket-connect "unrepl-socket")
 (defun unrepl-loop--client-hello (conn-id payload)
   "Handle a `:unrepl/hello' message transmitted through CONN-ID.
 It processes the PAYLOAD to init the corresponding REPL and subsequent
@@ -207,12 +207,12 @@ evaluation of inputs."
            (start-sl-msg (unrepl-command-template (unrepl-ast-map-elt actions :unrepl.jvm/start-side-loader))))
       (unrepl-project-conn-pool-set-in
        conn-id
-       :aux (unrepl-create-connection-process :aux host port
-                                              (concat start-aux-msg "\n")
-                                              #'unrepl-loop-aux-handler)
-       :side-loader (unrepl-create-connection-process :side-loader host port
-                                                      (concat start-sl-msg "\n")
-                                                      #'unrepl-loop-side-loader-handler)))))
+       :aux (unrepl-socket-connect :aux host port
+                                   #'unrepl-loop-aux-handler
+                                   (concat start-aux-msg "\n"))
+       :side-loader (unrepl-socket-connect :side-loader host port
+                                           #'unrepl-loop-side-loader-handler
+                                           (concat start-sl-msg "\n"))))))
 
 
 (defun unrepl-loop--client-prompt (conn-id payload)
