@@ -427,7 +427,7 @@ When RAISE-NOT-FOUND is nil, raises an `error' if CONN-ID is not found in
 If more than one project matches with PROJECT-DIR, return the most recently
 created.
 Return matching project or nil"
-  (-find (lambda (p) (eql (unrepl-project-dir p) project-dir))
+  (-find (lambda (p) (string= (unrepl-project-dir p) project-dir))
          (-sort (lambda (p1 p2)
                   (time-less-p (unrepl-project-created p2)
                                (unrepl-project-created p1)))
