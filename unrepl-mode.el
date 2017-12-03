@@ -86,18 +86,6 @@ Return a conn-id symbol."
                   (read-string "Port: "))))
 
 
-(defun unrepl-connected-buffers (conn-id)
-  "List all buffers connected to CONN-ID."
-  ;; We could maybe add a buffer list to the project data structure, but it can
-  ;; get tricky to maintain synced pretty easily.
-  (seq-filter
-   (lambda (buffer)
-     (with-current-buffer buffer
-       (and (bound-and-true-p unrepl-mode)
-            (eql unrepl-conn-id conn-id))))
-   (buffer-list)))
-
-
 (defun unrepl-ensure-connected! ()
   "Make sure an `unrepl-conn-id' exists for current buffer.
 If this local variable is not already set, tries to find a good candidate

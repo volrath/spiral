@@ -34,6 +34,7 @@
 (require 'clojure-mode)
 (require 'dash)
 (require 'map)
+(require 'subr-x)
 
 (require 'unrepl-ast)
 (require 'unrepl-util)
@@ -253,7 +254,6 @@ The returned data structure is meant to be placed in `unrepl-projects'."
 
 
 (declare-function unrepl--conn-pool-procs "unrepl")
-(declare-function unrepl-connected-buffers "unrepl-mode")
 (declare-function unrepl-repl-disconnect "unrepl-repl")
 (defun unrepl-project-quit (conn-id &optional message)
   "Kill and remove project with CONN-ID.
@@ -288,7 +288,7 @@ buffer, which won't be automatically killed."
     (mapc (lambda (unrepl-buf)
             (with-current-buffer unrepl-buf
               (kill-local-variable 'unrepl-conn-id)))
-          (unrepl-connected-buffers conn-id))
+          (unrepl-project-buffers proj))
     ;; Remove the entry from `unrepl-projects'
     (setq unrepl-projects (map-delete unrepl-projects conn-id))))
 
@@ -384,6 +384,21 @@ KWARGS is expected to be pairs of keywords and processes."
   "Return ACTION in PROJECT's `:actions'.
 ACTION should be a key in the UNREPL session-actions map."
   (unrepl-ast-map-elt (unrepl-project-actions project) action))
+
+
+(defun unrepl-project-buffers (project &optional require-connected)
+  "Return a list of buffers that belong to this PROJECT's directory.
+REQUIRE-CONNECTED is an optional conn-id to filter only those buffers that
+are already connected to it."
+  (when-let ((dir (unrepl-project-dir project)))
+    (-filter (lambda (b)
+               (with-current-buffer b
+                 (and (string-prefix-p dir buffer-file-name)
+                      (derived-mode-p 'clojure-mode)
+                      (or (not require-connected)
+                          (and (bound-and-true-p unrepl-conn-id)
+                               (eql unrepl-conn-id require-connected))))))
+             (buffer-list))))
 
 
 (defun unrepl-projects-as-list ()
