@@ -54,10 +54,14 @@
   "Associate current buffer to PROJECT.
 If NEW-P is non-nil, search for all other clojure-mode buffers in PROJECT's
 project-dir and associate them to the same project."
-  (setq-local unrepl-conn-id (unrepl-project-id project))
-  (when new-p
-    ;; TODO: ...
-    )
+  (let ((conn-id (unrepl-project-id project)))
+    (setq-local unrepl-conn-id conn-id)
+    (unrepl-mode t)
+    (when new-p
+      (dolist (buf (unrepl-project-buffers project))
+        (with-current-buffer buf
+          (setq-local unrepl-conn-id conn-id)
+          (unrepl-mode t)))))
   (message "Successfully connected to %s" (unrepl-project-repr project)))
 
 
