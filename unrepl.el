@@ -134,12 +134,16 @@ already created for PROJECT-DIR will appear first in the list."
 
 
 (defun unrepl--connect-to (host port &optional buffer)
-  "Connect a BUFFER to a Socket REPL running on HOST:PORT.
-If BUFFER is nil, use current buffer."
-  (with-current-buffer (or buffer (current-buffer))
-    (unrepl--assoc-buffer
-     (unrepl--init-project-connection host port (unrepl-clojure-dir))
-     'new)))
+  "Create a project for a connection to a Socket REPL running on HOST:PORT.
+If BUFFER is non-nil, associates it to the new project/connection.
+
+This function is meant to be a debugging helper, and not to be used to
+connect to socket REPLs.  Refer to `unrepl-connect' and
+`unrepl-connect-to'."
+  (let ((project (unrepl--init-project-connection host port (unrepl-clojure-dir))))
+    (when buffer
+      (with-current-buffer buffer
+        (unrepl--assoc-buffer project 'new)))))
 
 
 
