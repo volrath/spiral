@@ -263,12 +263,16 @@ dispatch to handlers according to the message's tag.
 
 Returns a pair (TYPE . new-process)."
   (let* ((conn-id (unrepl-make-conn-id host port))
-         (new-proc (make-network-process
-                    :name (format "unrepl-%s" (unrepl-keyword-name type))
-                    :buffer (unrepl-socket--get-network-buffer type host port)
-                    :host host
-                    :service port
-                    :filter #'unrepl-loop-handle-proc-message)))
+         (new-proc (condition-case err
+                       (make-network-process
+                        :name (format "unrepl-%s" (unrepl-keyword-name type))
+                        :buffer (unrepl-socket--get-network-buffer type host port)
+                        :host host
+                        :service port
+                        :filter #'unrepl-loop-handle-proc-message)
+                     (file-error
+                      (error "There was a problem connecting to %s -- %s"
+                             conn-id (cadr (cdr err)))))))
     ;; Setup process
     (process-send-string new-proc (or upgrade-msg (unrepl-socket--blob)))
     (when (eql type :client)
