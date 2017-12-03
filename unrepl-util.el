@@ -79,9 +79,10 @@
 ;; Random utilities
 ;; -------------------------------------------------------------------
 
-(defun unrepl-clojure-dir ()
+(defun unrepl-clojure-dir ()  ;; TODO: self-hosted clojurescript
   "Try to guess current buffer's project dir."
-  (clojure-project-dir))  ;; TODO: self-hosted clojurescript
+  (when-let ((dir (clojure-project-dir)))
+    (expand-file-name dir)))
 
 
 (defun unrepl-keyword-name (keyword)
