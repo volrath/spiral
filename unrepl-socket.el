@@ -74,6 +74,9 @@ Only used when spinning a new Socket REPL and waiting for it to boot so
 that its corresponding connection pool can be created.")
 
 
+(define-error 'unrepl-connection-error "There was a problem connecting")
+
+
 
 ;; Utilities
 ;; -------------------------------------------------------------------
@@ -271,8 +274,9 @@ Returns a pair (TYPE . new-process)."
                         :service port
                         :filter #'unrepl-loop-handle-proc-message)
                      (file-error
-                      (error "There was a problem connecting to %s -- %s"
-                             conn-id (cadr (cdr err)))))))
+                      (signal 'unrepl-connection-error
+                              (list conn-id
+                                    (cadr (cdr err))))))))
     ;; Setup process
     (process-send-string new-proc (or upgrade-msg (unrepl-socket--blob)))
     (when (eql type :client)

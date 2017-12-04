@@ -242,4 +242,16 @@
     (unrepl-socket--client-sentinel 'mocked-proc "connection broken by peer.")
     (expect (not unrepl-projects))))
 
+
+(describe "When trying to connect to a wrong authority"
+  (it "let the user know in a `unrepl-connection-error'"
+    (spy-on 'make-network-process :and-throw-error 'file-error)
+    (expect
+     (with-simulated-input "localhost:9999 RET"
+       (with-temp-buffer
+         (clojure-mode)
+         (let ((inhibit-message t))
+           (call-interactively #'unrepl-connect))))
+     :to-throw 'unrepl-connection-error)))
+
 ;;; test-unrepl-connect.el ends here
