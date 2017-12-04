@@ -402,8 +402,11 @@ are already connected to it."
 
 
 (defun unrepl-projects-as-list ()
-  "Return all available projects as a list."
-  (map-values unrepl-projects))
+  "Return all available projects as a list, sorted by creation date."
+  (-sort (lambda (p1 p2)
+           (time-less-p (unrepl-project-created p2)
+                        (unrepl-project-created p1)))
+         (map-values unrepl-projects)))
 
 
 (defun unrepl-projects-add (proj)
@@ -428,10 +431,7 @@ If more than one project matches with PROJECT-DIR, return the most recently
 created.
 Return matching project or nil"
   (-find (lambda (p) (string= (unrepl-project-dir p) project-dir))
-         (-sort (lambda (p1 p2)
-                  (time-less-p (unrepl-project-created p2)
-                               (unrepl-project-created p1)))
-                unrepl-projects)))
+         (unrepl-projects-as-list)))
 
 
 (defun unrepl-project-set-in (conn-id key val)

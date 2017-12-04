@@ -88,14 +88,9 @@
 If ALLOW-NIL is non-nil, allows returning projects with nil directory.
 If there is more than one project for this buffers file name, return the
 most recently created."
-  (let ((projects (unrepl-projects-as-list))
-        (project-dir (unrepl-clojure-dir)))
-    (cond (project-dir
-           (-find (lambda (p) (string= (unrepl-project-dir p) project-dir))
-                  projects))
-          (allow-nil
-           (-find (lambda (p) (not (unrepl-project-dir p)))
-                  projects)))))
+  (let ((project-dir (unrepl-clojure-dir)))
+    (when (or project-dir allow-nil)
+      (unrepl-projects-get-by-dir project-dir))))
 
 
 (defun unrepl-mode-enable-auto ()
