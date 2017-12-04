@@ -54,13 +54,14 @@
   "Associate current buffer to PROJECT.
 If NEW-P is non-nil, search for all other clojure-mode buffers in PROJECT's
 project-dir and associate them to the same project."
-  (let ((conn-id (unrepl-project-id project)))
-    (unrepl-mode-turn-on conn-id)
-    (when (and unrepl-auto-mode new-p)
-      (unrepl-mode-enable-auto)
-      (dolist (buf (unrepl-project-buffers project))
-        (unrepl-mode-turn-on conn-id buf))))
-  (message "Successfully connected to %s" (unrepl-project-repr project)))
+  (when (derived-mode-p 'clojure-mode)
+    (let ((conn-id (unrepl-project-id project)))
+      (unrepl-mode-turn-on conn-id)
+      (when (and unrepl-auto-mode new-p)
+        (unrepl-mode-enable-auto)
+        (dolist (buf (unrepl-project-buffers project))
+          (unrepl-mode-turn-on conn-id buf))))
+    (message "Successfully connected to %s" (unrepl-project-repr project))))
 
 
 (defun unrepl--init-project-connection (host port project-dir
@@ -168,10 +169,14 @@ with JUST-ASK, this command will ask the user for a new connection either
 way."
   (interactive "P")
   (when (or (derived-mode-p 'clojure-mode)
-            (y-or-n-p "This is not a Clojure buffer, are you sure you want to connect it? "))
+            (y-or-n-p
+             (concat "This is not a Clojure buffer. You can connect to a Socket "
+                     "REPL but this buffer won't be able to interact with it.\n"
+                     "Do you still want to create a connection to a REPL? ")))
     (let* ((project-dir (unrepl-clojure-dir))
            (project (unrepl-projects-get-by-dir project-dir)))
-      (cond (just-ask (apply #'unrepl--assoc-buffer (unrepl--connection-prompt project-dir)))
+      (cond ((or just-ask (not (derived-mode-p 'clojure-mode)))
+             (apply #'unrepl--assoc-buffer (unrepl--connection-prompt project-dir)))
             (unrepl-conn-id (-> (concat "You are already connected to %s.  "
                                         "If you really want to change this connection, type "
                                         "`C-u \\[unrepl-connect]'")
