@@ -166,14 +166,18 @@ choose."
 
 PROJECT-TYPE is a symbol.  It can be either `boot' or `lein'."
   (pcase project-type
-    ('boot (format "%s %s -i \"%s\" %s"
+    ('boot (format "%s%s-i \"%s\" %s"
                    unrepl-boot-command
-                   (or unrepl-boot-global-options "")
+                   (if unrepl-boot-global-options
+                       (concat " " unrepl-boot-global-options)
+                     " ")
                    unrepl-start-socket-repl-expr
                    unrepl-boot-parameters))
     ('lein (format "%s %s %s -m clojure.main -e \"%s\""
                    unrepl-lein-command
-                   (or unrepl-lein-global-options "")
+                   (if unrepl-lein-global-options
+                       (concat " " unrepl-lein-global-options)
+                     " ")
                    unrepl-lein-parameters
                    unrepl-start-socket-repl-expr))
     (_ (user-error (format
