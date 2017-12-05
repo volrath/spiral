@@ -46,10 +46,9 @@
   "Generate a callback function for a button action.
 This new function will:
 1. Make sure the `:aux' process buffer is not font-locking
-2. Temporarily increase the print limits on `:aux'
-3. Send LOAD-ACTION-STR through `:aux' with EVAL-CALLBACK and
+2. Send LOAD-ACTION-STR through `:aux' with EVAL-CALLBACK and
 STDOUT-CALLBACK.
-4. Make sure to revert print-limits bindings and delete region from
+3. Make sure to revert print-limits bindings and delete region from
 DELETE-FROM to DELETE-TO"
   (lambda (_button)
     ;; 1.
@@ -57,19 +56,14 @@ DELETE-FROM to DELETE-TO"
      (with-current-buffer (process-buffer (unrepl-project-conn-pool-get-process project :aux))
        (font-lock-mode -1)))
     ;; 2.
-    (unrepl--binding-print-limits '((:unrepl.print/string-length . Long/MAX_VALUE)
-                                    (:unrepl.print/coll-length . Long/MAX_VALUE)
-                                    (:unrepl.print/nesting-depth . Long/MAX_VALUE))
-      ;; 3.
-      (unrepl-aux-send load-action-str
-                       (lambda (eval-payload)
-                         (with-current-buffer (marker-buffer delete-from)
-                           ;; 4.
-                           (goto-char delete-from)
-                           (delete-region delete-from delete-to)
-                           (funcall revert-bindings-back)
-                           (funcall eval-callback eval-payload)))
-                       stdout-callback))))
+    (unrepl-aux-send load-action-str
+                     (lambda (eval-payload)
+                       (with-current-buffer (marker-buffer delete-from)
+                         ;; 3.
+                         (goto-char delete-from)
+                         (delete-region delete-from delete-to)
+                         (funcall eval-callback eval-payload)))
+                     stdout-callback)))
 
 
 (defun unrepl-attachment--handle-image (eval-payload)

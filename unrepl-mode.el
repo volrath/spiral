@@ -151,7 +151,7 @@ Return a UNREPL project"
      ,@body))
 
 
-(defmacro unrepl--binding-print-limits (bindings &rest body)
+(defmacro unrepl-binding-print-limits (bindings &rest body)
   "Edit UNREPL `:print-limits' with BINDINGS, exec BODY and revert limits back.
 This macro adds a `revert-bindings-back' function into BODY's lexical
 context.  BODY is in charge of calling this function whenever it seems

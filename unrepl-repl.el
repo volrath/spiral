@@ -473,15 +473,12 @@ would get automatically removed after input is sent."
     (when-let (sym (symbol-at-point))
       (with-current-repl
        (let ((doc-action-templ (unrepl-project-actions-get project :unrepl.el/doc)))
-         (unrepl--binding-print-limits '((:unrepl.print/string-length . Long/MAX_VALUE)
-                                         (:unrepl.print/coll-length . Long/MAX_VALUE)
-                                         (:unrepl.print/nesting-depth . Long/MAX_VALUE))
-           (unrepl-aux-send (unrepl-command-template doc-action-templ
-                                                     `((:unrepl.el/symbol . ,sym)))
-                            revert-bindings-back
-                            (lambda (stdout-payload group-id)
-                              (unrepl-repl--transient-text-insert group-id
-                                                                  stdout-payload)))))))))
+         (unrepl-aux-send (unrepl-command-template doc-action-templ
+                                                   `((:unrepl.el/symbol . ,sym)))
+                          nil
+                          (lambda (stdout-payload group-id)
+                            (unrepl-repl--transient-text-insert group-id
+                                                                stdout-payload))))))))
 
 
 ;; history
