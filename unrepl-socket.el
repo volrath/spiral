@@ -55,24 +55,67 @@ where the unrepl package ins installed."
 
 (defcustom unrepl-preferred-build-tool nil
   "Allow choosing a build system when there are many.
-When there are artifacts from multiple build systems (\"lein\", \"boot\",
-\"gradle\") the user is prompted to select one of them.  When non-nil, this
+When there are artifacts from multiple build systems (\"lein\", or
+\"boot\") the user is prompted to select one of them.  When non-nil, this
 variable will suppress this behavior and will select whatever build system
 is indicated by the variable if present.  Note, this is only when CIDER
 cannot decide which of many build systems to use and will never override a
 command when there is no ambiguity."
-  :type '(choice (const "lein")
-                 (const "boot")
-                 (const "gradle")
+  :type '(choice boot
+                 lein
                  (const :tag "Always ask" nil))
+  :group 'unrepl)
+
+(defcustom unrepl-start-socket-repl-expr
+  "(do (require 'clojure.core.server) (let [srv (clojure.core.server/start-server {:name :repl :port 0 :accept 'clojure.core.server/repl})] (prn [:unrepl.el/server-ready (.getLocalPort srv)])))"
+  "Expression to evaluate to initiate a Socket REPL running on a random port."
+  :type 'string
+  :group 'unrepl)
+
+(defcustom unrepl-lein-command "lein"
+  "The command used to execute Leiningen."
+  :type 'string
+  :group 'unrepl)
+
+(defcustom unrepl-lein-global-options nil
+  "Command global options used to execute Leiningen (e.g.: -o for offline)."
+  :type 'string
   :group 'unrepl
   :safe #'stringp)
+
+(defcustom unrepl-lein-parameters "trampoline run"
+  "Params passed to Lein to start a Socket REPL server via `unrepl-connect'.
+Command resolution will append
+\"-m clojure.main -e `unrepl-start-socket-repl-expr'\" at the end of these
+ parameters.  See`unrepl-socket--repl-cmd' for more info."
+  :type 'string
+  :group 'unrepl
+  :safe #'stringp)
+
+(defcustom unrepl-boot-command "boot"
+  "The command used to execute Boot."
+  :type 'string
+  :group 'unrepl)
+
+(defcustom unrepl-boot-global-options nil
+  "Command global options used to execute Boot (e.g.: -c for checkouts)."
+  :type 'string
+  :group 'unrepl)
+
+(defcustom unrepl-boot-parameters "wait"
+  "Params passed to boot to start a Socket REPL server via `unrepl-connect'.
+Command resolution will prepend \"-i `unrepl-start-socket-repl-expr' before
+these parameters.  See `unrepl-socket--repl-cmd' for more info."
+  :type 'string
+  :group 'unrepl)
 
 (defvar-local unrepl-server-host-port nil
   "Tuple with host and port of a Socket REPL.
 Only used when spinning a new Socket REPL and waiting for it to boot so
 that its corresponding connection pool can be created.")
 
+(defvar-local unrepl-server-started nil
+  "Boolean flag that indicates if a server Socket REPL has started yet.")
 
 (define-error 'unrepl-connection-error "There was a problem connecting")
 
@@ -118,19 +161,26 @@ choose."
           (t unrepl-default-socket-repl-command))))
 
 
-(defun unrepl-socket--repl-cmd (project-type port)
+(defun unrepl-socket--repl-cmd (project-type)
   "Return a string specifying a Socket REPL cmd using PROJECT-TYPE on PORT.
 
-PROJECT-TYPE is a symbol.  It can be either `boot', `leiningen' or
-`gradle'."
-  (format "%S socket-server --port %S wait" project-type port))
-
-
-(defun unrepl-socket--server-initialized-p (_project-type output)
-  "Return non-nil if OUTPUT can be interpreted as REPL initialization for PROJECT-TYPE."
-  (pcase _project-type
-    ;; TODO: is this always the first line?
-    (_ (string-match "Socket server started on port" output))))
+PROJECT-TYPE is a symbol.  It can be either `boot' or `lein'."
+  (pcase project-type
+    ('boot (format "%s %s -i \"%s\" %s"
+                   unrepl-boot-command
+                   (or unrepl-boot-global-options "")
+                   unrepl-start-socket-repl-expr
+                   unrepl-boot-parameters))
+    ('lein (format "%s %s %s -m clojure.main -e \"%s\""
+                   unrepl-lein-command
+                   (or unrepl-lein-global-options "")
+                   unrepl-lein-parameters
+                   unrepl-start-socket-repl-expr))
+    (_ (user-error (format
+                    (concat
+                     "UNREPL.el couldn't figure out your build tool (%s).\n"
+                     "Maybe it is missing or maybe there is no support for it yet.")
+                    project-type)))))
 
 ;; blob
 
@@ -151,24 +201,14 @@ PROJECT-TYPE is a symbol.  It can be either `boot', `leiningen' or
 
 ;; network
 
-(defun unrepl-socket--issue-new-socket-port ()
-  "Generate a random port number between 60100 and 60199.
-Avoids using known ports in `unrepl-projects' for localhost."
-  (let* ((conn-ids (mapcar (lambda (p) (symbol-name (unrepl-project-id p)))
-                           (unrepl-projects-as-list)))
-         (port-used-p (lambda (p)
-                        (-find (lambda (c-id)
-                                 (or (string= c-id (format "localhost:%d" p))
-                                     (string= c-id (format "127.0.0.1:%d" p))))
-                               conn-ids)))
-         (gen-new-port (lambda () (+ 60100 (random 100))))
-         (port (funcall gen-new-port)))
-    (while (funcall port-used-p port)
-      (setq port (funcall gen-new-port)))
-    port))
+(defun unrepl-socket--server-initialized-p (output)
+  "Check if OUTPUT can be interpreted as a Socket REPL initialization.
+Return new Socket REPL port"
+  (when-let (server-ready-match (string-match "\\[:unrepl\.el/server-ready \\([0-9]+\\)\\]" output))
+    (string-to-number (match-string 1 output))))
 
 
-(defun unrepl-socket--get-network-buffer (type server-host server-port)
+(defun unrepl-socket--get-network-buffer (type server-host &optional server-port)
   "Return a buffer for a connection of type TYPE.
 
 The buffer will hold a `unrepl-conn-id' variable of the form:
@@ -179,17 +219,19 @@ TYPE is a keyword, it can either be `:client', `:side-loader' or
 
 This function makes sure to get or create a buffer to be used for the
 output of a network connection process."
-  (let ((buff (get-buffer-create
-               (format "*unrepl-%s[%s:%S]*"
-                       (unrepl-keyword-name type)
-                       server-host server-port))))
+  (let* ((buff-name (if (eql type :server)
+                        "*unrepl-server[init]*"
+                      (format "*unrepl-%s[%s:%S]*"
+                              (unrepl-keyword-name type)
+                              server-host server-port)))
+         (buff (get-buffer-create buff-name)))
     (when (and server-host server-port)
       (with-current-buffer buff
         (setq-local unrepl-server-host-port (cons server-host server-port))))
     buff))
 
 
-(defun unrepl-socket--server-message-handler (project-type connected-callback)
+(defun unrepl-socket--server-message-handler (connected-callback)
   "Create a proper 'process filter' function for a newly created Socket REPL.
 The returned function receives two arguments: PROCESS and OUTPUT, and waits
 for the Socket REPL initialization to execute CONNECTED-CALLBACK.
@@ -197,14 +239,19 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
   (let ((calling-buffer (current-buffer)))
     (lambda (process output)
       (let ((server-buffer (process-buffer process)))
-        (when (buffer-live-p server-buffer)
+        (when (and (buffer-live-p server-buffer)
+                   (not (buffer-local-value 'unrepl-server-started server-buffer)))
           (with-current-buffer server-buffer
-            (when (unrepl-socket--server-initialized-p project-type output)
-              (let* ((host (car unrepl-server-host-port))
-                     (port (cdr unrepl-server-host-port)))
-                (message "Clojure Socket REPL server started on %s:%S." host port)
-                (with-current-buffer calling-buffer
-                  (funcall connected-callback process host port))))
+            (when-let (port (unrepl-socket--server-initialized-p
+                             (concat (buffer-substring-no-properties (point-min) (point-max))
+                                     output)))
+              (message "Clojure Socket REPL server started on %d." port)
+              (rename-buffer
+               (replace-regexp-in-string "init" (number-to-string port) (buffer-name))
+               t)
+              (setq-local unrepl-server-started t)
+              (with-current-buffer calling-buffer
+                (funcall connected-callback process "localhost" port)))
             (goto-char (point-max))
             (insert output)))))))
 
@@ -239,10 +286,10 @@ shares the message with the user."
   "Create a new Clojure Socket REPL and return its process.
 CONNECTED-CALLBACK is a function to be executed when the new Socket REPL
 has started, it should receive three parameters: PROCESS, HOST, and PORT."
-  (let* ((project-type (unrepl-socket--clojure-project-type))
-         (port (unrepl-socket--issue-new-socket-port))
-         (cmd (unrepl-socket--repl-cmd project-type port))
-         (server-buf (unrepl-socket--get-network-buffer :server "127.0.0.1" port))
+  (let* ((default-directory (unrepl-clojure-dir))
+         (project-type (unrepl-socket--clojure-project-type))
+         (cmd (unrepl-socket--repl-cmd project-type))
+         (server-buf (unrepl-socket--get-network-buffer :server "localhost"))
          (server-proc (start-file-process-shell-command "unrepl-socket-server"
                                                         server-buf
                                                         cmd)))
@@ -252,7 +299,7 @@ has started, it should receive three parameters: PROCESS, HOST, and PORT."
     (set-process-sentinel server-proc #'unrepl-socket--server-sentinel)
     (set-process-filter
      server-proc
-     (unrepl-socket--server-message-handler project-type connected-callback))
+     (unrepl-socket--server-message-handler connected-callback))
     server-proc))
 
 
