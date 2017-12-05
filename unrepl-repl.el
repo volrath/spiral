@@ -208,6 +208,13 @@ This function should only be called inside REPL buffers."
          (not (eql group-id last-history-group-id)))))
 
 
+(defun unrepl-repl--move-cursor-to-point-max ()
+  "Move current buffer's cursor to `point-max', no matter what!"
+  (dolist (window (get-buffer-window-list (current-buffer)))
+    (set-window-point window (point-max)))
+  (goto-char (point-max)))
+
+
 (defmacro with-current-repl (&rest body)
   "Automatically switch to the inferred REPL buffer and eval BODY.
 This macro needs a `conn-id' variable in the scope, otherwise it will throw
@@ -262,13 +269,12 @@ switches to the REPL buffer in another window."
      (unrepl-repl-prompt unrepl-conn-id)
      ;; Restore current input
      (insert current-input)
+     ;; Display the repl accordingly
+     (when (and display
+                (not (eql (current-buffer) (window-buffer (selected-window)))))
+       (unrepl-repl-display (current-buffer) display))
      ;; Move to the end of the repl
-     (unless (eq (current-buffer) (window-buffer (selected-window)))
-       (when display
-         (unrepl-repl-display (current-buffer) display))
-       (dolist (window (get-buffer-window-list (current-buffer)))
-         (set-window-point window (point-max))))
-     (goto-char (point-max)))))
+     (unrepl-repl--move-cursor-to-point-max))))
 
 
 
@@ -664,7 +670,8 @@ This function only if it's not displayed in another window already."
    ;; Mark current input start
    (set-marker unrepl-repl-input-start-mark (point))
    ;; Reset the `unrepl-repl-inputting' variable.
-   (setq-local unrepl-repl-inputting nil)))
+   (setq-local unrepl-repl-inputting nil)
+   (unrepl-repl--move-cursor-to-point-max)))
 
 
 (defun unrepl-repl-insert-evaluation (eval-payload &optional point history-idx namespace)
