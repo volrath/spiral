@@ -218,16 +218,15 @@ evaluation of inputs."
 (defun unrepl-loop--client-prompt (conn-id payload)
   "Handle a `:prompt' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
-  (let (changed-namespace-p
-        (previous-ns (-> conn-id
-                         (unrepl-projects-get)
-                         (unrepl-project-namespace)))
-        (new-ns (-> payload
-                    (unrepl-ast-map-elt 'clojure.core/*ns*)  ;; tagged element
-                    (parseclj-ast-children)
-                    (car)                                    ;; actual ns symbol
-                    (parseclj-ast-value))))
-    (setq changed-namespace-p (not (eq previous-ns new-ns)))
+  (let* ((previous-ns (-> conn-id
+                          (unrepl-projects-get)
+                          (unrepl-project-namespace)))
+         (new-ns (-> payload
+                     (unrepl-ast-map-elt 'clojure.core/*ns*)  ;; tagged element
+                     (parseclj-ast-children)
+                     (car)                                    ;; actual ns symbol
+                     (parseclj-ast-value)))
+         (changed-namespace-p (not (eq previous-ns new-ns))))
     (unrepl-project-set-in conn-id :namespace new-ns)
     (if-let (pending-eval (unrepl-pending-evals-shift :client conn-id))
         (progn
