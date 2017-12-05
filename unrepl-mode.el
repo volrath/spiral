@@ -261,12 +261,16 @@ current buffer."
   "Interrupt pending evaluation."
   (interactive)
   (with-current-project
-   (if-let (pending-eval (unrepl-pending-eval :client (unrepl-project-id project)))
-       (let* ((actions (unrepl-pending-eval-entry-actions pending-eval))
-              (interrupt-templ (unrepl-ast-map-elt actions :interrupt)))
-         (unrepl-aux-send (unrepl-command-template interrupt-templ)
-                          (lambda (_) (message "Evaluation interrupted!"))))
-     (message "No operations pending..."))))
+   (let ((conn-id (unrepl-project-id project))
+         (interrupt (lambda (pe)
+                      (let* ((actions (unrepl-pending-eval-entry-actions pe))
+                             (interrupt-templ (unrepl-ast-map-elt actions :interrupt)))
+                        (unrepl-aux-send (unrepl-command-template interrupt-templ)
+                                         (lambda (_) (message "Evaluation interrupted!")))))))
+     (if-let (pending-eval (or (unrepl-pending-eval :client conn-id)
+                               (unrepl-pending-eval :aux conn-id)))
+         (funcall interrupt pending-eval)
+       (message "No evaluations pending...")))))
 
 
 (defun unrepl-quit (&optional just-do-it conn-id)
