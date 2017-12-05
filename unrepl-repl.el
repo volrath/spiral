@@ -583,7 +583,8 @@ Associates to it some control local variables:
             (propertize 'font-lock-face 'font-lock-comment-face)
             (insert))
         (when unrepl-repl-pop-on-connect
-          (pop-to-buffer repl-buffer))))))
+          (pop-to-buffer repl-buffer))
+        repl-buffer))))
 
 
 (defun unrepl-repl-display (conn-id-or-buffer method)
