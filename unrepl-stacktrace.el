@@ -213,29 +213,42 @@ be used for each trace entry's file name and line number"
   (insert "\n\n"))
 
 
+
+(defun unrepl-stacktrace-insert-error (error-tag-node &optional show-trace)
+  "Insert a pretty rendering of an ERROR-TAG-NODE.
+This function is deliberately not used as a tag reader in order to be able
+to only use it on demand, so that error tags that come from the REPL are
+displayed literally by default.
+
+ERROR-TAG-NODE is an AST node.  SHOW-TRACE is a boolean flag that indicates
+whether to automatically show the error's stack `:trace'.  When nil, it's
+hidden and a 'Show Trace' button is inserted in its place."
+  (let* ((ex-data (unrepl-ast-tag-child error-tag-node))
+         (ex-via (unrepl-ast-map-elt ex-data :via))
+         (ex-trace (unrepl-ast-map-elt ex-data :trace)))
+    (unrepl-stacktrace--insert-causes ex-via)
+    (if show-trace
+        (unrepl-stacktrace--insert-trace ex-trace)
+      (unrepl-stacktrace--insert-trace-button ex-trace))))
+
+
 (defun unrepl-stacktrace-insert (ex-message-node &optional show-trace)
   "Insert a pretty rendering of EX-MESSAGE-NODE data.
 EX-MESSAGE-NODE is a an AST node as provided by UNREPL's `:exception'
 message.
 
-SHOW-TRACE is a boolean flag that indicates whether to automatically
-show the exception stack trace.  When nil, it's hidden and a 'Show
-Stacktrace' button will be inserted in its place."
+SHOW-TRACE is a boolean flag that indicates whether to automatically show
+the exception stack trace.  When nil, it's hidden and a 'Show Trace' button
+will be inserted in its place."
   (let* ((ex-phase (-> ex-message-node
                        (unrepl-ast-map-elt :phase)
                        (parseclj-ast-value)))
-         (ex-data (-> ex-message-node
-                      (unrepl-ast-map-elt :ex)
-                      (unrepl-ast-tag-child)))
-         (ex-via (unrepl-ast-map-elt ex-data :via))
-         (ex-trace (unrepl-ast-map-elt ex-data :trace)))
+         (error-tag (-> ex-message-node
+                        (unrepl-ast-map-elt :ex))))
     (let ((electric-indent-inhibit t))
       (save-excursion
         (unrepl-stacktrace--insert-title ex-phase)
-        (unrepl-stacktrace--insert-causes ex-via)
-        (if show-trace
-            (unrepl-stacktrace--insert-trace ex-trace)
-          (unrepl-stacktrace--insert-trace-button ex-trace)))
+        (unrepl-stacktrace-insert-error error-tag show-trace))
       (when (and (get-buffer-window (current-buffer))
                  (eql (current-buffer) (window-buffer (selected-window))))
         (recenter -1)))))
