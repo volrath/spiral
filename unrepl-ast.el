@@ -80,6 +80,7 @@ Value is returned as an AST node."
 (defvar unrepl-ast-tag-readers
   `((clojure/var . unrepl-ast--var-tag-unparse)
     (unrepl/... . unrepl-ast-elision-tag-unparse)
+    (unrepl/lazy-error . unrepl-ast--lazy-error-tag-unparse)
     (unrepl/mime . unrepl-ast--mime-tag-unparse)
     (unrepl/object . unrepl-ast--object-tag-unparse)
     (unrepl/ratio . unrepl-ast--ratio-tag-unparse)
@@ -132,6 +133,38 @@ payload from calling the elision action, if not given, uses
                             (not with-delimiters)))))))
       (_ (when unrepl-debug
            (error "Unrecognized elision tagged form %S" elision-tag-node))))))
+
+
+(declare-function unrepl-repl-move-to-next-prompt "unrepl-repl")
+(declare-function unrepl-stacktrace-insert-error "unrepl-stacktrace")
+(defun unrepl-ast--error-resume (error-tag-node mute-ui)
+  "Insert a brief description of ERROR-TAG-NODE, using its `:cause'.
+This function also inserts a button for further error inspection, unless
+MUTE-UI is non-nil."
+  (-> error-tag-node
+      (unrepl-ast-tag-child)
+      (unrepl-ast-map-elt :cause)
+      (unrepl-ast-unparse))
+  (if mute-ui
+      (insert (-> " %s"
+                  (format unrepl-button-elision-label)
+                  (propertize 'category 'unrepl-elision)))
+    (unrepl-button-throwaway-insert
+     "[Inspect]"
+     (lambda (_button)
+       (unrepl-repl-move-to-next-prompt)
+       (unrepl-stacktrace-insert-error error-tag-node 'show-trace)
+       (insert "\n")
+       (forward-line -1)))))
+
+
+(defun unrepl-ast--lazy-error-tag-unparse (lazy-error-tag-node mute-ui)
+  "Insert a short representation of a lazy error, from LAZY-ERROR-TAG-NODE.
+MUTE-UI is a flag that indicates whether or not to insert UI elemnts like
+buttons."
+  (insert (propertize "~lazy-error" 'font-lock-face 'unrepl-font-exception-title-face) " ")
+  (unrepl-ast--error-resume (unrepl-ast-tag-child lazy-error-tag-node) mute-ui)
+  (insert (propertize "~" 'font-lock-face 'unrepl-font-exception-title-face)))
 
 
 (declare-function unrepl-attachment-find-handler "unrepl-attachment")
