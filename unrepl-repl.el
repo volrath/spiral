@@ -208,11 +208,44 @@ This function should only be called inside REPL buffers."
          (not (eql group-id last-history-group-id)))))
 
 
+(defun unrepl-repl--find-next-prompt (&optional backward)
+  "Find the beginning pos of the next prompt in the buffer, or nil if none.
+If BACKWARD is non-nil, search backwards."
+  (let ((p (point))
+        (current-field nil)
+        (nav-fn (if backward
+                    #'previous-single-char-property-change
+                  #'next-single-char-property-change)))
+    (while (not (or (= p 1) (= p (point-max))
+                    (eql current-field 'unrepl-repl-prompt-field)))
+      (setq p (funcall nav-fn p'field))
+      (setq current-field (get-char-property p 'field)))
+    (save-excursion
+      (goto-char p)
+      (line-beginning-position))))
+
+
+(defun unrepl-repl--goto-char (pos)
+  "Move current buffer's cursor to POS, no matter what!
+This function works when the buffer is active, in a viewable window, or
+buried."
+  (dolist (window (get-buffer-window-list (current-buffer)))
+    (set-window-point window pos))
+  (goto-char pos))
+
+
 (defun unrepl-repl--move-cursor-to-point-max ()
   "Move current buffer's cursor to `point-max', no matter what!"
-  (dolist (window (get-buffer-window-list (current-buffer)))
-    (set-window-point window (point-max)))
-  (goto-char (point-max)))
+  (unrepl-repl--goto-char (point-max)))
+
+
+(defun unrepl-repl-move-to-next-prompt (&optional backwards)
+  "Move current buffer's cursor to the beginning position of next prompt.
+I there's no next prompt, goes to `point-max'.
+
+If BACKWARDS is non-nil, goes to previous point (next point backwards)."
+  (unrepl-repl--goto-char (or (unrepl-repl--find-next-prompt backwards)
+                              (point-max))))
 
 
 (defmacro with-current-repl (&rest body)
@@ -648,11 +681,11 @@ This function only if it's not displayed in another window already."
    (goto-char (point-max))
    (unrepl-repl--newline-if-needed)
    ;; Remove 'field property from previous prompt
-   (when (marker-position unrepl-repl-prompt-start-mark)
-     (let ((inhibit-read-only t))
-       (remove-text-properties unrepl-repl-prompt-start-mark
-                               unrepl-repl-input-start-mark
-                               '(field nil))))
+   ;; (when (marker-position unrepl-repl-prompt-start-mark)
+   ;;   (let ((inhibit-read-only t))
+   ;;     (remove-text-properties unrepl-repl-prompt-start-mark
+   ;;                             unrepl-repl-input-start-mark
+   ;;                             '(field nil))))
    ;; The new prompt starts here, so we mark it.
    (set-marker unrepl-repl-prompt-start-mark (point))
    ;; Tell previous history entry that the new prompt starts here
