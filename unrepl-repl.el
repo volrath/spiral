@@ -244,8 +244,7 @@ buried."
 I there's no next prompt, goes to `point-max'.
 
 If BACKWARDS is non-nil, goes to previous point (next point backwards)."
-  (unrepl-repl--goto-char (or (unrepl-repl--find-next-prompt backwards)
-                              (point-max))))
+  (unrepl-repl--goto-char (unrepl-repl--find-next-prompt backwards)))
 
 
 (defmacro with-current-repl (&rest body)
