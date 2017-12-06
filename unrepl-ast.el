@@ -82,6 +82,7 @@ Value is returned as an AST node."
     (unrepl/... . unrepl-ast-elision-tag-unparse)
     (unrepl/mime . unrepl-ast--mime-tag-unparse)
     (unrepl/object . unrepl-ast--object-tag-unparse)
+    (unrepl/ratio . unrepl-ast--ratio-tag-unparse)
     (unrepl/string . unrepl-ast--string-tag-unparse)
     (unrepl.java/class . unrepl-ast--class-tag-unparse))
   "A set of tag readers for common UNREPL tagged literals.")
@@ -223,6 +224,14 @@ behavior."
          ;; Any other type of object
          (t (unrepl-ast--insert-object-representation
              'object class-name id-hash unrepl-repr)))))))
+
+
+(defun unrepl-ast--ratio-tag-unparse (ratio-tag-node _mute-ui)
+  "Insert a ratio representation of RATIO-TAG-NODE."
+  (seq-let [num denom] (parseclj-ast-children (unrepl-ast-tag-child ratio-tag-node))
+    (unrepl-ast-unparse num)
+    (insert "/")
+    (unrepl-ast-unparse denom)))
 
 
 (defun unrepl-ast--string-tag-unparse (string-tag-node mute-ui &optional stdout-str)
