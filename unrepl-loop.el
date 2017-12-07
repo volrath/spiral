@@ -163,7 +163,8 @@ GROUP-ID is a number."
     (:read (unrepl-loop--client-read conn-id payload group-id))
     (:started-eval (unrepl-loop--client-started-eval conn-id payload group-id))
     (:eval (unrepl-loop--client-eval conn-id payload group-id))
-    (:out (unrepl-loop--client-out conn-id payload group-id))
+    (:out (unrepl-loop--client-std-stream conn-id payload group-id :out))
+    (:err (unrepl-loop--client-std-stream conn-id payload group-id :err))
     (:exception (unrepl-loop--client-exception-handler conn-id payload group-id))
     (:bye (unrepl-loop--bye-handler :client conn-id payload))
     (_ (when unrepl-debug
@@ -284,12 +285,16 @@ accordingly."
     (message "%s" (parseclj-unparse-clojure-to-string payload))))
 
 
-(defun unrepl-loop--client-out (conn-id payload group-id)
-  "Handle a `:out' message transmitted through CONN-ID.
+(defun unrepl-loop--client-std-stream (conn-id payload group-id type)
+  "Handle either std `:out' or `:err' message transmitted through CONN-ID.
+TYPE should be either `:out' or `:err'.
 PAYLOAD is the UNREPL payload for `:out' as a string or as a #unrepl/string
 tagged literal.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-repl-handle-out conn-id payload group-id))
+  (unrepl-pending-eval-update :client conn-id
+                              :status type
+                              :payload payload)
+  (unrepl-repl-handle-std-stream type conn-id payload group-id))
 
 
 (defun unrepl-loop--client-exception-handler (conn-id payload group-id)

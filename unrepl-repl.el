@@ -125,6 +125,11 @@ prompt position in buffer.")
   "Face for STDOUT output in the REPL buffer."
   :group 'unrepl-repl)
 
+(defface unrepl-font-stderr-face
+  '((t (:inherit compilation-error)))
+  "Face for STDERR output in the REPL buffer."
+  :group 'unrepl-repl)
+
 (defface unrepl-font-doc-face
   '((t (:inherit font-lock-comment-face)))
   "Face for auto-documentation in the REPL buffer."
@@ -287,14 +292,21 @@ DISPLAY is expected to be either 'pop or 'switch.  When non-nil, pops or
 switches to the REPL buffer in another window."
   (with-current-repl
    (unrepl-repl--transient-text-remove)
-   (let ((current-input (buffer-substring unrepl-repl-input-start-mark (point-max)))
-         (evaluation-input (unrepl-pending-eval-entry-input evaluation))
-         (payload (or payload (unrepl-pending-eval-entry-payload evaluation)))
-         (group-id (unrepl-pending-eval-entry-group-id evaluation))
-         (insert-payload-fn (pcase (unrepl-pending-eval-entry-status evaluation)
-                              (:eval #'unrepl-repl-insert-evaluation)
-                              (:exception #'unrepl-repl-insert-exception)
-                              (_ #'unrepl-repl-insert-out))))
+   (let* ((current-input (buffer-substring unrepl-repl-input-start-mark (point-max)))
+          (evaluation-input (unrepl-pending-eval-entry-input evaluation))
+          (payload (or payload (unrepl-pending-eval-entry-payload evaluation)))
+          (group-id (unrepl-pending-eval-entry-group-id evaluation))
+          (pending-eval-status (unrepl-pending-eval-entry-status evaluation))
+          (insert-payload-fn (pcase pending-eval-status
+                               (:eval #'unrepl-repl-insert-evaluation)
+                               (:exception #'unrepl-repl-insert-exception)
+                               (:out (lambda (payload point &rest _)
+                                       (unrepl-repl-insert-std-stream :out payload point)))
+                               (:err (lambda (payload point &rest _)
+                                       (unrepl-repl-insert-std-stream :err payload point)))
+                               (_ (when unrepl-debug
+                                    (error "No phantom insert function for pending eval status %S"
+                                           pending-eval-status))))))
      (goto-char unrepl-repl-input-start-mark)
      ;; Insert phantom input and payload
      (delete-region unrepl-repl-input-start-mark (point-max))
@@ -735,13 +747,17 @@ inserted."
   (unrepl-repl-newline-and-scroll))
 
 
-(defun unrepl-repl-insert-out (stdout-payload &optional point &rest _)
-  "Insert stdout STDOUT-PAYLOAD at POINT.
-STDOUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
+(defun unrepl-repl-insert-std-stream (type payload &optional point)
+  "Insert std TYPE PAYLOAD at POINT.
+TYPE can be either `:out' or `:err', and it's used to present the unparsed
+PAYLOAD in formatted in a recognizable way.
+PAYLOAD is either a string or a #unrepl/string tagged literal.
 If POINT is nil, prints the payload right before the last prompt"
   (goto-char (or point unrepl-repl-prompt-start-mark))
-  (unrepl-ast-unparse-stdout-string stdout-payload)
-  (unrepl-repl--newline-if-needed)
+  (if (eql type :err)
+      (unrepl-propertize-region '(font-lock-face 'unrepl-font-stderr-face)
+        (unrepl-ast-unparse-stdout-string payload))
+    (unrepl-ast-unparse-stdout-string payload))
   ;; Update marker.
   ;; If point was a marker, move it forward
   ;; If there was no point (*philosophical sadness rushes in*), move
@@ -753,8 +769,10 @@ If POINT is nil, prints the payload right before the last prompt"
     (set-marker unrepl-repl-prompt-start-mark (point))))
 
 
-(defun unrepl-repl-handle-out (conn-id stdout-payload group-id)
-  "Figure out where to unparse STDOUT-PAYLOAD for GROUP-ID in CONN-ID REPL.
+(defun unrepl-repl-handle-std-stream (type conn-id payload group-id)
+  "Figure out where to unparse PAYLOAD for GROUP-ID in CONN-ID REPL.
+TYPE can be either `:out' or `:err', and it's used to present the unparsed
+PAYLOAD in formatted in a recognizable way.
 STDOUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
 GROUP-ID is a number as described in UNREPL docs.
 
@@ -769,18 +787,19 @@ prompt."
        ;; Find the best place to print the output.
        (let ((pending-eval (unrepl-pending-eval :client conn-id)))
          (if (unrepl-repl--interactive-input-p group-id)  ;; interactive input
-             (unrepl-repl-insert-phantom-input pending-eval stdout-payload 'pop)
+             (unrepl-repl-insert-phantom-input pending-eval payload 'pop)
            (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))
                (if (eql (unrepl-repl--history-entry-group-id h-entry)
                         (unrepl-pending-eval-entry-group-id pending-eval))  ;; last repl input
-                   (unrepl-repl-insert-out stdout-payload (point-max))
+                   (unrepl-repl-insert-std-stream type payload (point-max))
                  (save-excursion  ;; old repl input
-                   (unrepl-repl-insert-out
-                    stdout-payload
+                   (unrepl-repl-insert-std
+                    type
+                    payload
                     (unrepl-repl--history-entry-prompt-marker h-entry))))
-             (unrepl-repl-insert-out stdout-payload))))
+             (unrepl-repl-insert-std-stream type payload))))
      ;; Just print right before the last prompt
-     (unrepl-repl-insert-out stdout-payload))))
+     (unrepl-repl-insert-std-stream type payload))))
 
 
 (defun unrepl-repl-insert-exception (payload &optional point history-idx namespace)
