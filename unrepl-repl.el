@@ -310,7 +310,9 @@ switches to the REPL buffer in another window."
      (goto-char unrepl-repl-input-start-mark)
      ;; Insert phantom input and payload
      (delete-region unrepl-repl-input-start-mark (point-max))
-     (insert evaluation-input)
+     (let ((p (point)))
+       (insert evaluation-input)
+       (indent-region p (point)))
      (funcall insert-payload-fn
               payload
               (point)
