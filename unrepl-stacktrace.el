@@ -113,10 +113,11 @@ cyclical data structures."
       (:read "UNREPL could not read this input")
       (:print "Expression computed successfully but UNREPL failed to print")
       (_ (format "Exception during %s phase" (unrepl-keyword-name phase))))
-    'font-lock-face 'unrepl-font-exception-title-face)
-   "\n"))
+    'font-lock-face 'unrepl-font-exception-title-face))
+  (unrepl-repl-newline-and-scroll))
 
 
+(declare-function unrepl-repl-newline-and-scroll "unrepl-repl")
 (defun unrepl-stacktrace--insert-cause (cause format-spacing)
   "Insert a prettified version of an exception CAUSE map.
 FORMAT-SPACING is a number of char spaces to be left blank to the left of
@@ -130,7 +131,7 @@ the inserted text.  For more information, see
     (insert (propertize (format padded-format type)
                         'font-lock-face 'unrepl-font-stacktrace-cause-class-face))
     (unrepl-ast-unparse-stdout-string cause-msg)
-    (insert "\n")))
+    (unrepl-repl-newline-and-scroll)))
 
 
 (defun unrepl-stacktrace--insert-causes (via-node)
@@ -150,7 +151,7 @@ VIA-NODE is an AST node of a vector, as provided by
             (unrepl-stacktrace--insert-cause cause
                                              longest-type-length))
           (reverse causes))
-    (insert "\n")))
+    (unrepl-repl-newline-and-scroll)))
 
 
 (defun unrepl-stacktrace--insert-trace (trace-node &optional paddings)
@@ -200,8 +201,8 @@ be used for each trace entry's file name and line number"
                 (propertize (format lineno-format (funcall get-lineno frame))
                             'font-lock-face 'unrepl-font-stacktrace-lineno-face)
                 (propertize (format "- %s" (funcall get-where frame))
-                            'font-lock-face 'unrepl-font-stacktrace-where-face)
-                "\n"))))
+                            'font-lock-face 'unrepl-font-stacktrace-where-face)))
+              (unrepl-repl-newline-and-scroll)))
           frames)))
 
 
@@ -210,7 +211,7 @@ be used for each trace entry's file name and line number"
   (unrepl-button-throwaway-insert "[Show Trace]"
                                   (lambda (_button)
                                     (unrepl-stacktrace--insert-trace trace-node)))
-  (insert "\n\n"))
+  (unrepl-repl-newline-and-scroll 2))
 
 
 
@@ -246,12 +247,8 @@ will be inserted in its place."
          (error-tag (-> ex-message-node
                         (unrepl-ast-map-elt :ex))))
     (let ((electric-indent-inhibit t))
-      (save-excursion
-        (unrepl-stacktrace--insert-title ex-phase)
-        (unrepl-stacktrace-insert-error error-tag show-trace))
-      (when (and (get-buffer-window (current-buffer))
-                 (eql (current-buffer) (window-buffer (selected-window))))
-        (recenter -1)))))
+      (unrepl-stacktrace--insert-title ex-phase)
+      (unrepl-stacktrace-insert-error error-tag show-trace))))
 
 (provide 'unrepl-stacktrace)
 

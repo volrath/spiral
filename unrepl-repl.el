@@ -140,20 +140,30 @@ prompt position in buffer.")
 ;; Utilities
 ;; -------------------------------------------------------------------
 
+(defun unrepl-repl--insert-newline (count)
+  "Insert COUNT new lines.  Negative COUNT is not allowed."
+  (let ((count (or count 1)))
+    (while (> count 0)
+      (insert "\n")
+      (cl-decf count))))
+
+
 (defun unrepl-repl--newline-if-needed ()
   "Go to max point in buffer and make sure it is the beginning of a new line."
   (unless (bolp)
     (insert (propertize "%\n" 'font-lock-face 'unrepl-font-constant-face))))
 
-(defun unrepl-repl--newline-and-indent ()
-  "Insert a new line, then indent."
-  (insert "\n")
+
+(defun unrepl-repl--newline-and-indent (&optional count)
+  "Insert COUNT new lines, then indent."
+  (unrepl-repl--insert-newline count)
   (lisp-indent-line))
 
 
-(defun unrepl-repl--newline-and-scroll ()
-  "Insert a new line and scroll til the end of the buffer."
-  (insert "\n")
+(defun unrepl-repl-newline-and-scroll (&optional count)
+  "Insert COUNT new lines and scroll til the end of the buffer.
+COUNT defaults to 1, negative numbers are not allowed."
+  (unrepl-repl--insert-newline count)
   (when (eobp)
     (when-let (win (get-buffer-window (current-buffer) t))
       (with-selected-window win
@@ -494,7 +504,7 @@ Most of the behavior is BORROWED FROM CIDER."
                                   (unrepl-project-namespace project)
                                   history-idx))))
           (unrepl-repl--add-input-to-history)))
-    (unrepl-repl--newline-and-scroll)
+    (unrepl-repl-newline-and-scroll)
     (setq-local unrepl-repl-inputting t))
    (t
     (unrepl-repl--newline-and-indent)
@@ -721,7 +731,7 @@ inserted."
     (insert
      (unrepl-repl--build-result-indicator history-idx namespace)))
   (unrepl-ast-unparse eval-payload)
-  (unrepl-repl--newline-and-scroll))
+  (unrepl-repl-newline-and-scroll))
 
 
 (defun unrepl-repl-insert-out (stdout-payload &optional point &rest _)

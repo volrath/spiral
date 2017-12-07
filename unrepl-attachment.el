@@ -75,10 +75,10 @@ DELETE-FROM to DELETE-TO"
                          (string-as-unibyte)))
          (image (create-image image-data 'png t)))
     (condition-case nil
-        (save-excursion
-          (insert "\n\n")
+        (progn
+          (unrepl-repl-newline-and-scroll 2)
           (insert-image image "image-data")
-          (insert "\n"))
+          (unrepl-repl-newline-and-scroll))
       (error (ding (message "Not a valid image"))))
     (goto-char (point-max))
     (recenter -1)))

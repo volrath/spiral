@@ -136,6 +136,7 @@ payload from calling the elision action, if not given, uses
 
 
 (declare-function unrepl-repl-move-to-next-prompt "unrepl-repl")
+(declare-function unrepl-repl-newline-and-scroll "unrepl-repl")
 (declare-function unrepl-stacktrace-insert-error "unrepl-stacktrace")
 (defun unrepl-ast--error-resume (error-tag-node mute-ui)
   "Insert a brief description of ERROR-TAG-NODE, using its `:cause'.
@@ -154,7 +155,7 @@ MUTE-UI is non-nil."
      (lambda (_button)
        (unrepl-repl-move-to-next-prompt)
        (unrepl-stacktrace-insert-error error-tag-node 'show-trace)
-       (insert "\n")
+       (unrepl-repl-newline-and-scroll)
        (forward-line -1)))))
 
 
