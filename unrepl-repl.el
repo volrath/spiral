@@ -360,7 +360,8 @@ PROPERTIES is a plist of text properties."
                                                           field unrepl-repl-transient-field))
          (unrepl-ast-unparse-stdout-string text)))
      ;; And mark the end
-     (set-marker unrepl-repl-transient-text-end-mark (point)))))
+     (set-marker unrepl-repl-transient-text-end-mark (point)))
+   (recenter)))
 
 
 (defun unrepl-repl--transient-text-remove ()
