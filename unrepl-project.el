@@ -53,7 +53,6 @@ Each element of this AList is also another AList containing a 'Connection
 Pool', and optionally the `project-dir', `project-type', and `socket-repl'
 process.")
 
-
 (defvar-local unrepl-pending-evals nil
   "Queue of pending evaluations.
 This variable is meant to be set on network buffers for `:client' and
@@ -351,7 +350,7 @@ and its expanded."
     (lambda (path) (when path (file-exists-p path)))
     (append (list (unrepl-project-dir proj))
             (map-elt proj :classpath)
-            unrepl-classpath))))
+            (unrepl-classpath)))))
 
 
 (defun unrepl-project-conn-pool (proj)
