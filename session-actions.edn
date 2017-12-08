@@ -1,3 +1,7 @@
 ;; Session Action extensions included in `blob.clj`
 
-{:unrepl.el/doc (clojure.repl/doc #unrepl/param :unrepl.el/symbol)}
+{:unrepl.el/doc (clojure.repl/doc #unrepl/param :unrepl.el/symbol)
+ :unrepl.el/load-file (unrepl-el.tools.load-file/load-file-code
+                       #unrepl/param :unrepl.el/file
+                       #unrepl/param :unrepl.el/file-path
+                       #unrepl/param :unrepl.el/file-name)}
