@@ -295,7 +295,7 @@ If no buffer is provided the command acts on the current buffer."
                            (:unrepl.el/file-name . ,(funcall unrepl-filename-function filename))
                            (:unrepl.el/file-path . ,(file-name-nondirectory filename))))
                         (lambda (payload)
-                          (message "%s" (unrepl-ast-unparse-to-string payload nil 'mute-ui))))
+                          (message "%s" (unrepl-ast-unparse-to-string payload 'mute-ui))))
        (message "Loading %s..." filename)))))
 
 
