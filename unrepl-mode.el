@@ -273,6 +273,33 @@ current buffer."
        (message "No evaluations pending...")))))
 
 
+(defun unrepl-eval-buffer (&optional buffer)
+  "Eval BUFFER's file in UNREPL.
+If no buffer is provided the command acts on the current buffer."
+  (interactive)
+  (check-parens)
+  (with-current-project
+   (with-current-buffer (or buffer (current-buffer))
+     (unless buffer-file-name
+       (user-error "Buffer `%s' is not associated with a file" (current-buffer)))
+     (when (and (buffer-modified-p)
+                (y-or-n-p (format "Save file %s? " buffer-file-name)))
+       (save-buffer))
+     (remove-overlays nil nil 'temporary t)
+     (let ((filename (buffer-file-name buffer))
+           ;; (ns-form  (cider-ns-form))
+           (load-file-templ (unrepl-project-actions-get project :unrepl.el/load-file)))
+       (unrepl-aux-send (unrepl-command-template
+                         load-file-templ
+                         `((:unrepl.el/file . ,(unrepl-file-string filename))
+                           (:unrepl.el/file-name . ,(funcall unrepl-filename-function filename))
+                           (:unrepl.el/file-path . ,(file-name-nondirectory filename))))
+                        (lambda (payload)
+                          (message "%s" (unrepl-ast-unparse-to-string payload nil 'mute-ui))))
+       (message "Loading %s..." filename)))))
+
+
+
 (defun unrepl-quit (&optional just-do-it conn-id)
   "Quit connection to CONN-ID or current `unrepl-conn-id'.
 If JUST-DO-IT is non-nil, don't ask for confirmation."
@@ -292,6 +319,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
     (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
     (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
     (define-key map (kbd "C-c C-r") #'unrepl-inspect-last-eval)
+    (define-key map (kbd "C-c C-b") #'unrepl-eval-buffer)
     (define-key map (kbd "C-c C-g") #'unrepl-eval-interrupt)
     (define-key map (kbd "C-c q") #'unrepl-quit)
     (define-key map (kbd "C-c C-q") #'unrepl-quit)

@@ -100,10 +100,24 @@ Ideal for REPL tooling."
     (file-name-directory unrepl-file)))
 
 
+(defvar unrepl-filename-function
+  (with-no-warnings
+    (if (eq system-type 'cygwin)
+        #'cygwin-convert-file-name-to-windows
+      #'identity))
+  "Function that translates file names to windows when in cygwin.")
+
+
 (defun unrepl-clojure-dir ()  ;; TODO: self-hosted clojurescript
   "Try to guess current buffer's project dir."
   (when-let ((dir (clojure-project-dir)))
     (expand-file-name dir)))
+
+
+(defun unrepl-file-string (file)
+  "Read the contents of a FILE and return it as a string."
+  (with-current-buffer (find-file-noselect file)
+    (substring-no-properties (buffer-string))))
 
 
 (defun unrepl-keyword-name (keyword)
