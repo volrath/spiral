@@ -60,6 +60,21 @@
 
 
 
+;; Custom classpath
+;; -------------------------------------------------------------------
+
+(defcustom unrepl-classpath '()
+  "Global classpath for UNREPL aux connections.
+Ideal for REPL tooling."
+  :type 'list
+  :group 'unrepl)
+
+(defun unrepl-classpath ()
+  "Return a joined list with default tooling paths and the customized `unrepl-classpath'."
+  (append unrepl-classpath
+          (list (expand-file-name "tools/src/" (unrepl-dir)))))
+
+
 ;; Connection utilities
 ;; -------------------------------------------------------------------
 
@@ -79,10 +94,30 @@
 ;; Random utilities
 ;; -------------------------------------------------------------------
 
+(defun unrepl-dir ()
+  "Return the directory where `unrepl-connect' is defined."
+  (let ((unrepl-file (cdr (find-function-library 'unrepl-connect))))
+    (file-name-directory unrepl-file)))
+
+
+(defvar unrepl-filename-function
+  (with-no-warnings
+    (if (eq system-type 'cygwin)
+        #'cygwin-convert-file-name-to-windows
+      #'identity))
+  "Function that translates file names to windows when in cygwin.")
+
+
 (defun unrepl-clojure-dir ()  ;; TODO: self-hosted clojurescript
   "Try to guess current buffer's project dir."
   (when-let ((dir (clojure-project-dir)))
     (expand-file-name dir)))
+
+
+(defun unrepl-file-string (file)
+  "Read the contents of a FILE and return it as a string."
+  (with-current-buffer (find-file-noselect file)
+    (substring-no-properties (buffer-string))))
 
 
 (defun unrepl-keyword-name (keyword)

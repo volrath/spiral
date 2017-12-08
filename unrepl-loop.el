@@ -338,7 +338,8 @@ GROUP-ID is an integer as described by UNREPL's documentation."
     (:started-eval (unrepl-loop--aux-started-eval conn-id payload group-id))
     (:eval (unrepl-loop--aux-eval conn-id payload))
     (:out (unrepl-loop--aux-out conn-id payload group-id))
-    (:exception #'ignore)
+    (:err #'ignore)  ;; for now
+    (:exception (unrepl-loop--aux-exception conn-id payload group-id))
     (:bye (unrepl-loop--bye-handler :aux conn-id payload))))
 
 
@@ -389,8 +390,30 @@ evaluation's, or in other words, if the output is not async.  It will look
 for a STDOUT callback function in the pending evaluation's data and call it
 with PAYLOAD and GROUP-ID, if any."
   (when (eql (unrepl-pending-eval-group-id :aux conn-id) group-id)
+    (unrepl-pending-eval-update :aux conn-id
+                                :status :out)
     (when-let (out-callback (unrepl-pending-eval-stdout-callback :aux conn-id))
       (funcall out-callback payload group-id))))
+
+
+(defun unrepl-loop--aux-exception (conn-id payload group-id)
+  "Handle `:exception' messages transmitted through CONN-ID in `:aux'.
+PAYLOAD is the UNREPL payload for `:exception' as an AST node.
+GROUP-ID is an integer as described by UNREPL'S documentation."
+  (unrepl-pending-eval-update :aux conn-id
+                              :status :exception)
+  (ding (message "Unhandled :aux exception %s %s %d"
+                 conn-id
+                 (-> payload
+                     (unrepl-ast-zip)
+                     (treepy-down)
+                     (treepy-right)
+                     (treepy-down)
+                     (treepy-down)
+                     (treepy-right)
+                     (treepy-node)
+                     (parseclj-ast-value))
+                 group-id)))
 
 
 

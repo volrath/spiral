@@ -190,9 +190,7 @@ PROJECT-TYPE is a symbol.  It can be either `boot' or `lein'."
 
 (defun unrepl-socket--find-default-blob ()
   "Look for the blob file in the same dir where `unrepl-connect' is defined."
-  (let* ((unrepl-file (cdr (find-function-library 'unrepl-connect)))
-         (unrepl-dir (file-name-directory unrepl-file)))
-    (expand-file-name "blob.clj" unrepl-dir)))
+  (expand-file-name "blob.clj" (unrepl-dir)))
 
 
 (defun unrepl-socket--blob ()
