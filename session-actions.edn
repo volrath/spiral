@@ -4,4 +4,8 @@
  :unrepl.el/load-file (unrepl-el.tools.load-file/load-file-code
                        #unrepl/param :unrepl.el/file
                        #unrepl/param :unrepl.el/file-path
-                       #unrepl/param :unrepl.el/file-name)}
+                       #unrepl/param :unrepl.el/file-name)
+ :unrepl.el/complete (unrepl-el.tools.completion/complete
+                      #unrepl/param :unrepl.el/prefix
+                      #unrepl/param :unrepl.el/ns
+                      #unrepl/param :unrepl.el/context)}
