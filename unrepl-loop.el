@@ -42,6 +42,12 @@
 (require 'unrepl-repl)
 
 
+(defcustom unrepl-aux-sync-request-timeout 10
+  "The number of seconds to wait for a sync response.
+Setting this to nil disables the timeout functionality."
+  :type 'integer
+  :group 'unrepl)
+
 (defvar-local unrepl-loop-process-type nil
   "Type of process.
 This local variable is meant to be set in conn-pool processes' buffers so
@@ -322,6 +328,25 @@ Connection to sent the input to is inferred from `unrepl-conn-id'."
                              :status :sent
                              :eval-callback eval-callback
                              :stdout-callback stdout-callback)))
+
+
+(defun unrepl-aux-sync-request (str)
+  "Send input STR to UNREPL aux connection and waits for a response."
+  (let* ((start (current-time))
+         (conn-id unrepl-conn-id)
+         result)
+    (unrepl-loop--send conn-id :aux str)
+    (unrepl-pending-eval-add :aux conn-id
+                             :status :sent
+                             :eval-callback (lambda (eval-payload)
+                                              (setq result eval-payload)))
+    (while (and (not result)
+                (not (input-pending-p))  ;; do not hang UI
+                (or (not unrepl-aux-sync-request-timeout)
+                    (< (cadr (time-subtract (current-time) start))
+                       unrepl-aux-sync-request-timeout)))
+      (accept-process-output nil 0.01))
+    result))
 
 
 (defun unrepl-loop-aux-handler (conn-id tag payload &optional group-id)
