@@ -795,7 +795,7 @@ prompt."
                         (unrepl-pending-eval-entry-group-id pending-eval))  ;; last repl input
                    (unrepl-repl-insert-std-stream type payload (point-max))
                  (save-excursion  ;; old repl input
-                   (unrepl-repl-insert-std
+                   (unrepl-repl-insert-std-stream
                     type
                     payload
                     (unrepl-repl--history-entry-prompt-marker h-entry))))
