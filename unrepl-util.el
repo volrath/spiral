@@ -155,6 +155,20 @@ BORROWED FROM CIDER."
            bound-points)))
 
 
+(defun unrepl-in-string-p ()
+  "Return non-nil if point is in a string.
+BORROWED FROM CIDER."
+  (let ((beg (save-excursion (beginning-of-defun) (point))))
+    (nth 3 (parse-partial-sexp beg (point)))))
+
+
+(defun unrepl-in-comment-p ()
+  "Return non-nil if point is in a comment.
+BORROWED FROM CIDER."
+  (let ((beg (save-excursion (beginning-of-defun) (point))))
+    (nth 4 (parse-partial-sexp beg (point)))))
+
+
 (defun unrepl--make-buffer-for-mode (mode)
   "Return a temp buffer using MODE as `major-mode'.
 Buffers are stored in `unrepl--mode-buffers', and are reused whenever

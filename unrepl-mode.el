@@ -72,6 +72,9 @@
   :type 'boolean
   :group 'unrepl)
 
+(defvar unrepl-completion-last-context nil
+  "Last compliment context used.")
+
 (defvar-local unrepl-conn-id nil
   "Port number used when creating a new Socket REPL.")
 
@@ -314,8 +317,81 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
       (error "Connection %s could not be found" conn-id))))
 
 
+
+;; Completion
+;; -------------------------------------------------------------------
+
+(defun unrepl-completion-get-context-at-point ()
+  "Extract the context at point.
+Parse the \"top-level\" form where point is, if any, and replaces the symbol
+where point is by a symbol `__prefix__'."
+  )
+
+
+(defun unrepl-completion-get-context ()
+  "Extract context depending on `cider-completion-use-context' and major mode.
+BORROWED FROM CIDER."
+  (let ((context (when (derived-mode-p 'clojure-mode)
+                   ;; Important because `beginning-of-defun' and
+                   ;; `ending-of-defun' work incorrectly in the REPL
+                   ;; buffer, so context extraction fails there.
+                   (unrepl-completion-get-context-at-point))))
+    (if (string= unrepl-completion-last-context context)
+        :same
+      (setq unrepl-completion-last-context context)
+      context)))
+
+
+(declare-function unrepl-aux-sync-request "unrepl-loop")
+(defun unrepl-complete-candidates (str &optional ns)
+  "Find completion candidates for STR.
+NS is an optional namespace symbol."
+  (with-current-project
+   (let* ((context (unrepl-completion-get-context))
+          (complete-tmpl (-> project
+                             (unrepl-project-actions)
+                             (unrepl-ast-map-elt :unrepl.el/complete)))
+          (candidates (unrepl-aux-sync-request
+                       (unrepl-command-template complete-tmpl
+                                                `((:unrepl.el/prefix . ,str)
+                                                  (:unrepl.el/context . ,context)
+                                                  (:unrepl.el/ns . ,ns))))))
+     (mapcar
+      (lambda (candidate-node)
+        (let* ((node-get (lambda (key) (-> candidate-node
+                                      (unrepl-ast-map-elt key)
+                                      (parseclj-ast-value))))
+               (candidate (funcall node-get :candidate))
+               (type (funcall node-get :type))
+               (ns (funcall node-get :ns)))
+          (put-text-property 0 1 'type type candidate)
+          (put-text-property 0 1 'ns ns candidate)
+          candidate))
+      (parseclj-ast-children candidates)))))
+
+
+(defun unrepl-complete-at-point ()
+  "Complete the symbol at point.
+Used as a `completion-at-point-functions' function.
+BORROWED FROM CIDER."
+  (when (not (or (unrepl-in-string-p) (unrepl-in-comment-p)))
+    (when-let (bounds (bounds-of-thing-at-point 'symbol))
+      (list (car bounds) (cdr bounds)
+            (completion-table-dynamic #'unrepl-complete-candidates)
+            ;; :annotation-function #'cider-annotate-symbol
+            ;; :company-doc-buffer #'cider-create-doc-buffer
+            ;; :company-location #'cider-company-location
+            ;; :company-docsig #'cider-company-docsig
+            ))))
+
+
+
+;; Setup
+;; -------------------------------------------------------------------
+
 (defconst unrepl-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-TAB") #'complete-symbol)
     (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
     (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
     (define-key map (kbd "C-c C-r") #'unrepl-inspect-last-eval)
@@ -333,8 +409,13 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
   nil
   unrepl-mode-line
   unrepl-mode-map
-  (unless unrepl-mode
-    (kill-local-variable 'unrepl-conn-id)))
+  (if unrepl-mode
+      (progn
+        (make-local-variable 'completion-at-point-functions)
+        (add-to-list 'completion-at-point-functions
+                     #'unrepl-complete-at-point))
+    (mapc #'kill-local-variable '(unrepl-conn-id
+                                  completion-at-point-functions))))
 
 
 (provide 'unrepl-mode)
