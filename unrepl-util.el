@@ -72,7 +72,11 @@ Ideal for REPL tooling."
 (defun unrepl-classpath ()
   "Return a joined list with default tooling paths and the customized `unrepl-classpath'."
   (append unrepl-classpath
-          (list (expand-file-name "tools/src/" (unrepl-dir)))))
+          (list (expand-file-name "tools/src/" (unrepl-dir)))
+          (let ((vendor-dir (expand-file-name "tools/vendor/" (unrepl-dir))))
+            (mapcar (lambda (jar-file)
+                      (expand-file-name jar-file vendor-dir))
+                    (directory-files vendor-dir nil "\\.jar$")))))
 
 
 ;; Connection utilities
