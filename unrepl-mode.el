@@ -331,11 +331,37 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
 ;; Completion
 ;; -------------------------------------------------------------------
 
+(defun unrepl-complete--symbol-start-pos ()
+  "Find the starting position of the symbol at point, unless inside a string.
+BORROWED FROM CIDER."
+  (let ((sap (symbol-at-point)))
+    (when (and sap (not (nth 3 (syntax-ppss))))
+      (car (bounds-of-thing-at-point 'symbol)))))
+
+
 (defun unrepl-complete--get-context-at-point ()
   "Extract the context at point.
-Parse the \"top-level\" form where point is, if any, and replaces the symbol
-where point is by a symbol `__prefix__'."
-  )
+If point is not inside the list, returns nil; otherwise return \"top-level\"
+form, with symbol at point replaced by __prefix__.
+BORROWED FROM CIDER."
+  (when (save-excursion
+          (condition-case _
+              (progn
+                (up-list)
+                (check-parens)
+                t)
+            (scan-error nil)
+            (user-error nil)))
+    (save-excursion
+      (let* ((pref-end (point))
+             (pref-start (unrepl-complete--symbol-start-pos))
+             (context (unrepl-top-level-form-at-point))
+             (expr-start (progn
+                           (beginning-of-defun)
+                           (point))))
+        (concat (when pref-start (substring context 0 (- pref-start expr-start)))
+                "__prefix__"
+                (substring context (- pref-end expr-start)))))))
 
 
 (defun unrepl-complete--get-context ()
