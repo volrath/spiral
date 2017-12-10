@@ -155,6 +155,12 @@ BORROWED FROM CIDER."
            bound-points)))
 
 
+(defun unrepl-namespace-qualified-p (sym)
+  "Return t if SYM is namespace-qualified.
+BORROWED FROM CIDER."
+  (string-match-p "[^/]+/" sym))
+
+
 (defun unrepl-in-string-p ()
   "Return non-nil if point is in a string.
 BORROWED FROM CIDER."

@@ -321,21 +321,20 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
 ;; Completion
 ;; -------------------------------------------------------------------
 
-(defun unrepl-completion-get-context-at-point ()
+(defun unrepl-complete--get-context-at-point ()
   "Extract the context at point.
 Parse the \"top-level\" form where point is, if any, and replaces the symbol
 where point is by a symbol `__prefix__'."
   )
 
 
-(defun unrepl-completion-get-context ()
-  "Extract context depending on `cider-completion-use-context' and major mode.
-BORROWED FROM CIDER."
+(defun unrepl-complete--get-context ()
+  "Extract compliment's context."
   (let ((context (when (derived-mode-p 'clojure-mode)
                    ;; Important because `beginning-of-defun' and
                    ;; `ending-of-defun' work incorrectly in the REPL
                    ;; buffer, so context extraction fails there.
-                   (unrepl-completion-get-context-at-point))))
+                   (unrepl-complete--get-context-at-point))))
     (if (string= unrepl-completion-last-context context)
         :same
       (setq unrepl-completion-last-context context)
@@ -343,11 +342,11 @@ BORROWED FROM CIDER."
 
 
 (declare-function unrepl-aux-sync-request "unrepl-loop")
-(defun unrepl-complete-candidates (str &optional ns)
+(defun unrepl-complete--candidates (str &optional ns)
   "Find completion candidates for STR.
 NS is an optional namespace symbol."
   (with-current-project
-   (let* ((context (unrepl-completion-get-context))
+   (let* ((context (unrepl-complete--get-context))
           (complete-tmpl (-> project
                              (unrepl-project-actions)
                              (unrepl-ast-map-elt :unrepl.el/complete)))
@@ -364,10 +363,23 @@ NS is an optional namespace symbol."
                (candidate (funcall node-get :candidate))
                (type (funcall node-get :type))
                (ns (funcall node-get :ns)))
-          (put-text-property 0 1 'type type candidate)
-          (put-text-property 0 1 'ns ns candidate)
+          (when candidate
+            (put-text-property 0 1 'type type candidate)
+            (put-text-property 0 1 'ns ns candidate))
           candidate))
       (parseclj-ast-children candidates)))))
+
+
+(defun unrepl-complete--annotate-symbol (symbol)
+  "Return a string suitable for annotating SYMBOL.
+Takes properties `type' and `ns' from SYMBOL, if any, and concat them into
+a single annotation.  `ns' is only used when the symbol to be completed is
+not fully qualified."
+  (let ((type (get-text-property 0 'type symbol))
+        (ns (unless (unrepl-namespace-qualified-p symbol)
+              (get-text-property 0 'ns symbol))))
+    (concat (when ns (format " (%s) " ns))
+            (when type (format " <%s> " (unrepl-keyword-name type))))))
 
 
 (defun unrepl-complete-at-point ()
@@ -377,12 +389,8 @@ BORROWED FROM CIDER."
   (when (not (or (unrepl-in-string-p) (unrepl-in-comment-p)))
     (when-let (bounds (bounds-of-thing-at-point 'symbol))
       (list (car bounds) (cdr bounds)
-            (completion-table-dynamic #'unrepl-complete-candidates)
-            ;; :annotation-function #'cider-annotate-symbol
-            ;; :company-doc-buffer #'cider-create-doc-buffer
-            ;; :company-location #'cider-company-location
-            ;; :company-docsig #'cider-company-docsig
-            ))))
+            (completion-table-dynamic #'unrepl-complete--candidates)
+            :annotation-function #'unrepl-complete--annotate-symbol))))
 
 
 
