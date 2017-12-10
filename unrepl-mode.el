@@ -238,6 +238,16 @@ current buffer."
                    (funcall callback eval-payload bounds)))))
 
 
+(defun unrepl-eval-top-level-form ()
+  "Evaluate the \"top-level\" form containing point."
+  (interactive)
+  (unrepl-ensure-connected!)
+  (let ((bounds (unrepl-top-level-form-at-point 'marker-bounds)))
+    (unrepl-eval bounds
+                 (lambda (eval-payload)
+                   (unrepl-mode--interactive-eval-display-callback eval-payload bounds)))))
+
+
 
 ;; Interactive Commands
 ;; -------------------------------------------------------------------
@@ -402,6 +412,7 @@ BORROWED FROM CIDER."
     (define-key map (kbd "C-TAB") #'complete-symbol)
     (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
     (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
+    (define-key map (kbd "C-c C-c") #'unrepl-eval-top-level-form)
     (define-key map (kbd "C-c C-r") #'unrepl-inspect-last-eval)
     (define-key map (kbd "C-c C-b") #'unrepl-eval-buffer)
     (define-key map (kbd "C-c C-g") #'unrepl-eval-interrupt)

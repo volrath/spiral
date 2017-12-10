@@ -155,6 +155,29 @@ BORROWED FROM CIDER."
            bound-points)))
 
 
+(defun unrepl-top-level-form-at-point (&optional bounds)
+  "Return the text of the top level sexp at point.
+If BOUNDS is non-nil, return a list of its starting and ending position
+instead.
+If BOUNDS is 'marker-bounds, this list will have markers instead of
+numbered positions.
+BORROWED FROM CIDER."
+  (save-excursion
+    (save-match-data
+      (end-of-defun)
+      (let ((end (point)))
+        (clojure-backward-logical-sexp 1)
+        (let ((bound-points (if (eql bounds 'marker-bounds)
+                                (mapcar (lambda (bp)
+                                          (let ((m (make-marker)))
+                                            (set-marker m bp)
+                                            m))
+                                        (list (point) end))
+                              (list (point) end))))
+          (apply (if bounds #'list #'buffer-substring-no-properties)
+                 bound-points))))))
+
+
 (defun unrepl-namespace-qualified-p (sym)
   "Return t if SYM is namespace-qualified.
 BORROWED FROM CIDER."
