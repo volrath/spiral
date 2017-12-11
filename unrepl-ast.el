@@ -38,6 +38,7 @@
 
 (require 'unrepl-button)
 (require 'unrepl-util)
+(require 'unrepl-attachment)
 
 
 (defcustom unrepl-enable-pretty-object-representations t
@@ -168,8 +169,6 @@ buttons."
   (insert (propertize "~" 'font-lock-face 'unrepl-font-exception-title-face)))
 
 
-(declare-function unrepl-attachment-find-handler "unrepl-attachment")
-(declare-function unrepl-attachment-insert-button "unrepl-attachment")
 (defun unrepl-ast--mime-tag-unparse (mime-tag-node mute-ui)
   "Insert a button to download any media in MIME-TAG-NODE.
 If MUTE-UI is non-nil, don't do anything."

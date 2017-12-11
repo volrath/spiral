@@ -34,12 +34,12 @@
 (require 'clojure-mode)
 (require 'dash)
 (require 'map)
+(require 'parseclj)
 
 (require 'unrepl-button)
-(require 'unrepl-loop)
-(require 'unrepl-mode)
 
 
+(declare-function unrepl-aux-send "unrepl-loop")
 (defun unrepl-attachment--generate-button-action (load-action-str eval-callback
                                                                   delete-from delete-to
                                                                   &optional stdout-callback)
@@ -52,9 +52,9 @@ STDOUT-CALLBACK.
 DELETE-FROM to DELETE-TO"
   (lambda (_button)
     ;; 1.
-    (with-current-project
-     (with-current-buffer (process-buffer (unrepl-project-conn-pool-get-process project :aux))
-       (font-lock-mode -1)))
+    ;; (with-current-project
+    ;;  (with-current-buffer (process-buffer (unrepl-project-conn-pool-get-process project :aux))
+    ;;    (font-lock-mode -1)))
     ;; 2.
     (unrepl-aux-send load-action-str
                      (lambda (eval-payload)
@@ -66,6 +66,8 @@ DELETE-FROM to DELETE-TO"
                      stdout-callback)))
 
 
+(declare-function unrepl-ast-tag-child "unrepl-ast")
+(declare-function unrepl-repl-newline-and-scroll "unrepl-repl")
 (defun unrepl-attachment--handle-image (eval-payload)
   "Load a base64 encoded image from EVAL-PAYLOAD and display it."
   (let* ((image-data (-> eval-payload
