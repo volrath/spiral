@@ -1,170 +1,244 @@
-* UNREPL.el
+#+TITLE:     UNREPL.el (0.1.0-alpha)
+#+AUTHOR:    Daniel Barreto
+#+EMAIL:     daniel@barreto.tech
+#+DESCRIPTION: UNREPL.el project README
+#+LANGUAGE:  en
+#+OPTIONS:   H:4 num:nil toc:2 p:t
+#+STARTUP: showall
 
   Emacs >= 25.1
 
-  Client interface with a Clojure's Socket REPL through the [[https://github.com/unrepl/unrepl][unrepl]] protocol.
+  Pick your definition:
+  - UNREPL.el is a Clojure IDE for Emacs.
+  - UNREPL.el is a client interface to a Clojure's Socket REPL through the
+    [[https://github.com/unrepl/unrepl][UNREPL]] protocol.
 
-  *Warning:* This project is in ALPHA stage, there are several known (and
-  unknown) bugs.  Contributions are welcome.
+* Introduction
+  Both definitions above are correct and complement each other.
+
+  UNREPL.el started as a simple experiment for using the [[https://github.com/unrepl/unrepl][UNREPL]] protocol as the
+  communication method between an Emacs buffers and a Clojure Socket REPL.  With
+  the pass of time, it has been evolving into an alternative* Clojure IDE.
+  Currently it has a fair amount of [[#features][Features]].
+
+  UNREPL.el is meant to be REPL-centric.  That means that UI relies heavily on
+  the REPL for displaying any kind of data that may be too big or complex to
+  display in the Echo Area or as an overlay.
+
+  \* UNREPL.el is an "alternative" because it is of the same nature as [[https://cider.readthedocs.io/en/latest/][CIDER]],
+  but both differ in certain UI decisions, included the aforementioned.  That
+  said, UREPL.el also takes a lot of inspiration from CIDER's features.  If you
+  are new to Clojure development in Emacs, for now I would recommend to start
+  with CIDER, since it's more stable, more & better documented, and has a bigger
+  community behind it.
+
+* Features
+  :PROPERTIES:
+  :CUSTOM_ID: Features
+  :END:
+
+  Feature gifs, coming soon...
+
+*** Automatically create a Socket REPL using your project's build tool
+    UNREPL.el currently supports [[https://leiningen.org/][Leiningen]] or [[http://boot-clj.com/][Boot]] >= 2.7.2.
+
+*** Connect to an existing Socket REPL
+
+*** Elided data structures
+    Taking advantage of one of UNREPL's nice features, the REPL buffer will
+    elide big or complex data structures with clickable buttons.
+
+*** Standard output strings can be grouped into their respective REPL entries
+    This is a customizable feature, you can turn it off by setting
+    =unrepl-repl-group-stdout= to =nil=.
+
+*** In place documentation
+    A la [[https://github.com/unrepl/unravel][Unravel]].  Hit =C-c C-d= to get in-place documentation of the symbol at
+    point.
+
+*** Pretty (and elided) exceptions
+
+*** Even for lazy errors
+
+*** Interactive evaluation results overlays
+    Same as [[https://github.com/clojure-emacs/cider/][CIDER]] and [[http://lighttable.com/][LightTable]].
+
+*** Is the result too big? Inspect it in the REPL
+
+*** Interactive Exception happened? Inspect it in the REPL
+    Exceptions are shown in the REPL buffer, no matter where they come from.
+
+*** And there is more to come...
+    Before releasing the first UNREPL.el stable version, a couple more features
+    might land in:
+    - REPL pretty printing for evaluation results.
+    - Visible UI for interrupting pending evaluations.
+    - Key bindings to navigate buttons in the REPL.
+
+* (not so) Quick Start
+
+** Installing
+   As of right now, UNREPL.el is not in [[http://melpa.milkbox.net/#/][MELPA]] yet, so in order to install it,
+   you might need to get your hands a bit dirty:
+
+   1. Install [[https://github.com/plexus/a.el][a.el]], [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], [[https://github.com/magnars/dash.el][dash]], and [[https://github.com/volrath/treepy.el][treepy]].  All available in [[http://melpa.milkbox.net/#/][MELPA]].
+
+   2. Download this repository, or clone it with its submodules:
+
+      #+BEGIN_SRC shell-script
+      $ git clone --recursive https://github.com/unrepl/unrepl.el
+      #+END_SRC
+
+   3. Then place this repository, and its *parseclj* submodule copy, somewhere
+      in your load-path.  Or just paste this in your emacs configuration and
+      evaluate it:
+
+      #+BEGIN_SRC emacs-lisp
+      (let ((unrepl-dir "/path/to/your/copy/of/unrepl.el"))
+        (add-to-list 'load-path unrepl-dir)
+        (add-to-list 'load-path (expand-file-name "parseclj" unrepl-dir))
+        (require 'unrepl))
+      #+END_SRC
+
+** Connecting to a Socket REPL
+   The main way to connect to a Socket REPL in UNREPL.EL is by issuing:
+   =M-x unrepl-connect=.
+
+   When this command is executed in a buffer that belongs to a Clojure project,
+   it will automagically create a Socket REPL for it and connect.  Right now,
+   UNREPL.el supports only automatic connection in projects using [[https://leiningen.org/][Leiningen]] or
+   [[http://boot-clj.com/][Boot]] >= 2.7.2.
+
+   If you already have a Socket REPL running, you can prefix the connect command
+   (=C-u M-x unrepl-connect=) or issue =M-x unrepl-connect-to= to get a prompt
+   for inserting your Socket's host and port.
+
+   There are several ways to create your own Socket REPL, here are some examples:
+
+   #+BEGIN_SRC shell-script
+    # lein:
+    $ JVM_OPTS='-Dclojure.server.myrepl={:port,5555,:accept,clojure.core.server/repl}' lein repl
+    # or boot < 2.7.2:
+    $ boot -i "(do (require 'clojure.core.server) (clojure.core.server/start-server {:port 5555 :name :repl :accept 'clojure.core.server/repl}))" wait
+    # or boot >= 2.7.2:
+    $ boot socket-server --port 5555 wait
+    # or plain Clojure jar:
+    $ java -Dclojure.server.myrepl="{:port 5555,:accept,clojure.core.server/repl}" -jar ~/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar
+    #+END_SRC
+
+   After UNREPL.el successfully connects to a Socket REPL you will be greeted
+   with a REPL Buffer, and all your Clojure buffers related to the project you
+   just connected will have the =unrepl-mode= activated automatically.
 
 ** Usage
+   Besides the REPL Buffer, UNREPL.el enables a few commands in each Clojure
+   Buffer running =unrepl-mode=:
 
-*** Installing
-   This project is on early stage, so it might require to get your hands a bit
-   dirty to get things running.
+   - Autocompletion with [[http://company-mode.github.io/][company-mode]].
+   - =C-c C-z=: Switch to REPL buffer
+   - =C-x C-e=: Evaluate expression before point.
+   - =C-c C-c=: Evaluate top level expression.
+   - =C-c C-r=: Send last evaluation to the REPL buffer.
+   - =C-c C-b=: Evaluate buffer.
+   - =C-c C-g=: Interrupt current evaluation.
+   - =C-c C-q=: Quit UNREPL.el
 
-   To install, Clone this repository with its submodule:
 
-   #+BEGIN_SRC bash
-   git clone --recursive https://github.com/unrepl/unrepl.el
-   #+END_SRC
+* Development
 
-   Then place this repository, and its *parseclj* submodule copy, somewhere in
-   your load-path.
+  Early stage, this might be out of date.
 
-   You also need to install these [[https://github.com/plexus/a.el][a.el]], [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], [[https://github.com/magnars/dash.el][dash]], and [[https://github.com/volrath/treepy.el][treepy]].  All
-   available in MELPA.
+** Implementation Details
 
-   OPTIONAL: In =unrepl-util.el= there's a commented =unrepl-retry= function
-   that you can evaluate (and assign it to a key binding), that will
-   automatically add these directories to your =load-path=, reload the whole
-   project and restart a connection to localhost:5555.  Please be sure to run
-   this function from within a buffer containing a =unrepl-*.el= file.
+*** Main Internal Data Structure
 
-*** Connecting to a Socket REPL
+    UNREPL.el depends on a running Clojure's Socket REPL.
 
-   Currently, UNREPL.el provides two ways to connect to a Socket REPL:
+    Multiple connections to Socket REPLs can be created in the same running
+    Emacs instance, ideally each for a different Clojure project.
 
-   1. Automatically creating a Socket REPL from Emacs with UNREPL.el.  This
-      requires you to have [[https://github.com/boot-clj/boot][boot]] > 2.7.2 installed locally. It will be used to
-      instantiate a new Socket REPL on =localhost:60100=.
+    In the UNREPL.el context, a /Project/ represents a set of connections
+    (normally 3 different connections, explained below) to a Clojure Socket
+    REPL.  A project is identified by a /Connection ID/, which is a symbol of
+    the form =host:port=.
 
-      Issue:
+    Each project holds:
 
-      #+BEGIN_SRC bash
-      M-x unrepl-connect
-      #+END_SRC
+    - =:id=: Its connection id.
+    - =:conn-pool=: An alist with 3 UNREPL connection processes for this
+      project's Socket REPL.
+    - =:repl-buffer=: A buffer that holds human-focused REPL interaction.
+    - =:classpath=: An optional list of files/directories to append to
+      UNREPL.el's global classpath on a project basis.
+    - =:project-dir=: An optional strinng pointing to the project's dir.
+    - =:socket-repl=: An optional process referring to the Socket REPL server.
 
-   2. By connecting to a Socket REPL you alredy created.  There are several ways
-      to do this, here are some examples:
+    The 3 connections in a project's connection pool are:
 
-      #+BEGIN_SRC bash
-      # lein:
-      > JVM_OPTS='-Dclojure.server.myrepl={:port,5555,:accept,clojure.core.server/repl}' lein repl
-      # or boot < 2.7.2:
-      > boot -i "(do (require 'clojure.core.server) (clojure.core.server/start-server {:port 5555 :name :repl :accept 'clojure.core.server/repl}))" wait
-      # or boot >= 2.7.2:
-      > boot socket-server --port 5555 wait
-      # or plain Clojure jar:
-      java -Dclojure.server.myrepl="{:port 5555,:accept,clojure.core.server/repl}" -jar ~/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar
-      #+END_SRC
+    - One for the main client UNREPL, identified by the keyword =:client=..
+    - One auxiliary connection for tooling, identified by the keyword =:aux=.
+    - One auxiliary connection for an UNREPL sider loader, identified by the
+      keyword =:side-loader=.
 
-      Then issue:
+    All UNREPL.el projects are stored in an associative data structure called
+    =unrepl-projects=, where keys are connection ids.
 
-      #+BEGIN_SRC bash
-      M-x unrepl-connect-to
-      Host: localhost
-      Port: 5555
-      #+END_SRC
+*** Pending Evaluations
 
-   After a successful connection, you will be greeted with a REPL buffer.
+    Each connection in a project's connection pool has a Pending Evaluations
+    queue, represented as a local variable stored in each of the processes
+    corresponding buffers.
 
-   You can also evaluate sexp in a buffer by enabling =unrepl-mode= in that buffer
-   and executing =unrepl-eval-last-sexp= or =C-x C-e=.
+    A pending evaluation is an associative data structure that contains the
+    following:
 
-** Development
+    - =:status=: either =:sent=, =:read=, =:started-eval=, =:eval=, or
+      =:exception=.
+    - =:group-id=: An UNREPL group id.  Set after the pending evaluation gets
+      =:read=.
+    - =:actions=: Evaluation actions as provided by the =started-eval= UNREPL.
+      Set after the pending has =started-eval=.
+    - =:repl-history-idx=: (optional) only if the input was sent from the REPL,
+      this would be the index in REPL history.
+    - =:prompt-marker=: (optional) a REPL buffer position to which print either
+      evaluation outputs or =:out= strings.
+    - =:eval-callback=: (optional) a function that receives the actual
+      evaluation result as an AST node and process it somehow, maybe displaying
+      it in the REPL buffer, in the echo area, as an overlay 'a la
+      lighttable/cider', or in any other way.
 
-   Early stage, this might be out of date.
+    Pending evaluations' life cycle start when an input string is sent to the
+    UNREPL server (either by using the human REPL interface, or by evaluating
+    clojure buffer code).  At this very moment, a pending evaluation is created
+    with only a status =:sent=, and it will be put in the pending evaluations
+    queue.  Any other input sent while processing this pending evaluation, will
+    generate new pending evaluation entries that will be added to the queue and
+    processed in order.  An input string sent to the UNREPL server will generate
+    ideally 1 =:read= message back from the server, but in general, it can
+    generate 0 or more of them.
 
-*** Implementation Details
+    The first =:read= message received after sending input stream will be used
+    to update the pending evaluation status, add a group id, and, if the input
+    came from the REPL, update its prompt marker.  =:started-eval= messages will
+    be used to add a set of actions to the pending evaluation structure.  When
+    =:eval= messages are received (or =:exception= -s), we will display them
+    according to how the input was generated in the first place (REPL or buffer
+    eval) Subsequent =:read= messages received for the same input (or put in a
+    different way, not interrupted by another =:prompt= message) will modify the
+    same pending evaluation as their predecessors, making sure to delete from it
+    the actions and group-id information.
 
-**** Main Internal Data Structure
+    When a =:prompt= is received again, the top of the queue (=:eval= -ed
+    pending evaluation) will be taken out, and the process start again.
 
-     UNREPL.el depends on a running Clojure's Socket REPL.
+*** The REPL
 
-     Multiple connections to Socket REPLs can be created in the same running
-     Emacs instance, ideally each for a different Clojure project.
+*** The Loop
 
-     In the UNREPL.el context, a /Project/ represents a set of connections
-     (normally 3 different connections, explained below) to a Clojure Socket
-     REPL.  A project is identified by a /Connection ID/, which is a symbol of
-     the form =host:port=.
+* Resources
 
-     Each project holds:
+* License
 
-     - =:id=: Its connection id.
-     - =:conn-pool=: An alist with 3 UNREPL connection processes for this
-       project's Socket REPL.
-     - =:repl-buffer=: A buffer that holds human-focused REPL interaction.
-     - =:classpath=: An optional list of files/directories to append to
-       UNREPL.el's global classpath on a project basis.
-     - =:project-dir=: An optional strinng pointing to the project's dir.
-     - =:socket-repl=: An optional process referring to the Socket REPL server.
+  © 2017 Daniel Barreto
 
-     The 3 connections in a project's connection pool are:
-
-     - One for the main client UNREPL, identified by the keyword =:client=..
-     - One auxiliary connection for tooling, identified by the keyword =:aux=.
-     - One auxiliary connection for an UNREPL sider loader, identified by the
-       keyword =:side-loader=.
-
-     All UNREPL.el projects are stored in an associative data structure called
-     =unrepl-projects=, where keys are connection ids.
-
-**** Pending Evaluations
-
-     Each connection in a project's connection pool has a Pending Evaluations
-     queue, represented as a local variable stored in each of the processes
-     corresponding buffers.
-
-     A pending evaluation is an associative data structure that contains the
-     following:
-
-     - =:status=: either =:sent=, =:read=, =:started-eval=, =:eval=, or
-       =:exception=.
-     - =:group-id=: An UNREPL group id.  Set after the pending evaluation gets
-       =:read=.
-     - =actions=: Evaluation actions as provided by the =started-eval= UNREPL.
-       Set after the pending has =started-eval=.
-     - =:repl-history-idx=: (optional) only if the input was sent from the REPL,
-       this would be the index in REPL history.
-     - =:prompt-marker=: (optional) a REPL buffer position to which print either
-       evaluation outputs or =:out= strings.
-     - =:eval-callback=: (optional) a function that receives the actual
-       evaluation result as an AST node and process it somehow, maybe displaying
-       it in the REPL buffer, in the echo area, as an overlay 'a la
-       lighttable/cider', or in any other way.
-
-     Pending evaluations' life cycle start when an input string is sent to the
-     UNREPL server (either by using the human REPL interface, or by evaluating
-     clojure buffer code).  At this very moment, a pending evaluation is created
-     with only a status =:sent=, and it will be put in the pending evaluations
-     queue.  Any other input sent while processing this pending evaluation, will
-     generate new pending evaluation entries that will be added to the queue and
-     processed in order.  An input string sent to the UNREPL server will
-     generate ideally 1 =:read= message back from the server, but in general, it
-     can generate 0 or more of them.
-
-     The first =:read= message received after sending input stream will be used
-     to update the pending evaluation status, add a group id, and, if the input
-     came from the REPL, update its prompt marker.  =:started-eval= messages
-     will be used to add a set of actions to the pending evaluation structure.
-     When =:eval= messages are received (or =:exception= -s), we will display
-     them according to how the input was generated in the first place (REPL or
-     buffer eval) Subsequent =:read= messages received for the same input (or
-     put in a different way, not interrupted by another =:prompt= message) will
-     modify the same pending evaluation as their predecessors, making sure to
-     delete from it the actions and group-id information.
-
-     When a =:prompt= is received again, the top of the queue (=:eval= -ed
-     pending evaluation) will be taken out, and the process start again.
-
-**** The REPL
-
-**** The Loop
-
-** License
-
-   © 2017 Daniel Barreto
-
-   Distributed under the terms of the GNU GENERAL PUBLIC LICENSE, version 3.
+  Distributed under the terms of the GNU GENERAL PUBLIC LICENSE, version 3.
