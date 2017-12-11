@@ -1,0 +1,19 @@
+#+TITLE:     Contributing
+#+AUTHOR:    Daniel Barreto
+#+EMAIL:     daniel@barreto.tech
+#+DESCRIPTION: UNREPL.el contribution guidelines
+#+LANGUAGE:  en
+#+STARTUP: showall
+
+UNREPL.el is a very young project, so contribution guidelines are fairly simple
+and straight forward.
+
+* Bug Reporting and Feature Suggestions
+
+  Please refer to the [[https://github.com/unrepl/unrepl.el/issues][issue tracker]].
+
+* Code contributions
+
+  These are even better than the above! Feel free to open [[https://github.com/unrepl/unrepl.el/pulls][pull requests]].  Be
+  careful to create atomic commits with descriptive messages; when in doubt,
+  please refer to [[https://chris.beams.io/posts/git-commit/#seven-rules][these seven rules]].
