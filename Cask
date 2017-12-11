@@ -8,6 +8,6 @@
  (depends-on "a")
  (depends-on "parseclj"
              :git "https://github.com/lambdaisland/parseclj"
-             :ref "388bb2bde2f1985e246d52c3970c8468e03ca69d")
+             :ref "bad1fb8745bbf8d72e252006abbdb7aa4f4a7906")
  (depends-on "buttercup")
  (depends-on "with-simulated-input"))
