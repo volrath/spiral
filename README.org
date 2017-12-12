@@ -6,12 +6,15 @@
 #+OPTIONS:   H:4 num:nil toc:2 p:t
 #+STARTUP: showall
 
-  Emacs >= 25.1, Clojure >= 1.8.0
+#+caption: Build Status
+[[https://travis-ci.org/Unrepl/unrepl.el][file:https://travis-ci.org/Unrepl/unrepl.el.svg?branch=master]]
 
-  Pick your definition:
-  - UNREPL.el is a Clojure IDE for Emacs.
-  - UNREPL.el is a client interface to a Clojure's Socket REPL through the
-    [[https://github.com/unrepl/unrepl][UNREPL]] protocol.
+Emacs >= 25.1, Clojure >= 1.8.0
+
+Pick your definition:
+- UNREPL.el is a Clojure IDE for Emacs.
+- UNREPL.el is a client interface to a Clojure's Socket REPL through the [[https://github.com/unrepl/unrepl][UNREPL]]
+  protocol.
 
 * Introduction
   Both definitions above are correct and complement each other.
