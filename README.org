@@ -37,10 +37,11 @@
   :CUSTOM_ID: Features
   :END:
 
-  Feature gifs, coming soon...
-
 *** Automatically create a Socket REPL using your project's build tool
     UNREPL.el currently supports [[https://leiningen.org/][Leiningen]] or [[http://boot-clj.com/][Boot]] >= 2.7.2.
+
+    #+caption: M-x unrepl-connect
+    [[file:gifs/connect.gif]]
 
 *** Connect to an existing Socket REPL
 
