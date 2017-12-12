@@ -1,0 +1,96 @@
+#+TITLE:     Documentation
+#+AUTHOR:    Daniel Barreto
+#+EMAIL:     daniel@barreto.tech
+#+DESCRIPTION: UNREPL.el dev documentation
+#+LANGUAGE:  en
+#+OPTIONS:   H:4 num:nil toc:2 p:t
+#+STARTUP: showall
+
+Early stage, this might be out of date.
+
+* Implementation Details
+
+** Main Internal Data Structure
+
+   UNREPL.el depends on a running Clojure's Socket REPL.
+
+   Multiple connections to Socket REPLs can be created in the same running
+   Emacs instance, ideally each for a different Clojure project.
+
+   In the UNREPL.el context, a /Project/ represents a set of connections
+   (normally 3 different connections, explained below) to a Clojure Socket REPL.
+   A project is identified by a /Connection ID/, which is a symbol of the form
+   =host:port=.
+
+   Each project holds:
+
+   - =:id=: Its connection id.
+   - =:conn-pool=: An alist with 3 UNREPL connection processes for this
+     project's Socket REPL.
+   - =:repl-buffer=: A buffer that holds human-focused REPL interaction.
+   - =:classpath=: An optional list of files/directories to append to
+     UNREPL.el's global classpath on a project basis.
+   - =:project-dir=: An optional strinng pointing to the project's dir.
+   - =:socket-repl=: An optional process referring to the Socket REPL server.
+
+   The 3 connections in a project's connection pool are:
+
+   - One for the main client UNREPL, identified by the keyword =:client=..
+   - One auxiliary connection for tooling, identified by the keyword =:aux=.
+   - One auxiliary connection for an UNREPL sider loader, identified by the
+     keyword =:side-loader=.
+
+   All UNREPL.el projects are stored in an associative data structure called
+   =unrepl-projects=, where keys are connection ids.
+
+** Pending Evaluations
+
+   Each connection in a project's connection pool has a Pending Evaluations
+   queue, represented as a local variable stored in each of the processes
+   corresponding buffers.
+
+   A pending evaluation is an associative data structure that contains the
+   following:
+
+   - =:status=: either =:sent=, =:read=, =:started-eval=, =:eval=, or
+     =:exception=.
+   - =:group-id=: An UNREPL group id.  Set after the pending evaluation gets
+     =:read=.
+   - =:actions=: Evaluation actions as provided by the =started-eval= UNREPL.
+     Set after the pending has =started-eval=.
+   - =:repl-history-idx=: (optional) only if the input was sent from the REPL,
+     this would be the index in REPL history.
+   - =:prompt-marker=: (optional) a REPL buffer position to which print either
+     evaluation outputs or =:out= strings.
+   - =:eval-callback=: (optional) a function that receives the actual
+     evaluation result as an AST node and process it somehow, maybe displaying
+     it in the REPL buffer, in the echo area, as an overlay 'a la
+     lighttable/cider', or in any other way.
+
+   Pending evaluations' life cycle start when an input string is sent to the
+   UNREPL server (either by using the human REPL interface, or by evaluating
+   clojure buffer code).  At this very moment, a pending evaluation is created
+   with only a status =:sent=, and it will be put in the pending evaluations
+   queue.  Any other input sent while processing this pending evaluation, will
+   generate new pending evaluation entries that will be added to the queue and
+   processed in order.  An input string sent to the UNREPL server will generate
+   ideally 1 =:read= message back from the server, but in general, it can
+   generate 0 or more of them.
+
+   The first =:read= message received after sending input stream will be used to
+   update the pending evaluation status, add a group id, and, if the input came
+   from the REPL, update its prompt marker.  =:started-eval= messages will be
+   used to add a set of actions to the pending evaluation structure.  When
+   =:eval= messages are received (or =:exception= -s), we will display them
+   according to how the input was generated in the first place (REPL or buffer
+   eval) Subsequent =:read= messages received for the same input (or put in a
+   different way, not interrupted by another =:prompt= message) will modify the
+   same pending evaluation as their predecessors, making sure to delete from it
+   the actions and group-id information.
+
+   When a =:prompt= is received again, the top of the queue (=:eval= -ed
+   pending evaluation) will be taken out, and the process start again.
+
+** The REPL
+
+** The Loop
