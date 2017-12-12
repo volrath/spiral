@@ -1,4 +1,4 @@
-#+TITLE:     UNREPL.el (0.9.0)
+#+TITLE:     UNREPL.el (0.1.0)
 #+AUTHOR:    Daniel Barreto
 #+EMAIL:     daniel@barreto.tech
 #+DESCRIPTION: UNREPL.el project README
@@ -6,7 +6,7 @@
 #+OPTIONS:   H:4 num:nil toc:2 p:t
 #+STARTUP: showall
 
-  Emacs >= 25.1
+  Emacs >= 25.1, Clojure >= 1.8.0
 
   Pick your definition:
   - UNREPL.el is a Clojure IDE for Emacs.
@@ -180,8 +180,13 @@
    - =C-c C-g=: Interrupt current evaluation.
    - =C-c C-q=: Quit UNREPL.el
 
-
 * Resources
+  - [[https://github.com/unrepl/unrepl][UNREPL]]: the protocol.
+  - [[https://github.com/unrepl/unravel][Unravel]]: an UNREPL terminal-based client.
+  - The Ultimate Guide To Clojure REPLs on the [[https://lambdaisland.com/guides/clojure-repls/clojure-repls#orgheadline20][Socket REPL]].
+  - [[https://github.com/puredanger/replicant][replicant]]: proof of concept of using Socket REPL for tooling
+
+Join the =#unrepl= channel in the [[http://clojurians.net/][Clojurians slack]]!
 
 * License
 
