@@ -1,4 +1,4 @@
-#+TITLE:     UNREPL.el (0.1.0-alpha)
+#+TITLE:     UNREPL.el (0.9.0)
 #+AUTHOR:    Daniel Barreto
 #+EMAIL:     daniel@barreto.tech
 #+DESCRIPTION: UNREPL.el project README
@@ -45,29 +45,65 @@
 
 *** Connect to an existing Socket REPL
 
+    #+caption: M-x unrepl-connect-to
+    [[file:gifs/connect-to.gif]]
+
 *** Elided data structures
     Taking advantage of one of UNREPL's nice features, the REPL buffer will
     elide big or complex data structures with clickable buttons.
+
+    #+caption: Elided data structures
+    [[file:gifs/elision.gif]]
 
 *** Standard output strings can be grouped into their respective REPL entries
     This is a customizable feature, you can turn it off by setting
     =unrepl-repl-group-stdout= to =nil=.
 
+    #+caption: Grouped stdout strings
+    [[file:gifs/grouped-outs.gif]]
+
 *** In place documentation
     A la [[https://github.com/unrepl/unravel][Unravel]].  Hit =C-c C-d= to get in-place documentation of the symbol at
     point.
 
-*** Pretty (and elided) exceptions
+    #+caption: In place documentation
+    [[file:gifs/in-place-doc.gif]]
+
+*** Pretty (and elided) stacktraces
+
+    #+caption: Elided stacktraces
+    [[file:gifs/exceptions.gif]]
 
 *** Even for lazy errors
+    Lazy errors are reduced to a minimum expression, with a button to inspect
+    further.
+
+    #+caption: Lazy errors
+    [[file:gifs/lazy-errors.gif]]
 
 *** Interactive evaluation results overlays
     Same as [[https://github.com/clojure-emacs/cider/][CIDER]] and [[http://lighttable.com/][LightTable]].
 
+    #+caption: Interactive evaluation overlays
+    [[file:gifs/overlays.gif]]
+
 *** Is the result too big? Inspect it in the REPL
+    When interactive results are too big for in-buffer overlays, you can just
+    move them to the REPL buffer and inspect them there.
+
+    UNREPL.el will also copy/paste the evaluated expression and add it to the
+    REPL history.
+
+    #+caption: Interactive inspection
+    [[file:gifs/interactive-inspection.gif]]
 
 *** Interactive Exception happened? Inspect it in the REPL
     Exceptions are shown in the REPL buffer, no matter where they come from.
+    UNREPL.el will try to figure out which expression caused the exception and
+    will copy it to the REPL buffer as well.
+
+    #+caption: Interactive exception
+    [[file:gifs/interactive-exception.gif]]
 
 *** And there is more to come...
     Before releasing the first UNREPL.el stable version, a couple more features
