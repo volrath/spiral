@@ -165,7 +165,7 @@
         (expect (string-match-p "already connected to localhost:5555"
                                 (car (spy-calls-args-for 'message 0))))))
 
-    (it "If there's no UNREPL project for this dir, create a new one automatically"
+    (it "If there's no UNREPL.el project for this dir, create a new one automatically"
       (spy-on 'unrepl-socket--issue-new-socket-port :and-return-value 12345)
       (spy-on 'start-file-process-shell-command :and-return-value 'mocked-proc)
       (spy-on 'set-process-coding-system)
@@ -181,14 +181,14 @@
         (expect (car call-args) :to-equal "unrepl-socket-server")
         (expect (cl-caddr call-args)
                 :to-equal
-                (unrepl-socket--repl-cmd unrepl-default-socket-repl-command 12345)))
+                (unrepl-socket--repl-cmd unrepl-default-socket-repl-command)))
       (expect 'set-process-coding-system
               :to-have-been-called-with'mocked-proc 'utf-8-unix 'utf-8-unix)
       (expect 'set-process-sentinel
               :to-have-been-called-with'mocked-proc 'unrepl-socket--server-sentinel)
       (expect 'set-process-filter :to-have-been-called-times 1))
 
-    (it "If there a matching UNREPL project for this dir, automatically connect to it"
+    (it "If there a matching UNREPL.el project for this dir, automatically connect to it"
       (let ((project (unrepl-create-project '127.0.0.1:60189 project-dir nil nil)))
         (unrepl-projects-add project)
         (with-temp-buffer
@@ -249,13 +249,17 @@
 
 (describe "When trying to connect to a wrong authority"
   (it "let the user know in a `unrepl-connection-error'"
+    (spy-on 'unrepl-clojure-dir :and-return-value nil)
     (spy-on 'make-network-process :and-throw-error 'file-error)
-    (expect
-     (with-simulated-input "localhost:9999 RET"
-       (with-temp-buffer
-         (clojure-mode)
-         (let ((inhibit-message t))
-           (call-interactively #'unrepl-connect))))
-     :to-throw 'unrepl-connection-error)))
+    (spy-on 'signal)
+    (with-simulated-input "localhost:9999 RET"
+      (with-temp-buffer
+        (clojure-mode)
+        (let ((inhibit-message t))
+          (call-interactively #'unrepl-connect))))
+    (expect 'signal :to-have-been-called-times 1)
+    (expect (car (spy-calls-args-for 'signal 0))
+            :to-equal
+            'unrepl-connection-error)))
 
 ;;; test-unrepl-connect.el ends here
