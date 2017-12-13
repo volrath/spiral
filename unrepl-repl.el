@@ -799,7 +799,8 @@ prompt."
                     type
                     payload
                     (unrepl-repl--history-entry-prompt-marker h-entry))))
-             (unrepl-repl-insert-std-stream type payload))))
+             (save-excursion  ;; didn't find a right place to print, printing before the last prompt
+               (unrepl-repl-insert-std-stream type payload)))))
      ;; Just print right before the last prompt
      (save-excursion
        (unrepl-repl-insert-std-stream type payload)))))
