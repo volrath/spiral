@@ -132,7 +132,7 @@ KWARGS are key-values used to create the pending evaluation entry."
   "Update the first entry at CONN-ID TYPE's pending-evals queue.
 KWARGS are the key-values to update the pending evaluation entry."
   (with-process-buffer conn-id type
-    (let* ((entry (car unrepl-pending-evals)))
+    (when-let (entry (car unrepl-pending-evals))
       (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
             (-partition 2 kwargs))
       (setq unrepl-pending-evals
@@ -389,7 +389,7 @@ ACTION should be a key in the UNREPL session-actions map."
   "Return a list of buffers that belong to this PROJECT's directory.
 REQUIRE-CONNECTED is an optional conn-id to filter only those buffers that
 are already connected to it."
-  (when-let ((dir (unrepl-project-dir project)))
+  (when-let (dir (unrepl-project-dir project))
     (-filter (lambda (b)
                (with-current-buffer b
                  (and (string-prefix-p dir buffer-file-name)
