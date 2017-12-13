@@ -142,7 +142,7 @@ BORROWED FROM CIDER."
                          (list (point)
                                (progn (clojure-forward-logical-sexp 1)
                                       (skip-chars-forward "[:blank:]")
-                                      (when (looking-at-p "\n") (forward-char 1))
+                                      ;; (when (looking-at-p "\n") (forward-char 1))
                                       (point)))))
          (bound-points (if (eql bounds 'marker-bounds)
                            (mapcar (lambda (bp)
@@ -165,6 +165,7 @@ BORROWED FROM CIDER."
   (save-excursion
     (save-match-data
       (end-of-defun)
+      (forward-char -1)
       (let ((end (point)))
         (clojure-backward-logical-sexp 1)
         (let ((bound-points (if (eql bounds 'marker-bounds)

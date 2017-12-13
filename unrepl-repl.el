@@ -312,6 +312,7 @@ switches to the REPL buffer in another window."
      (delete-region unrepl-repl-input-start-mark (point-max))
      (let ((p (point)))
        (insert evaluation-input)
+       (unrepl-repl-newline-and-scroll)
        (indent-region p (point)))
      (funcall insert-payload-fn
               payload
@@ -319,7 +320,7 @@ switches to the REPL buffer in another window."
               (1+ (length unrepl-repl-history))
               (unrepl-project-namespace project))
      ;; Insert it into history
-     (unrepl-repl--add-input-to-history (substring evaluation-input 0 -1))
+     (unrepl-repl--add-input-to-history evaluation-input)
      (unrepl-repl--history-add-gid-to-top-entry group-id)
      ;; Insert new prompt
      (unrepl-repl-prompt unrepl-conn-id)
