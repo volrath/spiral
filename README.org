@@ -58,6 +58,12 @@ Pick your definition:
     #+caption: Elided data structures
     [[file:gifs/elision.gif]]
 
+*** Playing with Images? why not opening them in the REPL?
+    UNREPL.el supports displaying buffered images directly in the REPL.
+
+    #+caption: Image support
+    [[file:gifs/hendrix.gif]]
+
 *** Standard output strings can be grouped into their respective REPL entries
     This is a customizable feature, you can turn it off by setting
     =unrepl-repl-group-stdout= to =nil=.
