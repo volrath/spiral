@@ -130,7 +130,8 @@ the inserted text.  For more information, see
         (cause-msg (unrepl-ast-map-elt cause :message)))
     (insert (propertize (format padded-format type)
                         'font-lock-face 'unrepl-font-stacktrace-cause-class-face))
-    (unrepl-ast-unparse-stdout-string cause-msg)
+    (unless (unrepl-ast-nil-p cause-msg)
+      (unrepl-ast-unparse-stdout-string cause-msg))
     (unrepl-repl-newline-and-scroll)))
 
 

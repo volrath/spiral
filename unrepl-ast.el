@@ -74,6 +74,11 @@ Value is returned as an AST node."
                   (-partition 2 (parseclj-ast-children map-node)))))
 
 
+(defun unrepl-ast-nil-p (node)
+  "Predicate to identify if NODE is a nil node."
+  (eql (parseclj-ast-node-type node) :nil))
+
+
 
 ;; Tag Readers
 ;; -------------------------------------------------------------------
@@ -417,12 +422,13 @@ The returned string will be automatically font-locked as clojure code."
   "Unparse STRING-NODE, which can be a simple string or a #unrepl/string tag.
 MUTE-UI is a flag to indicate whether or not insert UI elements like
 buttons."
-  (if (eql (parseclj-ast-node-type string-node) :string)
-      (-> string-node
-          (parseclj-ast-value)
-          (propertize 'font-lock-face 'unrepl-font-stdout-face)
-          (insert))
-    (unrepl-ast--string-tag-unparse string-node mute-ui t)))
+  (cond ((eql (parseclj-ast-node-type string-node) :string)
+         (-> string-node
+             (parseclj-ast-value)
+             (propertize 'font-lock-face 'unrepl-font-stdout-face)
+             (insert)))
+        ((parseclj-ast-node-p string-node)
+         (unrepl-ast--string-tag-unparse string-node mute-ui t))))
 
 
 ;; Template Management
