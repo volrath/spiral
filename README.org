@@ -28,7 +28,7 @@ Pick your definition:
   the REPL for displaying any kind of data that may be too big or complex to
   display in the Echo Area or as an overlay.
 
-  \* UNREPL.el is an "alternative" because it is of the same nature as [[https://cider.readthedocs.io/en/latest/][CIDER]],
+  UNREPL.el is an "alternative" because it is of the same nature as [[https://cider.readthedocs.io/en/latest/][CIDER]],
   but both differ in certain UI decisions, included the aforementioned.  That
   said, UREPL.el also takes a lot of inspiration from CIDER's features.  If you
   are new to Clojure development in Emacs, for now I would recommend to start
