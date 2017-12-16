@@ -53,8 +53,7 @@
   :group 'unrepl)
 
 (defcustom unrepl-mode-line
-  '(:eval (format "un[%s]" (or unrepl-conn-id
-                               "-")))
+  '(:eval (format " 🌀[%s]" (or unrepl-conn-id "-")))
   "Mode line lighter for `unrepl-mode'."
   :type 'sexp
   :risky t
