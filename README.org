@@ -20,20 +20,32 @@ Pick your definition:
   Both definitions above are correct and complement each other.
 
   UNREPL.el started as a simple experiment for using the [[https://github.com/unrepl/unrepl][UNREPL]] protocol as the
-  communication method between an Emacs buffers and a Clojure Socket REPL.  With
-  the pass of time, it has been evolving into an alternative* Clojure IDE.
-  Currently it has a fair amount of [[#features][Features]].
+  communication method between an Emacs buffer and a Clojure Socket REPL.  With
+  the pass of time, it has been evolving into a baby Clojure IDE.  Currently it
+  has a fair amount of [[#features][Features]].
 
-  UNREPL.el is meant to be REPL-centric.  That means that UI relies heavily on
-  the REPL for displaying any kind of data that may be too big or complex to
-  display in the Echo Area or as an overlay.
+  UNREPL.el's UI is meant to rely heavily on the REPL buffer for displaying any
+  kind of data that may be too big or complex to display in the Echo Area or as
+  an overlay.  The main idea is to allow you maintain focus on only two things
+  during your development workflow: Your Clojure code (in =clojure-mode=
+  buffers) and the REPL buffer.  UNREPL.el will try, whenever possible and
+  reasonable, to favor displaying data in the REPL buffer over using external
+  temporary buffers.
 
-  \* UNREPL.el is an "alternative" because it is of the same nature as [[https://cider.readthedocs.io/en/latest/][CIDER]],
-  but both differ in certain UI decisions, included the aforementioned.  That
-  said, UREPL.el also takes a lot of inspiration from CIDER's features.  If you
-  are new to Clojure development in Emacs, for now I would recommend to start
-  with CIDER, since it's more stable, more & better documented, and has a bigger
-  community behind it.
+  UNREPL.el is of the same nature as [[https://cider.readthedocs.io/en/latest/][CIDER]]. In fact, UREPL.el takes a lot of
+  inspiration from CIDER's features, but both differ in certain UI decisions
+  (included the aforementioned.)
+
+  Another important difference is that UNREPL.el is meant to be used to connect
+  to Socket REPLs, where CIDER is built to connect to [[https://github.com/clojure/tools.nrepl][nREPL]].  Both Socket REPLs
+  and nREPL serve the purpose of allowing you to connect to a running Clojure
+  process, send it stuff to be evaluated and get data back.  If you want to get
+  deeper into these concepts, I encourage you to go read Arne Brasseur's
+  [[https://lambdaisland.com/guides/clojure-repls][The Ultimate Guide To Clojure REPLs]].
+
+  Lastly, UNREPL.el is a young project, so if you are new to Clojure development
+  in Emacs, for now I would recommend to start with [[https://cider.readthedocs.io/en/latest/][CIDER]], since it's more
+  stable, more & better documented, and has a bigger community behind it.
 
 * Features
   :PROPERTIES:
