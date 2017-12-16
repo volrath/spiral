@@ -32,7 +32,6 @@
 ;;; Code:
 
 (require 'clojure-mode)
-(require 'dash)
 (require 'map)
 (require 'subr-x)
 
@@ -123,7 +122,7 @@ KWARGS are key-values used to create the pending evaluation entry."
   (with-process-buffer conn-id type
     (let* ((entry (mapcar (lambda (pair)
                             (cons (car pair) (cadr pair)))
-                          (-partition 2 kwargs))))
+                          (seq-partition kwargs 2))))
       (setq unrepl-pending-evals
             (nconc unrepl-pending-evals `(,entry))))))
 
@@ -134,7 +133,7 @@ KWARGS are the key-values to update the pending evaluation entry."
   (with-process-buffer conn-id type
     (when-let (entry (car unrepl-pending-evals))
       (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
-            (-partition 2 kwargs))
+            (seq-partition kwargs 2))
       (setq unrepl-pending-evals
             (cons entry (cdr unrepl-pending-evals))))))
 
@@ -142,41 +141,41 @@ KWARGS are the key-values to update the pending evaluation entry."
 (defun unrepl-pending-eval-history-idx (type conn-id)
   "Return the `:repl-history-idx' from the top of the CONN-ID TYPE's queue."
   (with-process-buffer conn-id type
-    (-> unrepl-pending-evals
-        (car)
-        (map-elt :repl-history-idx))))
+    (thread-first unrepl-pending-evals
+      (car)
+      (map-elt :repl-history-idx))))
 
 
 (defun unrepl-pending-eval-callback (type conn-id)
   "Return the `:eval-callback' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (-> unrepl-pending-evals
-        (car)
-        (map-elt :eval-callback))))
+    (thread-first unrepl-pending-evals
+      (car)
+      (map-elt :eval-callback))))
 
 
 (defun unrepl-pending-eval-stdout-callback (type conn-id)
   "Return the `:stdout-callback' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (-> unrepl-pending-evals
-        (car)
-        (map-elt :stdout-callback))))
+    (thread-first unrepl-pending-evals
+      (car)
+      (map-elt :stdout-callback))))
 
 
 (defun unrepl-pending-eval-actions (type conn-id)
   "Return `:actions' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (-> unrepl-pending-evals
-        (car)
-        (map-elt :actions))))
+    (thread-first unrepl-pending-evals
+      (car)
+      (map-elt :actions))))
 
 
 (defun unrepl-pending-eval-group-id (type conn-id)
   "Return `:group-id' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (-> unrepl-pending-evals
-        (car)
-        (map-elt :group-id))))
+    (thread-first unrepl-pending-evals
+      (car)
+      (map-elt :group-id))))
 
 
 (defun unrepl-pending-evals-shift (type conn-id)
@@ -370,7 +369,7 @@ KWARGS is expected to be pairs of keywords and processes."
          (conn-pool (unrepl-project-conn-pool proj)))
     (mapc (lambda (pair)
             (map-put conn-pool (car pair) (cadr pair)))
-          (-partition 2 kwargs))
+          (seq-partition kwargs 2))
     (unrepl-project-set-in conn-id :conn-pool conn-pool)))
 
 
@@ -390,22 +389,22 @@ ACTION should be a key in the UNREPL session-actions map."
 REQUIRE-CONNECTED is an optional conn-id to filter only those buffers that
 are already connected to it."
   (when-let (dir (unrepl-project-dir project))
-    (-filter (lambda (b)
-               (with-current-buffer b
-                 (and (string-prefix-p dir buffer-file-name)
-                      (derived-mode-p 'clojure-mode)
-                      (or (not require-connected)
-                          (and (bound-and-true-p unrepl-conn-id)
-                               (eql unrepl-conn-id require-connected))))))
-             (buffer-list))))
+    (seq-filter (lambda (b)
+                  (with-current-buffer b
+                    (and (string-prefix-p dir buffer-file-name)
+                         (derived-mode-p 'clojure-mode)
+                         (or (not require-connected)
+                             (and (bound-and-true-p unrepl-conn-id)
+                                  (eql unrepl-conn-id require-connected))))))
+                (buffer-list))))
 
 
 (defun unrepl-projects-as-list ()
   "Return all available projects as a list, sorted by creation date."
-  (-sort (lambda (p1 p2)
-           (time-less-p (unrepl-project-created p2)
-                        (unrepl-project-created p1)))
-         (map-values unrepl-projects)))
+  (seq-sort (lambda (p1 p2)
+              (time-less-p (unrepl-project-created p2)
+                           (unrepl-project-created p1)))
+            (map-values unrepl-projects)))
 
 
 (defun unrepl-projects-add (proj)
@@ -429,8 +428,8 @@ When RAISE-NOT-FOUND is nil, raises an `error' if CONN-ID is not found in
 If more than one project matches with PROJECT-DIR, return the most recently
 created.
 Return matching project or nil"
-  (-find (lambda (p) (string= (unrepl-project-dir p) project-dir))
-         (unrepl-projects-as-list)))
+  (seq-find (lambda (p) (string= (unrepl-project-dir p) project-dir))
+            (unrepl-projects-as-list)))
 
 
 (defun unrepl-project-set-in (conn-id key val)

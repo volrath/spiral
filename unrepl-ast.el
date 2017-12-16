@@ -31,7 +31,6 @@
 ;; 
 ;;; Code:
 
-(require 'dash)
 (require 'parseclj)
 (require 'subr-x)
 (require 'treepy)
@@ -71,7 +70,7 @@ NODE is an AST node.  CHILDREN is a list of AST nodes."
 Value is returned as an AST node."
   (cadr (seq-find (lambda (kv-pair)
                     (eql key (parseclj-ast-value (car kv-pair))))
-                  (-partition 2 (parseclj-ast-children map-node)))))
+                  (seq-partition (parseclj-ast-children map-node) 2))))
 
 
 (defun unrepl-ast-nil-p (node)
@@ -127,9 +126,9 @@ payload from calling the elision action, if not given, uses
       (:nil (delete-char -1))  ;; delete the trailing space leading to this node.
       (:map (if mute-ui
                 (insert (propertize "..." 'category 'unrepl-elision))
-              (let ((get-more-action (-> elision-actions
-                                         (unrepl-ast-map-elt :get)
-                                         (unrepl-command-template))))
+              (let ((get-more-action (thread-first elision-actions
+                                       (unrepl-ast-map-elt :get)
+                                       (unrepl-command-template))))
                 (unrepl-button-aux-action-throwaway-insert
                  unrepl-button-elision-label
                  get-more-action
@@ -148,14 +147,14 @@ payload from calling the elision action, if not given, uses
   "Insert a brief description of ERROR-TAG-NODE, using its `:cause'.
 This function also inserts a button for further error inspection, unless
 MUTE-UI is non-nil."
-  (-> error-tag-node
-      (unrepl-ast-tag-child)
-      (unrepl-ast-map-elt :cause)
-      (unrepl-ast-unparse))
+  (thread-first error-tag-node
+    (unrepl-ast-tag-child)
+    (unrepl-ast-map-elt :cause)
+    (unrepl-ast-unparse))
   (if mute-ui
-      (insert (-> " %s"
-                  (format unrepl-button-elision-label)
-                  (propertize 'category 'unrepl-elision)))
+      (insert (thread-first " %s"
+                (format unrepl-button-elision-label)
+                (propertize 'category 'unrepl-elision)))
     (unrepl-button-throwaway-insert
      "[Inspect]"
      (lambda (_button)
@@ -184,11 +183,11 @@ If MUTE-UI is non-nil, don't do anything."
            (attachment-handler (unrepl-attachment-find-handler content-type)))
       (when attachment-handler
         (unrepl-attachment-insert-button attachment-handler
-                                         (-> mime-spec
-                                             (unrepl-ast-map-elt :content)
-                                             (unrepl-ast-tag-child)
-                                             (unrepl-ast-map-elt :get)
-                                             (unrepl-command-template)))))))
+                                         (thread-first mime-spec
+                                           (unrepl-ast-map-elt :content)
+                                           (unrepl-ast-tag-child)
+                                           (unrepl-ast-map-elt :get)
+                                           (unrepl-command-template)))))))
 
 
 (defun unrepl-ast--insert-object-representation (type class id-hash object-repr
@@ -248,12 +247,12 @@ behavior."
          ((and (eql (parseclj-ast-node-type unrepl-repr-node) :map)
                (unrepl-ast-map-elt unrepl-repr-node :attachment)
                (unrepl-ast-map-elt unrepl-repr-node :width))  ;; hack
-          (let* ((width (-> unrepl-repr-node
-                            (unrepl-ast-map-elt :width)
-                            (unrepl-ast-unparse-to-string)))
-                 (height (-> unrepl-repr-node
-                             (unrepl-ast-map-elt :height)
-                             (unrepl-ast-unparse-to-string)))
+          (let* ((width (thread-first unrepl-repr-node
+                          (unrepl-ast-map-elt :width)
+                          (unrepl-ast-unparse-to-string)))
+                 (height (thread-first unrepl-repr-node
+                           (unrepl-ast-map-elt :height)
+                           (unrepl-ast-unparse-to-string)))
                  (attachment (unrepl-ast-map-elt unrepl-repr-node :attachment)))
             (unrepl-ast--insert-object-representation 'image class-name id-hash object-repr
                                                       (format "%s <%sx%s>" class-name width height))
@@ -283,9 +282,9 @@ buttons."
   (let* ((insert-fn (if stdout-str
                         #'unrepl-ast-unparse-stdout-string
                       #'unrepl-ast-unparse))
-         (string-tag-vector-elems (-> string-tag-node
-                                      (unrepl-ast-tag-child)
-                                      (parseclj-ast-children)))
+         (string-tag-vector-elems (thread-first string-tag-node
+                                    (unrepl-ast-tag-child)
+                                    (parseclj-ast-children)))
          (string-node (car string-tag-vector-elems))
          (elision-actions (unrepl-ast-tag-child (cadr string-tag-vector-elems))))
     ;; insert string
@@ -295,9 +294,9 @@ buttons."
         (insert (propertize "..." 'category 'unrepl-elision))
       (unrepl-button-aux-action-throwaway-insert
        unrepl-button-elision-label
-       (-> elision-actions
-           (unrepl-ast-map-elt :get)
-           (unrepl-command-template))
+       (thread-first elision-actions
+         (unrepl-ast-map-elt :get)
+         (unrepl-command-template))
        (lambda (eval-payload)
          (let ((p (point)))
            (funcall insert-fn eval-payload)
@@ -322,9 +321,9 @@ buttons."
   "Skip TAG-NODE's name and unparse its child.
 MUTE-UI is a flag that indicates whether or not to insert UI elements like
 buttons."
-  (-> tag-node
-      (unrepl-ast-tag-child)
-      (unrepl-ast-unparse nil mute-ui)))
+  (thread-first tag-node
+    (unrepl-ast-tag-child)
+    (unrepl-ast-unparse nil mute-ui)))
 
 
 (defun unrepl-ast--generic-tag-unparse (tag-node mute-ui)
@@ -341,7 +340,7 @@ buttons."
 
 (defun unrepl-ast-tag-child (tag-node)
   "Return the child node of TAG-NODE."
-  (-> tag-node (parseclj-ast-children) (car)))
+  (thread-first tag-node (parseclj-ast-children) (car)))
 
 
 (defun unrepl-ast--unparse-collection (node no-delimiters mute-ui raise-on-missing-tags)
@@ -423,10 +422,10 @@ The returned string will be automatically font-locked as clojure code."
 MUTE-UI is a flag to indicate whether or not insert UI elements like
 buttons."
   (cond ((eql (parseclj-ast-node-type string-node) :string)
-         (-> string-node
-             (parseclj-ast-value)
-             (propertize 'font-lock-face 'unrepl-font-stdout-face)
-             (insert)))
+         (thread-first string-node
+           (parseclj-ast-value)
+           (propertize 'font-lock-face 'unrepl-font-stdout-face)
+           (insert)))
         ((parseclj-ast-node-p string-node)
          (unrepl-ast--string-tag-unparse string-node mute-ui t))))
 
@@ -440,9 +439,9 @@ Return a function that receives a param tag AST node, gets its keyword
 children (the actual param name) and compares against the PARAMS alist to
 see if there's a valid replacement for it."
   (lambda (param-tag-node)
-    (let* ((param-keyword (-> param-tag-node
-                              (unrepl-ast-tag-child)
-                              (parseclj-ast-value)))
+    (let* ((param-keyword (thread-first param-tag-node
+                            (unrepl-ast-tag-child)
+                            (parseclj-ast-value)))
            (replacement (seq-find (lambda (p-kv)
                                     (eql (car p-kv) param-keyword))
                                   params)))
@@ -456,10 +455,10 @@ see if there's a valid replacement for it."
                  (replacement-str (if (symbolp replacement)
                                       (format "%s" replacement)
                                     (format "%S" replacement))))
-            (-> replacement-str
-                (parseclj-parse-clojure)
-                (parseclj-ast-children)
-                (car)))
+            (thread-first replacement-str
+              (parseclj-parse-clojure)
+              (parseclj-ast-children)
+              (car)))
         (error "Parameter %S not set in %S" param-keyword params)))))
 
 

@@ -32,7 +32,6 @@
 ;;; Code:
 
 (require 'clojure-mode)
-(require 'dash)
 (require 'subr-x)
 
 (require 'unrepl-mode)
@@ -215,9 +214,9 @@ Interactive inputs are those that were not sent via REPL, hence do not have
 a REPL history entry.
 
 This function should only be called inside REPL buffers."
-  (let ((last-history-group-id (-> unrepl-repl-history
-                                   (car)
-                                   (unrepl-repl--history-entry-group-id)))
+  (let ((last-history-group-id (thread-first unrepl-repl-history
+                                 (car)
+                                 (unrepl-repl--history-entry-group-id)))
         (pending-eval-group-id (unrepl-pending-eval-group-id :client unrepl-conn-id)))
     (and (eql group-id pending-eval-group-id)
          (not (eql group-id last-history-group-id)))))
@@ -512,14 +511,14 @@ Most of the behavior is BORROWED FROM CIDER."
    ((unrepl-repl--input-complete-p (point-max))
     (goto-char (point-max))
     (let ((history-idx (1+ (length unrepl-repl-history))))
-      (-> (unrepl-repl--input-str)
-          (unrepl-client-send (lambda (result-payload)
-                                (with-current-repl
-                                 (unrepl-repl-insert-evaluation
-                                  result-payload nil
-                                  (unrepl-project-namespace project)
-                                  history-idx))))
-          (unrepl-repl--add-input-to-history)))
+      (thread-first (unrepl-repl--input-str)
+        (unrepl-client-send (lambda (result-payload)
+                              (with-current-repl
+                               (unrepl-repl-insert-evaluation
+                                result-payload nil
+                                (unrepl-project-namespace project)
+                                history-idx))))
+        (unrepl-repl--add-input-to-history)))
     (unrepl-repl-newline-and-scroll)
     (setq-local unrepl-repl-inputting t))
    (t
@@ -640,9 +639,9 @@ Associates to it some control local variables:
         (setq-local unrepl-repl-input-start-mark (make-marker))
         (setq-local unrepl-repl-transient-text-start-mark (make-marker))
         (setq-local unrepl-repl-transient-text-end-mark (make-marker))
-        (-> ";; Waiting on UNREPL... "
-            (propertize 'font-lock-face 'font-lock-comment-face)
-            (insert))
+        (thread-first ";; Waiting on UNREPL... "
+          (propertize 'font-lock-face 'font-lock-comment-face)
+          (insert))
         (when unrepl-repl-pop-on-connect
           (pop-to-buffer repl-buffer))
         repl-buffer))))
@@ -669,10 +668,10 @@ This function only if it's not displayed in another window already."
 (defun unrepl-repl-connected (conn-id)
   "Init the REPL buffer for CONN-ID."
   (with-current-repl
-   (-> "Connected to %s\n"
-       (format conn-id)
-       (propertize 'font-lock-face 'font-lock-comment-face)
-       (insert))))
+   (thread-first "Connected to %s\n"
+     (format conn-id)
+     (propertize 'font-lock-face 'font-lock-comment-face)
+     (insert))))
 
 
 (defun unrepl-repl-disconnect (conn-id message)

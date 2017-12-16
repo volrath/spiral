@@ -141,11 +141,11 @@ VIA-NODE is an AST node of a vector, as provided by
 `clojure.core/Throwable->map's `:via'."
   (let* ((causes (parseclj-ast-children via-node))
          (cause-type-length (lambda (c)
-                              (-> c
-                                  (unrepl-ast-map-elt :type)
-                                  (parseclj-ast-value)
-                                  (symbol-name)
-                                  (length))))
+                              (thread-first c
+                                (unrepl-ast-map-elt :type)
+                                (parseclj-ast-value)
+                                (symbol-name)
+                                (length))))
          (longest-type-length (apply #'max (mapcar cause-type-length
                                                    causes))))
     (mapc (lambda (cause)
@@ -163,28 +163,28 @@ PADDINGS is a cons tuple of two numbers, each representing the paddings to
 be used for each trace entry's file name and line number"
   (let* ((frames (parseclj-ast-children trace-node))
          (get-file (lambda (frame)
-                     (-> frame
-                         (parseclj-ast-children)
-                         (cl-caddr)
-                         (parseclj-ast-value))))
+                     (thread-first frame
+                       (parseclj-ast-children)
+                       (cl-caddr)
+                       (parseclj-ast-value))))
          (get-lineno (lambda (frame)
-                       (-> frame
-                           (parseclj-ast-children)
-                           (cl-cadddr)
-                           (parseclj-ast-value))))
+                       (thread-first frame
+                         (parseclj-ast-children)
+                         (cl-cadddr)
+                         (parseclj-ast-value))))
          (get-where (lambda (frame)
                       (format "%s/%s"
                               (parseclj-ast-value (car (parseclj-ast-children frame)))
                               (parseclj-ast-value (cadr (parseclj-ast-children frame))))))
          (get-paddings (lambda (trace-list)
-                         (-reduce-from (lambda (acc te)
-                                         (if (eql (parseclj-ast-node-type te) :tag)
-                                             acc
-                                           (cons (max (car acc) (length (funcall get-file te)))
-                                                 (max (cdr acc) (length (number-to-string
-                                                                         (funcall get-lineno te)))))))
-                                       '(0 . 0)
-                                       trace-list)))
+                         (seq-reduce (lambda (acc te)
+                                       (if (eql (parseclj-ast-node-type te) :tag)
+                                           acc
+                                         (cons (max (car acc) (length (funcall get-file te)))
+                                               (max (cdr acc) (length (number-to-string
+                                                                       (funcall get-lineno te)))))))
+                                     trace-list
+                                     '(0 . 0))))
          (paddings (or paddings (funcall get-paddings frames)))
          (file-format (format "%%%ds: " (car paddings)))
          (lineno-format (format "%%%dd " (cdr paddings))))
@@ -242,11 +242,11 @@ message.
 SHOW-TRACE is a boolean flag that indicates whether to automatically show
 the exception stack trace.  When nil, it's hidden and a 'Show Trace' button
 will be inserted in its place."
-  (let* ((ex-phase (-> ex-message-node
-                       (unrepl-ast-map-elt :phase)
-                       (parseclj-ast-value)))
-         (error-tag (-> ex-message-node
-                        (unrepl-ast-map-elt :ex))))
+  (let* ((ex-phase (thread-first ex-message-node
+                     (unrepl-ast-map-elt :phase)
+                     (parseclj-ast-value)))
+         (error-tag (thread-first ex-message-node
+                      (unrepl-ast-map-elt :ex))))
     (let ((electric-indent-inhibit t))
       (unrepl-stacktrace--insert-title ex-phase)
       (unrepl-stacktrace-insert-error error-tag show-trace))))

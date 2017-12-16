@@ -383,9 +383,9 @@ BORROWED FROM CIDER."
 NS is an optional namespace symbol."
   (with-current-project
    (let* ((context (unrepl-complete--get-context))
-          (complete-tmpl (-> project
-                             (unrepl-project-actions)
-                             (unrepl-ast-map-elt :unrepl.el/complete)))
+          (complete-tmpl (thread-first project
+                           (unrepl-project-actions)
+                           (unrepl-ast-map-elt :unrepl.el/complete)))
           (candidates (unrepl-aux-sync-request
                        (unrepl-command-template complete-tmpl
                                                 `((:unrepl.el/prefix . ,str)
@@ -393,9 +393,9 @@ NS is an optional namespace symbol."
                                                   (:unrepl.el/ns . ,ns))))))
      (mapcar
       (lambda (candidate-node)
-        (let* ((node-get (lambda (key) (-> candidate-node
-                                      (unrepl-ast-map-elt key)
-                                      (parseclj-ast-value))))
+        (let* ((node-get (lambda (key) (thread-first candidate-node
+                                    (unrepl-ast-map-elt key)
+                                    (parseclj-ast-value))))
                (candidate (funcall node-get :candidate))
                (type (funcall node-get :type))
                (ns (funcall node-get :ns)))

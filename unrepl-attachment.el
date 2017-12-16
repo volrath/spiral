@@ -32,7 +32,6 @@
 ;;; Code:
 
 (require 'clojure-mode)
-(require 'dash)
 (require 'map)
 (require 'parseclj)
 
@@ -70,11 +69,11 @@ DELETE-FROM to DELETE-TO"
 (declare-function unrepl-repl-newline-and-scroll "unrepl-repl")
 (defun unrepl-attachment--handle-image (eval-payload)
   "Load a base64 encoded image from EVAL-PAYLOAD and display it."
-  (let* ((image-data (-> eval-payload
-                         (unrepl-ast-tag-child)
-                         (parseclj-ast-value)
-                         (base64-decode-string)
-                         (string-as-unibyte)))
+  (let* ((image-data (thread-first eval-payload
+                       (unrepl-ast-tag-child)
+                       (parseclj-ast-value)
+                       (base64-decode-string)
+                       (string-as-unibyte)))
          (image (create-image image-data 'png t)))
     (condition-case nil
         (progn

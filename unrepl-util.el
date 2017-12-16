@@ -33,7 +33,6 @@
 
 (require 'ansi-color)
 (require 'clojure-mode)
-(require 'dash)
 (require 'find-func)
 (require 'parseclj)
 (require 'subr-x)

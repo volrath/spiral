@@ -7,7 +7,7 @@
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Thu Nov  9 23:26:00 2017 (+0100)
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "25.1") (a "0.1.0alpha4") (clojure-mode "5.6.0") (dash "2.13.0") (treepy "1.0.0"))
+;; Package-Requires: ((emacs "25.1") (a "0.1.0alpha4") (clojure-mode "5.6.0") (treepy "1.0.0"))
 ;; URL: https://github.com/volrath/unrepl.el
 ;; Keywords: languages, clojure
 ;;
@@ -35,9 +35,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Code:
-
-
-(require 'dash)
 
 (require 'unrepl-loop)
 (require 'unrepl-mode)
@@ -88,12 +85,12 @@ SERVER-PROC should be the process that represents it."
 The returned list will have connections related to PROJECT-DIR appear
 first."
   (let* ((projects (unrepl-projects-as-list))
-         (for-project-dir (-filter (lambda (p)
-                                     (string= (unrepl-project-dir p) project-dir))
-                                   projects))
-         (rest (-filter (lambda (p)
-                          (not (string= (unrepl-project-dir p) project-dir)))
-                        projects)))
+         (for-project-dir (seq-filter (lambda (p)
+                                        (string= (unrepl-project-dir p) project-dir))
+                                      projects))
+         (rest (seq-filter (lambda (p)
+                             (not (string= (unrepl-project-dir p) project-dir)))
+                           projects)))
     (mapcar #'unrepl-project-repr (append for-project-dir rest))))
 
 
@@ -177,13 +174,14 @@ way."
            (project (unrepl-projects-get-by-dir project-dir)))
       (cond ((or just-ask (not (derived-mode-p 'clojure-mode)))
              (apply #'unrepl--assoc-buffer (unrepl--connection-prompt project-dir)))
-            (unrepl-conn-id (-> (concat "You are already connected to %s.  "
-                                        "If you really want to change this connection, type "
-                                        "`C-u \\[unrepl-connect]'")
-                                (format unrepl-conn-id)
-                                (substitute-command-keys)
-                                (message)
-                                (ding)))
+            (unrepl-conn-id (thread-first (concat
+                                           "You are already connected to %s.  "
+                                           "If you really want to change this connection, "
+                                           "type `C-u \\[unrepl-connect]'")
+                              (format unrepl-conn-id)
+                              (substitute-command-keys)
+                              (message)
+                              (ding)))
             (project (unrepl--assoc-buffer project))
             (project-dir (unrepl-socket-create-server
                           (lambda (process host port)

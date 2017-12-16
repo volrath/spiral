@@ -86,20 +86,20 @@ Tag is returned as a keyword.
 Payload is returned as a parseclj AST node.
 Group-id is returned as an integer."
   (let* ((zp (unrepl-ast-zip msg-node))
-         (tag (-> zp
-                  (treepy-down)
-                  (treepy-node)
-                  (parseclj-ast-value)))
-         (payload (-> zp
-                      (treepy-down)
-                      (treepy-right)
-                      (treepy-node)))
-         (group-id (-> zp
-                       (treepy-down)
-                       (treepy-right)
-                       (treepy-right)
-                       (treepy-node)
-                       (parseclj-ast-value))))
+         (tag (thread-first zp
+                (treepy-down)
+                (treepy-node)
+                (parseclj-ast-value)))
+         (payload (thread-first zp
+                    (treepy-down)
+                    (treepy-right)
+                    (treepy-node)))
+         (group-id (thread-first zp
+                     (treepy-down)
+                     (treepy-right)
+                     (treepy-right)
+                     (treepy-node)
+                     (parseclj-ast-value))))
     (list tag payload group-id)))
 
 
@@ -225,14 +225,14 @@ evaluation of inputs."
 (defun unrepl-loop--client-prompt (conn-id payload)
   "Handle a `:prompt' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
-  (let* ((previous-ns (-> conn-id
-                          (unrepl-projects-get)
-                          (unrepl-project-namespace)))
-         (new-ns (-> payload
-                     (unrepl-ast-map-elt 'clojure.core/*ns*)  ;; tagged element
-                     (parseclj-ast-children)
-                     (car)                                    ;; actual ns symbol
-                     (parseclj-ast-value)))
+  (let* ((previous-ns (thread-first conn-id
+                        (unrepl-projects-get)
+                        (unrepl-project-namespace)))
+         (new-ns (thread-first payload
+                   (unrepl-ast-map-elt 'clojure.core/*ns*)  ;; tagged element
+                   (parseclj-ast-children)
+                   (car)                                    ;; actual ns symbol
+                   (parseclj-ast-value)))
          (changed-namespace-p (not (eq previous-ns new-ns))))
     (unrepl-project-set-in conn-id :namespace new-ns)
     (if-let (pending-eval (unrepl-pending-evals-shift :client conn-id))
@@ -429,15 +429,15 @@ GROUP-ID is an integer as described by UNREPL'S documentation."
                               :status :exception)
   (ding (message "Unhandled :aux exception %s %s %d"
                  conn-id
-                 (-> payload
-                     (unrepl-ast-zip)
-                     (treepy-down)
-                     (treepy-right)
-                     (treepy-down)
-                     (treepy-down)
-                     (treepy-right)
-                     (treepy-node)
-                     (parseclj-ast-value))
+                 (thread-first payload
+                   (unrepl-ast-zip)
+                   (treepy-down)
+                   (treepy-right)
+                   (treepy-down)
+                   (treepy-down)
+                   (treepy-right)
+                   (treepy-node)
+                   (parseclj-ast-value))
                  group-id)))
 
 
@@ -508,9 +508,9 @@ Return the file contents encoded as a base64 string."
 Classpath is taken from CONN-ID'S project.
 The actual file is then sent back to the side-loader as a base64 string.
 If FILE-PATH cannot be found, send nil to side-loader."
-  (let ((classpath (-> conn-id
-                       (unrepl-projects-get)
-                       (unrepl-project-classpath))))
+  (let ((classpath (thread-first conn-id
+                     (unrepl-projects-get)
+                     (unrepl-project-classpath))))
     (let ((base64-contents (unrepl-loop--side-loader-find-file file-path classpath)))
       (unrepl-side-loader-send (or base64-contents "nil")))))
 

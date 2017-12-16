@@ -35,7 +35,6 @@
 ;;       https://github.com/melpa/package-build/commit/063e64ad55ac07a348af0373605fd90348a8bc11#r26028026
 
 (require 'buttercup)
-(require 'dash)
 (require 'seq)
 (require 'with-simulated-input)
 
@@ -231,9 +230,9 @@
     (setq unrepl-projects nil))
 
   (it "user gets notified through the REPL"
-    (let ((repl-buffer (-> 'localhost:5555
-                           (unrepl-projects-get)
-                           (unrepl-project-repl-buffer))))
+    (let ((repl-buffer (thread-first 'localhost:5555
+                         (unrepl-projects-get)
+                         (unrepl-project-repl-buffer))))
       (unrepl-socket--client-sentinel 'mocked-proc "connection broken by peer.")
 
       (expect (get-buffer-window repl-buffer))

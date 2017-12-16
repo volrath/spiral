@@ -127,7 +127,7 @@ Pick your definition:
    As of right now, UNREPL.el is not in [[http://melpa.milkbox.net/#/][MELPA]] yet, so in order to install it,
    you might need to get your hands a bit dirty:
 
-   1. Install [[https://github.com/plexus/a.el][a.el]], [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], [[https://github.com/magnars/dash.el][dash]], and [[https://github.com/volrath/treepy.el][treepy]].  All available in [[http://melpa.milkbox.net/#/][MELPA]].
+   1. Install [[https://github.com/plexus/a.el][a.el]], [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], and [[https://github.com/volrath/treepy.el][treepy]].  All available in [[http://melpa.milkbox.net/#/][MELPA]].
 
    2. Download this repository, or clone it with its submodules:
 
@@ -140,7 +140,7 @@ Pick your definition:
       evaluate it:
 
       #+BEGIN_SRC emacs-lisp
-      (let ((unrepl-dir "/path/to/your/copy/of/unrepl.el"))
+      (let ((unrepl-dir "/path/to/your/copy/of/unrepl.el/"))
         (add-to-list 'load-path unrepl-dir)
         (add-to-list 'load-path (expand-file-name "parseclj" unrepl-dir))
         (require 'unrepl))
