@@ -77,8 +77,10 @@ LABEL and EXTRA-PROPS are the same as in `unrepl-button-insert'."
 
 (declare-function unrepl-aux-send "unrepl-loop")
 (defun unrepl-button-aux-action-throwaway-insert (label action eval-callback
-                                                        &optional stdout-callback kill-from kill-to
-                                                        &optional extra-props)
+                                                        &optional
+                                                        stdout-callback
+                                                        kill-from kill-to
+                                                        extra-props)
   "Create a throwaway button that send ACTION through the `:aux' connection.
 ACTION is expected to be an input string to be sent through `:aux'.
 EVAL-CALLBACK and STDOUT-CALLBACK are attached to this new pending
