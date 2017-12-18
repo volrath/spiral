@@ -17,7 +17,7 @@ install:
   - cask install
 script:
   - echo "*** Starting Socket REPL on 5555 ***"
-  - clj -e "(do (require 'clojure.core.server) (clojure.core.server/start-server {:name :repl :port 5555 :accept 'clojure.core.server/repl :server-daemon false}))" &
+  - clojure -e "(do (require 'clojure.core.server) (clojure.core.server/start-server {:name :repl :port 5555 :accept 'clojure.core.server/repl :server-daemon false}))" &
   - echo "*** Emacs Version ***"
   - export ECUKES_EMACS=${EMACS:-$(which emacs)}
   - $ECUKES_EMACS --version
