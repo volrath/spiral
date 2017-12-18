@@ -18,7 +18,10 @@ install:
 script:
   - echo "*** Starting Socket REPL on 5555 ***"
   - clojure -e "(do (require 'clojure.core.server) (clojure.core.server/start-server {:name :repl :port 5555 :accept 'clojure.core.server/repl :server-daemon false}))" &
+  - sudo netstat -tlnp | grep "127.0.0.1:5555"; until [ $? -eq 0 ]; do sudo netstat -tlnp | grep "127.0.0.1:5555"; done;
+  - echo "*** Socket REPL Started ***"
   - echo "*** Emacs Version ***"
   - export ECUKES_EMACS=${EMACS:-$(which emacs)}
   - $ECUKES_EMACS --version
   - cask exec buttercup -L . tests
+  - kill $!

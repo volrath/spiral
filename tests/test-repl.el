@@ -41,7 +41,6 @@
 (describe "REPL"
   (before-all
     (unrepl--connect-to "localhost" 5555)
-
     (with-current-buffer "UNREPL[localhost:5555]"  ;; wait for it to start.
       (while (null (marker-buffer unrepl-repl-prompt-start-mark))
         (accept-process-output nil 0.1))))
