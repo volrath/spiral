@@ -67,7 +67,7 @@ command when there is no ambiguity."
   :group 'unrepl)
 
 (defcustom unrepl-start-socket-repl-expr
-  "(do (require 'clojure.core.server) (let [srv (clojure.core.server/start-server {:name :repl :port 0 :accept 'clojure.core.server/repl})] (println (pr-str [:unrepl.el/server-ready (.getLocalPort srv)]))))"
+  "(do (require 'clojure.core.server) (let [srv (clojure.core.server/start-server {:name :repl :port 0 :accept 'clojure.core.server/repl :server-daemon false})] (println (pr-str [:unrepl.el/server-ready (.getLocalPort srv)]))))"
   "Expression to evaluate to initiate a Socket REPL running on a random port."
   :type 'string
   :group 'unrepl)
