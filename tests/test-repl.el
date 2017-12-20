@@ -57,10 +57,14 @@ start of the next prompt."
          (let ((history-count (length unrepl-repl-history))
                (end-of-input (point)))
            (unrepl-repl-return)
-           (expect (length unrepl-repl-history) :to-equal (1+ history-count))
            ;; Wait til the next prompt is there
            (while unrepl-repl-inputting
              (accept-process-output nil 0.1))
+           ;; Check history
+           (let ((he (car unrepl-repl-history)))
+             (expect (unrepl-repl--history-entry-idx he) :to-equal (1+ history-count))
+             (expect (unrepl-repl--history-entry-str he) :to-equal ,input)
+             (expect (unrepl-repl--history-entry-prompt-marker he) :to-equal unrepl-repl-prompt-start-mark))
            ;; Get evaluation result, without really paying attention to text
            ;; properties.
            (expect (buffer-substring-no-properties
