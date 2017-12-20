@@ -152,6 +152,10 @@ start of the next prompt."
  [Show Trace]
 ")
 
+  (describe-evaluation
+   :input "(map / (iterate dec 3))"
+   :expected "> (1/3 1/2 1 ~lazy-error \"Divide by zero\" [Inspect]~)")
+
   ;; (describe-evaluation
   ;;  :input ""
   ;;  :expected "")
