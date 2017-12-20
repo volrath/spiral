@@ -140,13 +140,13 @@ start of the next prompt."
    :input "1 2 3"
    :expected "> 1\n> 2\n> 3")
 
-  ;;   (describe-evaluation
-  ;;    :input "(/ 1 0)"
-  ;;    :expected "~ Unhandled Exception
-  ;;   java.lang.ArithmeticException: Divide by zero
+  (describe-evaluation
+   :input "(/ 1 0)"
+   :expected "~ Unhandled Exception
+  java.lang.ArithmeticException: Divide by zero
 
-  ;; [Show Trace]
-  ;; ")
+ [Show Trace]
+")
 
   ;; (describe-evaluation
   ;;  :input ""
