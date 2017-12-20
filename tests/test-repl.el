@@ -57,9 +57,15 @@ start of the next prompt."
          (let ((history-count (length unrepl-repl-history))
                (end-of-input (point)))
            (unrepl-repl-return)
+           ;; There should be a client pending evaluation
+           (with-process-buffer 'localhost:5555 :client
+             (expect (length unrepl-pending-evals) :to-equal 1))
            ;; Wait til the next prompt is there
            (while unrepl-repl-inputting
              (accept-process-output nil 0.1))
+           ;; And after the prompt, no more pending evaluations
+           (with-process-buffer 'localhost:5555 :client
+             (expect (length unrepl-pending-evals) :to-equal 0))
            ;; Check history
            (let ((he (car unrepl-repl-history)))
              (expect (unrepl-repl--history-entry-idx he) :to-equal (1+ history-count))
