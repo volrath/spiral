@@ -244,7 +244,7 @@ SERVER-PROC is an optional process representing the Clojure Socket REPL.
 The returned data structure is meant to be placed in `unrepl-projects'."
   `((:id . ,conn-id)
     (:created . ,(current-time))
-    (:namespace . nil)
+    (:namespace . ,nil)
     (:project-dir . ,project-dir)
     (:socket-repl . ,server-proc)
     (:repl-buffer . ,(unrepl-repl-create-buffer conn-id))
