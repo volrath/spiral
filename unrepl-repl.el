@@ -830,13 +830,16 @@ inserted."
      (if (unrepl-repl--interactive-input-p group-id)  ;; Interactive input
          (let ((pending-eval (unrepl-pending-eval :client conn-id)))
            (unrepl-repl-insert-phantom-input pending-eval payload 'switch))
-       (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))  ;; REPL input
-           (unrepl-repl-insert-exception
-            payload
-            (unrepl-repl--history-entry-prompt-marker h-entry)
-            (unrepl-repl--history-entry-idx h-entry)
-            namespace)
-         (error "[%S] Unhandled exception %S" group-id payload))))))
+       (let ((h-entry (unrepl-repl--history-get-by-group-id group-id)))  ;; REPL input
+         (when (and (not h-entry)  ;; an exception happened before `:read'
+                    (unrepl-repl--history-entry-group-id (car unrepl-repl-history)))
+           (unrepl-repl--history-add-gid-to-top-entry group-id)
+           (setq h-entry (car unrepl-repl-history)))
+         (unrepl-repl-insert-exception
+          payload
+          (unrepl-repl--history-entry-prompt-marker h-entry)
+          (unrepl-repl--history-entry-idx h-entry)
+          namespace))))))
 
 
 
