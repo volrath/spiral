@@ -162,6 +162,15 @@ start of the next prompt."
    :input "(map / (iterate dec 3))"
    :expected "> (1/3 1/2 1 ~lazy-error \"Divide by zero\" [Inspect]~)")
 
+  (describe-evaluation
+   :input "/not-an-input"
+   :expected "UNREPL could not read this input
+               java.lang.RuntimeException: Invalid token: /not-an-input
+  clojure.lang.LispReader$ReaderException: java.lang.RuntimeException: Invalid token: /not-an-input
+
+ [Show Trace]
+")
+
   ;; (describe-evaluation
   ;;  :input ""
   ;;  :expected "")
