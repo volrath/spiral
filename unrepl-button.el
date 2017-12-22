@@ -67,7 +67,8 @@ LABEL and EXTRA-PROPS are the same as in `unrepl-button-insert'."
                           (with-current-buffer (marker-buffer kill-from-marker)
                             ;; Kill the button region
                             (goto-char kill-from-marker)
-                            (delete-region kill-from-marker kill-to-marker)
+                            (let ((inhibit-read-only t))
+                              (delete-region kill-from-marker kill-to-marker))
                             ;; Run the button action
                             (funcall action-fn button)))))
     (set-marker kill-from-marker (or kill-from (point)))

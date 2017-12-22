@@ -193,7 +193,9 @@ be used for each trace entry's file name and line number"
                 (unrepl-ast-elision-tag-unparse
                  frame nil nil
                  (lambda (eval-payload &rest _args)
-                   (unrepl-stacktrace--insert-trace eval-payload paddings)))
+                   (let ((inhibit-read-only t)
+                         (buffer-read-only nil))
+                     (unrepl-stacktrace--insert-trace eval-payload paddings))))
               (insert
                unrepl-stacktrace--calm-down-indent
                (concat
@@ -250,6 +252,32 @@ will be inserted in its place."
     (let ((electric-indent-inhibit t))
       (unrepl-stacktrace--insert-title ex-phase)
       (unrepl-stacktrace-insert-error error-tag show-trace))))
+
+
+(defun unrepl-stacktrace-popup (conn-id ex-message-node)
+  "Create a pop to a temporary buffer to show stacktrace in EX-MESSAGE-NODE.
+CONN-ID is a connection id to be associated to the error buffer, so that
+elisions how to expand.
+EX-MESSAGE-NODE is an AST node as provided by UNREPL's `:exception'
+message."
+  (let ((err-buffer-name "*unrepl-error*"))
+    (when (get-buffer err-buffer-name)
+      (kill-buffer err-buffer-name))
+    (let ((err-buffer (get-buffer-create err-buffer-name)))
+      (with-current-buffer err-buffer
+        (unrepl-stacktrace-mode)
+        (setq-local unrepl-conn-id conn-id)
+        (let ((inhibit-read-only t))
+          (unrepl-stacktrace-insert ex-message-node 'show-trace))
+        (pop-to-buffer err-buffer)))))
+
+
+(define-derived-mode unrepl-stacktrace-mode special-mode "Stacktrace"
+  "Major mode for navigating UNREPL stacktraces.
+
+\\{unrepl-stacktrace-mode-map}"
+  (setq-local electric-indent-chars nil))
+
 
 (provide 'unrepl-stacktrace)
 

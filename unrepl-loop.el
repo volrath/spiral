@@ -421,24 +421,14 @@ with PAYLOAD and GROUP-ID, if any."
       (funcall out-callback payload group-id))))
 
 
-(defun unrepl-loop--aux-exception (conn-id payload group-id)
+(declare-function unrepl-stacktrace-popup "unrepl-stacktrace")
+(defun unrepl-loop--aux-exception (conn-id payload _group-id)
   "Handle `:exception' messages transmitted through CONN-ID in `:aux'.
 PAYLOAD is the UNREPL payload for `:exception' as an AST node.
 GROUP-ID is an integer as described by UNREPL'S documentation."
   (unrepl-pending-eval-update :aux conn-id
                               :status :exception)
-  (ding (message "Unhandled :aux exception %s %s %d"
-                 conn-id
-                 (thread-first payload
-                   (unrepl-ast-zip)
-                   (treepy-down)
-                   (treepy-right)
-                   (treepy-down)
-                   (treepy-down)
-                   (treepy-right)
-                   (treepy-node)
-                   (parseclj-ast-value))
-                 group-id)))
+  (unrepl-stacktrace-popup conn-id payload))
 
 
 
