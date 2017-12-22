@@ -236,7 +236,7 @@ hidden and a 'Show Trace' button is inserted in its place."
 
 (defun unrepl-stacktrace-insert (ex-message-node &optional show-trace)
   "Insert a pretty rendering of EX-MESSAGE-NODE data.
-EX-MESSAGE-NODE is a an AST node as provided by UNREPL's `:exception'
+EX-MESSAGE-NODE is an AST node as provided by UNREPL's `:exception'
 message.
 
 SHOW-TRACE is a boolean flag that indicates whether to automatically show
