@@ -198,11 +198,11 @@ be used for each trace entry's file name and line number"
                unrepl-stacktrace--calm-down-indent
                (concat
                 (propertize (format file-format (funcall get-file frame))
-                            'font-lock-face 'unrepl-font-stacktrace-file-face)
+                            'font-lock-face 'unrepl-font-stacktrace-frame-file-face)
                 (propertize (format lineno-format (funcall get-lineno frame))
-                            'font-lock-face 'unrepl-font-stacktrace-lineno-face)
+                            'font-lock-face 'unrepl-font-stacktrace-frame-lineno-face)
                 (propertize (format "- %s" (funcall get-where frame))
-                            'font-lock-face 'unrepl-font-stacktrace-where-face)))
+                            'font-lock-face 'unrepl-font-stacktrace-frame-where-face)))
               (unrepl-repl-newline-and-scroll)))
           frames)))
 
