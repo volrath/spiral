@@ -1,4 +1,4 @@
-;;; unrepl.el --- Emacs UNREPL Client -*- lexical-binding: t; -*-
+;;; unrepl.el --- Clojure Socket REPL Client based on UNREPL -*- lexical-binding: t; -*-
 ;;
 ;; Filename: unrepl.el
 ;; Description:
