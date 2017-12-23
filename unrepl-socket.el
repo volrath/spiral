@@ -173,7 +173,7 @@ PROJECT-TYPE is a symbol.  It can be either `boot' or `lein'."
                      "")
                    unrepl-start-socket-repl-expr
                    unrepl-boot-parameters))
-    ('lein (format "%s %s %s -m clojure.main -e \"%s\""
+    ('lein (format "%s%s %s -m clojure.main -e \"%s\""
                    unrepl-lein-command
                    (if unrepl-lein-global-options
                        (concat " " unrepl-lein-global-options)
