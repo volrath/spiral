@@ -1,6 +1,6 @@
 ;;; test-repl.el ---  -*- lexical-binding: t; -*-
 ;;
-;; Filename: unrepl-connect.el
+;; Filename: test-repl.el
 ;; Author: Daniel Barreto
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Sun Dec 17 23:42:58 2017 (+0100)
@@ -36,7 +36,7 @@
 
 (require 'buttercup)
 
-(require 'unrepl)
+(require 'spiral)
 
 
 (defmacro describe-evaluation (&rest opts)
@@ -51,44 +51,44 @@ start of the next prompt."
          (expected (plist-get opts :expected))
          (test-name (format "correctly evaluates $> %s" input)))
     `(it ,test-name
-       (with-current-buffer "UNREPL[localhost:5555]"
+       (with-current-buffer "SPIRAL[localhost:5555]"
          (goto-char (point-max))
          (insert ,input)
-         (let ((history-count (length unrepl-repl-history))
+         (let ((history-count (length spiral-repl-history))
                (end-of-input (point)))
-           (unrepl-repl-return)
+           (spiral-repl-return)
            ;; There should be a client pending evaluation
            (with-process-buffer 'localhost:5555 :client
-             (expect (length unrepl-pending-evals) :to-equal 1))
+             (expect (length spiral-pending-evals) :to-equal 1))
            ;; Wait til the next prompt is there
-           (while unrepl-repl-inputting
+           (while spiral-repl-inputting
              (accept-process-output nil 0.1))
            ;; And after the prompt, no more pending evaluations
            (with-process-buffer 'localhost:5555 :client
-             (expect (length unrepl-pending-evals) :to-equal 0))
+             (expect (length spiral-pending-evals) :to-equal 0))
            ;; Check history
-           (let ((he (car unrepl-repl-history)))
-             (expect (unrepl-repl--history-entry-idx he) :to-equal (1+ history-count))
-             (expect (unrepl-repl--history-entry-str he) :to-equal ,input)
-             (expect (unrepl-repl--history-entry-prompt-marker he) :to-equal unrepl-repl-prompt-start-mark))
+           (let ((he (car spiral-repl-history)))
+             (expect (spiral-repl--history-entry-idx he) :to-equal (1+ history-count))
+             (expect (spiral-repl--history-entry-str he) :to-equal ,input)
+             (expect (spiral-repl--history-entry-prompt-marker he) :to-equal spiral-repl-prompt-start-mark))
            ;; Get evaluation result, without really paying attention to text
            ;; properties.
            (expect (buffer-substring-no-properties
                     (1+ end-of-input)
-                    (1- unrepl-repl-prompt-start-mark))
+                    (1- spiral-repl-prompt-start-mark))
                    :to-equal
                    ,expected))))))
 
 
 (describe "REPL"
   (before-all
-    (unrepl--connect-to "localhost" 5555)
-    (with-current-buffer "UNREPL[localhost:5555]"  ;; wait for it to start.
-      (while (null (marker-buffer unrepl-repl-prompt-start-mark))
+    (spiral--connect-to "localhost" 5555)
+    (with-current-buffer "SPIRAL[localhost:5555]"  ;; wait for it to start.
+      (while (null (marker-buffer spiral-repl-prompt-start-mark))
         (accept-process-output nil 0.1))))
 
   (after-all
-    (unrepl-quit 'do-it 'localhost:5555))
+    (spiral-quit 'do-it 'localhost:5555))
 
   (describe-evaluation
    :input ":foo"

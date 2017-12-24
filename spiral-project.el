@@ -1,6 +1,6 @@
-;;; unrepl-project.el --- Abstraction over multiple socket connections -*- lexical-binding: t; -*-
+;;; spiral-project.el --- Abstraction over multiple socket connections -*- lexical-binding: t; -*-
 ;;
-;; Filename: unrepl-project.el
+;; Filename: spiral-project.el
 ;; Author: Daniel Barreto <daniel@barreto.tech>
 ;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
@@ -35,24 +35,24 @@
 (require 'map)
 (require 'subr-x)
 
-(require 'unrepl-ast)
-(require 'unrepl-util)
+(require 'spiral-ast)
+(require 'spiral-util)
 
 
-(defcustom unrepl-classpath '()
-  "Global classpath for UNREPL aux connections.
+(defcustom spiral-classpath '()
+  "Global classpath for SPIRAL aux connections.
 Ideal for REPL tooling."
   :type 'list
-  :group 'unrepl)
+  :group 'spiral)
 
-(defvar unrepl-projects nil
+(defvar spiral-projects nil
   "AList containing all projects identified by a Connection ID \"host:port\".
 
 Each element of this AList is also another AList containing a 'Connection
 Pool', and optionally the `project-dir', `project-type', and `socket-repl'
 process.")
 
-(defvar-local unrepl-pending-evals nil
+(defvar-local spiral-pending-evals nil
   "Queue of pending evaluations.
 This variable is meant to be set on network buffers for `:client' and
 `:aux' interactions with an UNREPL server.")
@@ -67,8 +67,8 @@ This variable is meant to be set on network buffers for `:client' and
 ;;   `:exception'.
 ;; - `:group-id': An UNREPL group id.  Set after the pending evaluation gets
 ;;    `:read'.
-;; - `actions': Evaluation actions as provided by the `started-eval' UNREPL.
-;;    Set after the pending has `started-eval'.
+;; - `actions': Evaluation actions as provided by the `started-eval' UNREPL
+;;    message.  Set after the pending has `started-eval'.
 ;; - `:repl-history-idx': (optional) only if the input was sent from the REPL,
 ;;    this would be the index in REPL history.
 ;; - `:prompt-marker': (optional) a REPL buffer position to which print either
@@ -104,126 +104,126 @@ This variable is meant to be set on network buffers for `:client' and
 (defmacro with-process-buffer (conn-id type &rest body)
   "Execute BODY in the buffer for the TYPE connection of CONN-ID."
   (declare (indent 2))
-  `(let* ((project (unrepl-projects-get ,conn-id))
-          (proc (unrepl-project-conn-pool-get-process project ,type)))
+  `(let* ((project (spiral-projects-get ,conn-id))
+          (proc (spiral-project-conn-pool-get-process project ,type)))
      (with-current-buffer (process-buffer proc)
        ,@body)))
 
 
-(defun unrepl-pending-eval (type conn-id)
+(defun spiral-pending-eval (type conn-id)
   "Return the beginning of CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (car unrepl-pending-evals)))
+    (car spiral-pending-evals)))
 
 
-(defun unrepl-pending-eval-add (type conn-id &rest kwargs)
+(defun spiral-pending-eval-add (type conn-id &rest kwargs)
   "Add a pending evaluation to CONN-ID TYPE'S pending-evals queue.
 KWARGS are key-values used to create the pending evaluation entry."
   (with-process-buffer conn-id type
     (let* ((entry (mapcar (lambda (pair)
                             (cons (car pair) (cadr pair)))
                           (seq-partition kwargs 2))))
-      (setq unrepl-pending-evals
-            (nconc unrepl-pending-evals `(,entry))))))
+      (setq spiral-pending-evals
+            (nconc spiral-pending-evals `(,entry))))))
 
 
-(defun unrepl-pending-eval-update (type conn-id &rest kwargs)
+(defun spiral-pending-eval-update (type conn-id &rest kwargs)
   "Update the first entry at CONN-ID TYPE's pending-evals queue.
 KWARGS are the key-values to update the pending evaluation entry."
   (with-process-buffer conn-id type
-    (when-let (entry (car unrepl-pending-evals))
+    (when-let (entry (car spiral-pending-evals))
       (mapc (lambda (kv) (map-put entry (car kv) (cadr kv)))
             (seq-partition kwargs 2))
-      (setq unrepl-pending-evals
-            (cons entry (cdr unrepl-pending-evals))))))
+      (setq spiral-pending-evals
+            (cons entry (cdr spiral-pending-evals))))))
 
 
-(defun unrepl-pending-eval-history-idx (type conn-id)
+(defun spiral-pending-eval-history-idx (type conn-id)
   "Return the `:repl-history-idx' from the top of the CONN-ID TYPE's queue."
   (with-process-buffer conn-id type
-    (thread-first unrepl-pending-evals
+    (thread-first spiral-pending-evals
       (car)
       (map-elt :repl-history-idx))))
 
 
-(defun unrepl-pending-eval-callback (type conn-id)
+(defun spiral-pending-eval-callback (type conn-id)
   "Return the `:eval-callback' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (thread-first unrepl-pending-evals
+    (thread-first spiral-pending-evals
       (car)
       (map-elt :eval-callback))))
 
 
-(defun unrepl-pending-eval-stdout-callback (type conn-id)
+(defun spiral-pending-eval-stdout-callback (type conn-id)
   "Return the `:stdout-callback' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (thread-first unrepl-pending-evals
+    (thread-first spiral-pending-evals
       (car)
       (map-elt :stdout-callback))))
 
 
-(defun unrepl-pending-eval-actions (type conn-id)
+(defun spiral-pending-eval-actions (type conn-id)
   "Return `:actions' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (thread-first unrepl-pending-evals
+    (thread-first spiral-pending-evals
       (car)
       (map-elt :actions))))
 
 
-(defun unrepl-pending-eval-group-id (type conn-id)
+(defun spiral-pending-eval-group-id (type conn-id)
   "Return `:group-id' from the top of the CONN-ID TYPE's pending-evals queue."
   (with-process-buffer conn-id type
-    (thread-first unrepl-pending-evals
+    (thread-first spiral-pending-evals
       (car)
       (map-elt :group-id))))
 
 
-(defun unrepl-pending-evals-shift (type conn-id)
+(defun spiral-pending-evals-shift (type conn-id)
   "Shift the CONN-ID TYPE's `:pending-evals' queue and return the shifted entry."
   (with-process-buffer conn-id type
-    (let* ((entry (car unrepl-pending-evals)))
-      (setq unrepl-pending-evals (cdr unrepl-pending-evals))
+    (let* ((entry (car spiral-pending-evals)))
+      (setq spiral-pending-evals (cdr spiral-pending-evals))
       entry)))
 
 
-(defun unrepl-pending-eval-entry-status (entry)
+(defun spiral-pending-eval-entry-status (entry)
   "Return the `:status' from a pending eval ENTRY."
   (map-elt entry :status))
 
 
-(defun unrepl-pending-eval-entry-history-idx (entry)
+(defun spiral-pending-eval-entry-history-idx (entry)
   "Return the `:repl-history-idx' from a pending eval ENTRY."
   (map-elt entry :repl-history-idx))
 
 
-(defun unrepl-pending-eval-entry-buffer (entry)
+(defun spiral-pending-eval-entry-buffer (entry)
   "Return the `:buffer' from a pending eval ENTRY."
   (map-elt entry :buffer))
 
 
-(defun unrepl-pending-eval-entry-group-id (entry)
+(defun spiral-pending-eval-entry-group-id (entry)
   "Return the `:group-id' from a pending eval ENTRY."
   (map-elt entry :group-id))
 
 
-(defun unrepl-pending-eval-entry-input (entry)
+(defun spiral-pending-eval-entry-input (entry)
   "Return the `:input' from a pending eval ENTRY."
   (map-elt entry :input))
 
 
-(defun unrepl-pending-eval-entry-payload (entry)
+(defun spiral-pending-eval-entry-payload (entry)
   "Return the `:payload' from a pending eval ENTRY."
   (map-elt entry :payload))
 
 
-(defun unrepl-pending-eval-entry-actions (entry)
+(defun spiral-pending-eval-entry-actions (entry)
   "Return the `:actions' from a pending eval ENTRY."
   (map-elt entry :actions))
 
 
-;; UNREPL Projects
+;; SPIRAL Projects
 ;; -------------------------------------------------------------------
-;; `unrepl-projects' is an associative data structure where keys are Connection
+;; `spiral-projects' is an associative data structure where keys are Connection
 ;; IDs and values are Project data structures.
 ;; A Project is an associative data structure that holds:
 ;; - `:id': A Connection ID.
@@ -234,35 +234,35 @@ KWARGS are the key-values to update the pending evaluation entry."
 ;; - `:project-type': An optional string referring to the type of project.
 ;; - `:socket-repl': An optional process referring to the Socket REPL server.
 
-(declare-function unrepl-repl-create-buffer "unrepl-repl")
-(defun unrepl-create-project (conn-id project-dir conn-pool server-proc)
+(declare-function spiral-repl-create-buffer "spiral-repl")
+(defun spiral-create-project (conn-id project-dir conn-pool server-proc)
   "Create a new project structure with id CONN-ID.
 PROJECT-DIR is the Clojure project's directory, it can be nil.
 CONN-POOL is the connection pool, as described in the documentation.
 SERVER-PROC is an optional process representing the Clojure Socket REPL.
 
-The returned data structure is meant to be placed in `unrepl-projects'."
+The returned data structure is meant to be placed in `spiral-projects'."
   `((:id . ,conn-id)
     (:created . ,(current-time))
     (:namespace . ,nil)
     (:project-dir . ,project-dir)
     (:socket-repl . ,server-proc)
-    (:repl-buffer . ,(unrepl-repl-create-buffer conn-id))
+    (:repl-buffer . ,(spiral-repl-create-buffer conn-id))
     (:conn-pool . ,conn-pool)))
 
 
-(declare-function unrepl--conn-pool-procs "unrepl")
-(declare-function unrepl-repl-disconnect "unrepl-repl")
-(defun unrepl-project-quit (conn-id &optional message)
+(declare-function spiral--conn-pool-procs "spiral")
+(declare-function spiral-repl-disconnect "spiral-repl")
+(defun spiral-project-quit (conn-id &optional message)
   "Kill and remove project with CONN-ID.
 If MESSAGE is non-nil, it will be displayed at the end of the REPL
 buffer, which won't be automatically killed."
   (interactive)
-  (let* ((proj (unrepl-projects-get conn-id))
-         (repl-buf (unrepl-project-repl-buffer proj))
-         (server-proc (unrepl-project-socket-repl proj))
+  (let* ((proj (spiral-projects-get conn-id))
+         (repl-buf (spiral-project-repl-buffer proj))
+         (server-proc (spiral-project-socket-repl proj))
          (server-buf (when server-proc (process-buffer server-proc)))
-         (pool (unrepl-project-conn-pool proj)))
+         (pool (spiral-project-conn-pool proj)))
     ;; Kill the main Socket REPL, if any.
     (when server-proc
       (delete-process server-proc))
@@ -279,168 +279,168 @@ buffer, which won't be automatically killed."
           pool)
     ;; Handle REPL buffer, if there's a message display it, if not, kill it
     (if message
-        (unrepl-repl-disconnect conn-id message)
+        (spiral-repl-disconnect conn-id message)
       (when repl-buf
         (kill-buffer repl-buf)))
     ;; Search for all buffers connected to this project and unbind their connection.
-    (mapc (lambda (unrepl-buf)
-            (with-current-buffer unrepl-buf
-              (kill-local-variable 'unrepl-conn-id)))
-          (unrepl-project-buffers proj))
-    ;; Remove the entry from `unrepl-projects'
-    (setq unrepl-projects (map-delete unrepl-projects conn-id))))
+    (mapc (lambda (spiral-buf)
+            (with-current-buffer spiral-buf
+              (kill-local-variable 'spiral-conn-id)))
+          (spiral-project-buffers proj))
+    ;; Remove the entry from `spiral-projects'
+    (setq spiral-projects (map-delete spiral-projects conn-id))))
 
 
-(defun unrepl-project-id (proj)
+(defun spiral-project-id (proj)
   "Return the ID of the given PROJ."
   (map-elt proj :id))
 
 
-(defun unrepl-project-repr (proj)
+(defun spiral-project-repr (proj)
   "Return a human focused string representation of PROJ."
-  (let* ((dir (unrepl-project-dir proj)))
+  (let* ((dir (spiral-project-dir proj)))
     (if-let (name (when dir
                     (file-name-nondirectory (substring dir 0 -1))))
-        (format "%s [%s]" name (unrepl-project-id proj))
-      (format "%s" (unrepl-project-id proj)))))
+        (format "%s [%s]" name (spiral-project-id proj))
+      (format "%s" (spiral-project-id proj)))))
 
-(defun unrepl-project-created (proj)
+(defun spiral-project-created (proj)
   "Return the created time for PROJ."
   (map-elt proj :created))
 
 
-(defun unrepl-project-port (proj)
+(defun spiral-project-port (proj)
   "Return the Socket REPL port for the given PROJ."
-  (cdr (unrepl-conn-host-port (unrepl-project-id proj))))
+  (cdr (spiral-conn-host-port (spiral-project-id proj))))
 
 
-(defun unrepl-project-repl-buffer (proj)
+(defun spiral-project-repl-buffer (proj)
   "Return the REPL buffer for the given PROJ."
   (map-elt proj :repl-buffer))
 
 
-(defun unrepl-project-host (proj)
+(defun spiral-project-host (proj)
   "Return the Socket REPL host for the given PROJ."
-  (car (unrepl-conn-host-port (unrepl-project-id proj))))
+  (car (spiral-conn-host-port (spiral-project-id proj))))
 
 
-(defun unrepl-project-namespace (proj)
+(defun spiral-project-namespace (proj)
   "Return the current namespace used in PROJ."
   (map-elt proj :namespace))
 
 
-(defun unrepl-project-dir (proj)
+(defun spiral-project-dir (proj)
   "Return the directory of the given PROJ."
   (map-elt proj :project-dir))
 
 
-(defun unrepl-project-socket-repl (proj)
+(defun spiral-project-socket-repl (proj)
   "Return a plist with the `:host' `:port' kv pairs for the PROJ's Socket REPL."
   (map-elt proj :socket-repl))
 
 
-(defun unrepl-project-classpath (proj)
-  "Return the global `unrepl-classpath' list appended to PROJ's classpath.
+(defun spiral-project-classpath (proj)
+  "Return the global `spiral-classpath' list appended to PROJ's classpath.
 This function ensures that every path/file in the returned classpath exists
 and its expanded."
   (mapcar
    #'file-truename
    (seq-filter
     (lambda (path) (when path (file-exists-p path)))
-    (append (list (unrepl-project-dir proj))
+    (append (list (spiral-project-dir proj))
             (map-elt proj :classpath)
-            (unrepl-classpath)))))
+            (spiral-classpath)))))
 
 
-(defun unrepl-project-conn-pool (proj)
+(defun spiral-project-conn-pool (proj)
   "Return the PROJ's 'Connection Pool'."
   (map-elt proj :conn-pool))
 
 
-(defun unrepl-project-conn-pool-get-process (proj type)
+(defun spiral-project-conn-pool-get-process (proj type)
   "Return the TYPE network process for the given PROJ."
-  (map-elt (unrepl-project-conn-pool proj) type))
+  (map-elt (spiral-project-conn-pool proj) type))
 
 
-(defun unrepl-project-conn-pool-set-in (conn-id &rest kwargs)
+(defun spiral-project-conn-pool-set-in (conn-id &rest kwargs)
   "Set new key-vals in CONN-ID's `:conn-pool', provided by KWARGS.
 KWARGS is expected to be pairs of keywords and processes."
-  (let* ((proj (unrepl-projects-get conn-id))
-         (conn-pool (unrepl-project-conn-pool proj)))
+  (let* ((proj (spiral-projects-get conn-id))
+         (conn-pool (spiral-project-conn-pool proj)))
     (mapc (lambda (pair)
             (map-put conn-pool (car pair) (cadr pair)))
           (seq-partition kwargs 2))
-    (unrepl-project-set-in conn-id :conn-pool conn-pool)))
+    (spiral-project-set-in conn-id :conn-pool conn-pool)))
 
 
-(defun unrepl-project-actions (project)
+(defun spiral-project-actions (project)
   "Return all `:actions' in PROJECT."
   (map-elt project :actions))
 
 
-(defun unrepl-project-actions-get (project action)
+(defun spiral-project-actions-get (project action)
   "Return ACTION in PROJECT's `:actions'.
 ACTION should be a key in the UNREPL session-actions map."
-  (unrepl-ast-map-elt (unrepl-project-actions project) action))
+  (spiral-ast-map-elt (spiral-project-actions project) action))
 
 
-(defun unrepl-project-buffers (project &optional require-connected)
+(defun spiral-project-buffers (project &optional require-connected)
   "Return a list of buffers that belong to this PROJECT's directory.
 REQUIRE-CONNECTED is an optional conn-id to filter only those buffers that
 are already connected to it."
-  (when-let (dir (unrepl-project-dir project))
+  (when-let (dir (spiral-project-dir project))
     (seq-filter (lambda (b)
                   (with-current-buffer b
                     (and (string-prefix-p dir buffer-file-name)
                          (derived-mode-p 'clojure-mode)
                          (or (not require-connected)
-                             (and (bound-and-true-p unrepl-conn-id)
-                                  (eql unrepl-conn-id require-connected))))))
+                             (and (bound-and-true-p spiral-conn-id)
+                                  (eql spiral-conn-id require-connected))))))
                 (buffer-list))))
 
 
-(defun unrepl-projects-as-list ()
+(defun spiral-projects-as-list ()
   "Return all available projects as a list, sorted by creation date."
   (seq-sort (lambda (p1 p2)
-              (time-less-p (unrepl-project-created p2)
-                           (unrepl-project-created p1)))
-            (map-values unrepl-projects)))
+              (time-less-p (spiral-project-created p2)
+                           (spiral-project-created p1)))
+            (map-values spiral-projects)))
 
 
-(defun unrepl-projects-add (proj)
-  "Add PROJ to `unrepl-projects'."
-  (map-put unrepl-projects (unrepl-project-id proj) proj))
+(defun spiral-projects-add (proj)
+  "Add PROJ to `spiral-projects'."
+  (map-put spiral-projects (spiral-project-id proj) proj))
 
 
-(defun unrepl-projects-get (conn-id &optional raise-not-found)
+(defun spiral-projects-get (conn-id &optional raise-not-found)
   "Return the project with CONN-ID, or nil.
 When RAISE-NOT-FOUND is nil, raises an `error' if CONN-ID is not found in
-`unrepl-projects'."
-  (let ((proj (map-elt unrepl-projects conn-id)))
+`spiral-projects'."
+  (let ((proj (map-elt spiral-projects conn-id)))
     (when (and raise-not-found
                (not proj))
       (error "No project connected to %s can be found" conn-id))
     proj))
 
 
-(defun unrepl-projects-get-by-dir (project-dir)
-  "Find a project in `unrepl-projects' for PROJECT-DIR.
+(defun spiral-projects-get-by-dir (project-dir)
+  "Find a project in `spiral-projects' for PROJECT-DIR.
 If more than one project matches with PROJECT-DIR, return the most recently
 created.
 Return matching project or nil"
-  (seq-find (lambda (p) (string= (unrepl-project-dir p) project-dir))
-            (unrepl-projects-as-list)))
+  (seq-find (lambda (p) (string= (spiral-project-dir p) project-dir))
+            (spiral-projects-as-list)))
 
 
-(defun unrepl-project-set-in (conn-id key val)
-  "Set an attribute in the `unrepl-projects' project with key CONN-ID.
+(defun spiral-project-set-in (conn-id key val)
+  "Set an attribute in the `spiral-projects' project with key CONN-ID.
 KEY is expected to be a keyword, VAL is its corresponding value."
-  (let ((proj (unrepl-projects-get conn-id t)))
+  (let ((proj (spiral-projects-get conn-id t)))
     (map-put proj key val)
-    (map-put unrepl-projects conn-id proj)
-    unrepl-projects))
+    (map-put spiral-projects conn-id proj)
+    spiral-projects))
 
 
-(provide 'unrepl-project)
+(provide 'spiral-project)
 
-;;; unrepl-project.el ends here
+;;; spiral-project.el ends here

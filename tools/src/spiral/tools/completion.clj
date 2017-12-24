@@ -1,4 +1,4 @@
-(ns unrepl-el.tools.completion
+(ns spiral.tools.completion
   (:require
    [compliment.core :as jvm-completion]))
 

@@ -1,6 +1,6 @@
-;;; unrepl-mode.el --- UNREPL minor mode for interactions with Socket Server -*- lexical-binding: t; -*-
+;;; spiral-mode.el --- SPIRAL minor mode for interactions with Socket Server -*- lexical-binding: t; -*-
 ;;
-;; Filename: unrepl-mode.el
+;; Filename: spiral-mode.el
 ;; Description:
 ;; Author: Daniel Barreto <daniel@barreto.tech>
 ;; Maintainer: Daniel Barreto <daniel@barreto.tech>
@@ -11,7 +11,7 @@
 ;;
 ;;; Commentary:
 ;;
-;; UNREPL minor mode for interactions with Socket Server
+;; SPIRAL minor mode for interactions with Socket Server
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -32,52 +32,52 @@
 ;;
 ;;; Code:
 
-(require 'unrepl-ast)
-(require 'unrepl-project)
-(require 'unrepl-overlay)
-(require 'unrepl-util)
+(require 'spiral-ast)
+(require 'spiral-project)
+(require 'spiral-overlay)
+(require 'spiral-util)
 
-(defcustom unrepl-ask-for-connection t
+(defcustom spiral-ask-for-connection t
   "Automatically ask for host:port when trying to interact with UNREPL in an unconnected buffer."
   :type 'boolean
-  :group 'unrepl)
+  :group 'spiral)
 
-(defcustom unrepl-display-repl-in-current-window nil
+(defcustom spiral-display-repl-in-current-window nil
   "Whether to display the REPL in the current window."
   :type 'boolean
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defcustom unrepl-mode-line-show-connection t
+(defcustom spiral-mode-line-show-connection t
   "Whether to have mode-line show the connection id or not."
   :type 'boolean
-  :group 'unrepl)
+  :group 'spiral)
 
-(defcustom unrepl-mode-line
-  '(:eval (format " 🌀[%s]" (or unrepl-conn-id "-")))
-  "Mode line lighter for `unrepl-mode'."
+(defcustom spiral-mode-line
+  '(:eval (format " 🌀[%s]" (or spiral-conn-id "-")))
+  "Mode line lighter for `spiral-mode'."
   :type 'sexp
   :risky t
-  :group 'unrepl)
+  :group 'spiral)
 
-(defcustom unrepl-eval-result-display 'both
+(defcustom spiral-eval-result-display 'both
   "Whether to display evaluation results with overlays, in the echo area, or both."
   :type '(choice (const :tag "End of line" overlay)
                  (const :tag "Echo area" echo)
                  (const :tag "Both" both))
-  :group 'unrepl)
+  :group 'spiral)
 
-(defcustom unrepl-auto-mode t
-  "Whether or not to automatically enable `unrepl-mode' for all Clojure buffer."
+(defcustom spiral-auto-mode t
+  "Whether or not to automatically enable `spiral-mode' for all Clojure buffer."
   :type 'boolean
-  :group 'unrepl)
+  :group 'spiral)
 
-(defvar unrepl-completion-last-context nil
+(defvar spiral-completion-last-context nil
   "Last compliment context used.")
 
-(defvar-local unrepl-conn-id nil
+(defvar-local spiral-conn-id nil
   "Port number used when creating a new Socket REPL.")
 
-(defvar-local unrepl-latest-eval nil
+(defvar-local spiral-latest-eval nil
   "Latest evaluation for the current buffer.")
 
 
@@ -85,93 +85,93 @@
 ;; Helpers
 ;; -------------------------------------------------------------------
 
-(defun unrepl-mode--find-project-by-file-name (&optional allow-nil)
-  "Check the current buffer file name and try to find a matching UNREPL project.
+(defun spiral-mode--find-project-by-file-name (&optional allow-nil)
+  "Check the current buffer file name and try to find a matching SPIRAL project.
 If ALLOW-NIL is non-nil, allows returning projects with nil directory.
 If there is more than one project for this buffers file name, return the
 most recently created."
-  (let ((project-dir (unrepl-clojure-dir)))
+  (let ((project-dir (spiral-clojure-dir)))
     (when (or project-dir allow-nil)
-      (unrepl-projects-get-by-dir project-dir))))
+      (spiral-projects-get-by-dir project-dir))))
 
 
-(defun unrepl-mode-enable-auto ()
-  "Automatically enable UNREPL's minor mode in every new Clojure buffer.
+(defun spiral-mode-enable-auto ()
+  "Automatically enable SPIRAL's minor mode in every new Clojure buffer.
 Setup a `clojure-mode-hook' that checks for a possible project connection
 each time a new Clojure buffer gets opened."
-  (add-hook 'clojure-mode-hook #'unrepl-mode-conditionally-turn-on))
+  (add-hook 'clojure-mode-hook #'spiral-mode-conditionally-turn-on))
 
 
-(defun unrepl-mode--turn-on (project)
-  "Turn on `unrepl-mode' in current buffer and associate PROJECT to it."
-  (setq-local unrepl-conn-id (unrepl-project-id project))
-  (unrepl-mode t)
+(defun spiral-mode--turn-on (project)
+  "Turn on `spiral-mode' in current buffer and associate PROJECT to it."
+  (setq-local spiral-conn-id (spiral-project-id project))
+  (spiral-mode t)
   project)
 
 
-(defun unrepl-mode-turn-on (conn-id-or-project &optional buffer)
-  "Turn on `unrepl-mode' in BUFFER and associate CONN-ID-OR-PROJECT to it.
+(defun spiral-mode-turn-on (conn-id-or-project &optional buffer)
+  "Turn on `spiral-mode' in BUFFER and associate CONN-ID-OR-PROJECT to it.
 If BUFFER is nil, use current buffer.
 Return the connected project."
   (with-current-buffer (or buffer (current-buffer))
     (let ((project (if (symbolp conn-id-or-project)
-                       (unrepl-projects-get conn-id-or-project))))
-      (unrepl-mode--turn-on project))))
+                       (spiral-projects-get conn-id-or-project))))
+      (spiral-mode--turn-on project))))
 
 
-(defun unrepl-mode-conditionally-turn-on ()
-  "Turn on `unrepl-mode' only if variable `buffer-file-name' belongs to an existing project."
-  (when-let (project (unrepl-mode--find-project-by-file-name))
-    (unrepl-mode--turn-on project)))
+(defun spiral-mode-conditionally-turn-on ()
+  "Turn on `spiral-mode' only if variable `buffer-file-name' belongs to an existing project."
+  (when-let (project (spiral-mode--find-project-by-file-name))
+    (spiral-mode--turn-on project)))
 
 
-(declare-function unrepl--connection-prompt "unrepl")
-(defun unrepl-ensure-connected! ()
-  "Make sure an `unrepl-conn-id' exists for current buffer.
+(declare-function spiral--connection-prompt "spiral")
+(defun spiral-ensure-connected! ()
+  "Make sure a `spiral-conn-id' exists for current buffer.
 If this local variable is not already set, tries to find a good candidate
 by looking at the buffer's file path and comparing to existing
-`unrepl-projects'.
-If that fails and `unrepl-ask-for-connection' is non-nil, asks the user for
+`spiral-projects'.
+If that fails and `spiral-ask-for-connection' is non-nil, asks the user for
 an *existing* host:port connection to connect to.  If everything else
 fails, raise an error.
 
-Return a UNREPL project"
-  (if-let (project (and unrepl-conn-id
-                        (unrepl-projects-get unrepl-conn-id)))
+Return a SPIRAL project"
+  (if-let (project (and spiral-conn-id
+                        (spiral-projects-get spiral-conn-id)))
       project
-    (if-let (project (unrepl-mode-conditionally-turn-on))
+    (if-let (project (spiral-mode-conditionally-turn-on))
         project
-      (if unrepl-ask-for-connection
-          (seq-let [project _] (unrepl--connection-prompt (unrepl-clojure-dir))
-            (unrepl-mode--turn-on project))
-        (error "Could not find an UNREPL connection for this buffer")))))
+      (if spiral-ask-for-connection
+          (seq-let [project _] (spiral--connection-prompt (spiral-clojure-dir))
+            (spiral-mode--turn-on project))
+        (error "Could not find a SPIRAL connection for this buffer")))))
 
 
 (defmacro with-current-project (&rest body)
   "Ensure the current buffer is connected and put its project in BODY's local scope."
-  `(let ((project (unrepl-ensure-connected!)))
+  `(let ((project (spiral-ensure-connected!)))
      ,@body))
 
 
-(defmacro unrepl-binding-print-limits (bindings &rest body)
+(defmacro spiral-binding-print-limits (bindings &rest body)
   "Edit UNREPL `:print-limits' with BINDINGS, exec BODY and revert limits back.
 This macro adds a `revert-bindings-back' function into BODY's lexical
 context.  BODY is in charge of calling this function whenever it seems
 appropriate."
   (declare (indent 1))
   `(with-current-project
-    (let ((print-limits-templ (unrepl-project-actions-get project :print-limits))
+    (let ((print-limits-templ (spiral-project-actions-get project :print-limits))
           (ast-limits->alist (lambda (bindings-node)
                                (mapcar
                                 (lambda (key)
-                                  (cons key (parseclj-ast-value (unrepl-ast-map-elt bindings-node key))))
+                                  (cons key (parseclj-ast-value (spiral-ast-map-elt bindings-node key))))
                                 '(:unrepl.print/string-length
                                   :unrepl.print/coll-length
                                   :unrepl.print/nesting-depth)))))
-      (unrepl-aux-send (unrepl-command-template print-limits-templ ,bindings)
+      (spiral-aux-send (spiral-command-template print-limits-templ ,bindings)
                        (lambda (previous-limits)
                          (let ((revert-bindings-back (lambda (&rest _args)
-                                                       (unrepl-aux-send (unrepl-command-template
+                                                       (spiral-aux-send (spiral-command-template
                                                                          print-limits-templ
                                                                          (funcall ast-limits->alist
                                                                                   previous-limits))))))
@@ -182,8 +182,8 @@ appropriate."
 ;; Evaluation
 ;; -------------------------------------------------------------------
 
-(declare-function unrepl-client-send "unrepl-loop")
-(defun unrepl-eval (form eval-callback &optional stdout-callback)
+(declare-function spiral-client-send "spiral-loop")
+(defun spiral-eval (form eval-callback &optional stdout-callback)
   "Send FORM to UNREPL Socket Server for evaluation.
 FORM can either be a string or a list tuple of buffer start, end positions.
 This function sends everything through the `:client' connection, and
@@ -195,97 +195,97 @@ that expects just one argument, any STDOUT belonging to this evaluation."
   (let ((form (if (consp form)
                   (apply #'buffer-substring-no-properties form)
                 form)))
-    (unrepl-client-send form eval-callback stdout-callback (current-buffer))))
+    (spiral-client-send form eval-callback stdout-callback (current-buffer))))
 
 
-(defun unrepl-mode--interactive-eval-display-callback (eval-payload &optional bounds)
+(defun spiral-mode--interactive-eval-display-callback (eval-payload &optional bounds)
   "Display evaluation result EVAL-PAYLOAD as a string.
 This function will put a string version of EVAL-PAYLOAD in the echo area,
 font-locked as Clojure.
-If BOUNDS is non-nil and `unrepl-eval-result-display' is something else
+If BOUNDS is non-nil and `spiral-eval-result-display' is something else
 than 'echo, VALUE will also be displayed in an overlay starting at the end
 bound."
-  (let ((value (unrepl-ast-unparse-to-string eval-payload))
+  (let ((value (spiral-ast-unparse-to-string eval-payload))
         (point (cadr bounds)))
-    (when (and point (not (eql unrepl-eval-result-display 'echo)))
-      (unrepl--make-result-overlay value point))
-    (message "%s%s" unrepl-eval-result-prefix value)))
+    (when (and point (not (eql spiral-eval-result-display 'echo)))
+      (spiral--make-result-overlay value point))
+    (message "%s%s" spiral-eval-result-prefix value)))
 
 
-(defun unrepl-mode--interactive-eval-replace-callback (eval-payload bounds)
+(defun spiral-mode--interactive-eval-replace-callback (eval-payload bounds)
   "Replace whatever it is in BOUNDS with the evaluation result EVAL-PAYLOAD.
 This function will delete whatever it is between BOUNDS in BUFFER, and
 replace it with a string version of EVAL-PAYLOAD."
   (with-current-buffer (marker-buffer (car bounds))
     (apply #'delete-region bounds)
     (goto-char (car bounds))
-    (unrepl-ast-unparse eval-payload)))
+    (spiral-ast-unparse eval-payload)))
 
 
-(defun unrepl-eval-last-sexp (&optional prefix)
+(defun spiral-eval-last-sexp (&optional prefix)
   "Evaluate the expression preceding point.
 If invoked with PREFIX, replace the evaluated for with its result in
 current buffer."
   (interactive "P")
-  (unrepl-ensure-connected!)
-  (let ((bounds (unrepl-last-sexp 'marker-bounds))
+  (spiral-ensure-connected!)
+  (let ((bounds (spiral-last-sexp 'marker-bounds))
         (callback (if prefix
-                      #'unrepl-mode--interactive-eval-replace-callback
-                    #'unrepl-mode--interactive-eval-display-callback)))
-    (unrepl-eval bounds
+                      #'spiral-mode--interactive-eval-replace-callback
+                    #'spiral-mode--interactive-eval-display-callback)))
+    (spiral-eval bounds
                  (lambda (eval-payload)
                    (funcall callback eval-payload bounds)))))
 
 
-(defun unrepl-eval-top-level-form ()
+(defun spiral-eval-top-level-form ()
   "Evaluate the \"top-level\" form containing point."
   (interactive)
-  (unrepl-ensure-connected!)
-  (let ((bounds (unrepl-top-level-form-at-point 'marker-bounds)))
-    (unrepl-eval bounds
+  (spiral-ensure-connected!)
+  (let ((bounds (spiral-top-level-form-at-point 'marker-bounds)))
+    (spiral-eval bounds
                  (lambda (eval-payload)
-                   (unrepl-mode--interactive-eval-display-callback eval-payload bounds)))))
+                   (spiral-mode--interactive-eval-display-callback eval-payload bounds)))))
 
 
 
 ;; Interactive Commands
 ;; -------------------------------------------------------------------
 
-(defun unrepl-switch-to-repl-buffer ()
-  "Switch to the REPL buffer for `unrepl-conn-id'."
+(defun spiral-switch-to-repl-buffer ()
+  "Switch to the REPL buffer for `spiral-conn-id'."
   (interactive)
   (with-current-project
-   (let ((repl-buffer (unrepl-project-repl-buffer project)))
-     (if unrepl-display-repl-in-current-window
+   (let ((repl-buffer (spiral-project-repl-buffer project)))
+     (if spiral-display-repl-in-current-window
          (pop-to-buffer-same-window repl-buffer t)
        (pop-to-buffer repl-buffer nil t)))))
 
 
-(declare-function unrepl-repl-insert-phantom-input "unrepl-repl")
-(defun unrepl-inspect-last-eval ()
+(declare-function spiral-repl-insert-phantom-input "spiral-repl")
+(defun spiral-inspect-last-eval ()
   "Replicate last evaluation in REPL buffer for further inspection."
   (interactive)
-  (unrepl-repl-insert-phantom-input unrepl-latest-eval nil 'switch))
+  (spiral-repl-insert-phantom-input spiral-latest-eval nil 'switch))
 
 
-(declare-function unrepl-aux-send "unrepl-loop")
-(defun unrepl-eval-interrupt ()
+(declare-function spiral-aux-send "spiral-loop")
+(defun spiral-eval-interrupt ()
   "Interrupt pending evaluation."
   (interactive)
   (with-current-project
-   (let ((conn-id (unrepl-project-id project))
+   (let ((conn-id (spiral-project-id project))
          (interrupt (lambda (pe)
-                      (let* ((actions (unrepl-pending-eval-entry-actions pe))
-                             (interrupt-templ (unrepl-ast-map-elt actions :interrupt)))
-                        (unrepl-aux-send (unrepl-command-template interrupt-templ)
+                      (let* ((actions (spiral-pending-eval-entry-actions pe))
+                             (interrupt-templ (spiral-ast-map-elt actions :interrupt)))
+                        (spiral-aux-send (spiral-command-template interrupt-templ)
                                          (lambda (_) (message "Evaluation interrupted!")))))))
-     (if-let (pending-eval (or (unrepl-pending-eval :client conn-id)
-                               (unrepl-pending-eval :aux conn-id)))
+     (if-let (pending-eval (or (spiral-pending-eval :client conn-id)
+                               (spiral-pending-eval :aux conn-id)))
          (funcall interrupt pending-eval)
        (message "No evaluations pending...")))))
 
 
-(defun unrepl-eval-buffer (&optional buffer)
+(defun spiral-eval-buffer (&optional buffer)
   "Eval BUFFER's file in UNREPL.
 If no buffer is provided the command acts on the current buffer."
   (interactive)
@@ -300,28 +300,28 @@ If no buffer is provided the command acts on the current buffer."
      (remove-overlays nil nil 'temporary t)
      (let ((filename (buffer-file-name buffer))
            ;; (ns-form  (cider-ns-form))
-           (load-file-templ (unrepl-project-actions-get project :unrepl.el/load-file)))
-       (unrepl-aux-send (unrepl-command-template
+           (load-file-templ (spiral-project-actions-get project :spiral/load-file)))
+       (spiral-aux-send (spiral-command-template
                          load-file-templ
-                         `((:unrepl.el/file . ,(unrepl-file-string filename))
-                           (:unrepl.el/file-name . ,(funcall unrepl-filename-function filename))
-                           (:unrepl.el/file-path . ,(file-name-nondirectory filename))))
+                         `((:spiral/file . ,(spiral-file-string filename))
+                           (:spiral/file-name . ,(funcall spiral-filename-function filename))
+                           (:spiral/file-path . ,(file-name-nondirectory filename))))
                         (lambda (payload)
-                          (message "%s" (unrepl-ast-unparse-to-string payload 'mute-ui))))
+                          (message "%s" (spiral-ast-unparse-to-string payload 'mute-ui))))
        (message "Loading %s..." filename)))))
 
 
 
-(defun unrepl-quit (&optional just-do-it conn-id)
-  "Quit connection to CONN-ID or current `unrepl-conn-id'.
+(defun spiral-quit (&optional just-do-it conn-id)
+  "Quit connection to CONN-ID or current `spiral-conn-id'.
 If JUST-DO-IT is non-nil, don't ask for confirmation."
   (interactive "P")
   (let ((conn-id (or conn-id
-                     unrepl-conn-id)))
-    (if-let (project (unrepl-projects-get conn-id))
+                     spiral-conn-id)))
+    (if-let (project (spiral-projects-get conn-id))
         (when (or just-do-it
                   (y-or-n-p (format "Are you sure you want to quit connection to %s? " conn-id)))
-          (unrepl-project-quit conn-id)
+          (spiral-project-quit conn-id)
           (message "UNREPL connection to %s terminated" conn-id))
       (error "Connection %s could not be found" conn-id))))
 
@@ -330,7 +330,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
 ;; Completion
 ;; -------------------------------------------------------------------
 
-(defun unrepl-complete--symbol-start-pos ()
+(defun spiral-complete--symbol-start-pos ()
   "Find the starting position of the symbol at point, unless inside a string.
 BORROWED FROM CIDER."
   (let ((sap (symbol-at-point)))
@@ -338,7 +338,7 @@ BORROWED FROM CIDER."
       (car (bounds-of-thing-at-point 'symbol)))))
 
 
-(defun unrepl-complete--get-context-at-point ()
+(defun spiral-complete--get-context-at-point ()
   "Extract the context at point.
 If point is not inside the list, returns nil; otherwise return \"top-level\"
 form, with symbol at point replaced by __prefix__.
@@ -353,8 +353,8 @@ BORROWED FROM CIDER."
             (user-error nil)))
     (save-excursion
       (let* ((pref-end (point))
-             (pref-start (unrepl-complete--symbol-start-pos))
-             (context (unrepl-top-level-form-at-point))
+             (pref-start (spiral-complete--symbol-start-pos))
+             (context (spiral-top-level-form-at-point))
              (expr-start (progn
                            (beginning-of-defun)
                            (point))))
@@ -363,37 +363,37 @@ BORROWED FROM CIDER."
                 (substring context (- pref-end expr-start)))))))
 
 
-(defun unrepl-complete--get-context ()
+(defun spiral-complete--get-context ()
   "Extract compliment's context."
   (let ((context (when (derived-mode-p 'clojure-mode)
                    ;; Important because `beginning-of-defun' and
                    ;; `ending-of-defun' work incorrectly in the REPL
                    ;; buffer, so context extraction fails there.
-                   (unrepl-complete--get-context-at-point))))
-    (if (string= unrepl-completion-last-context context)
+                   (spiral-complete--get-context-at-point))))
+    (if (string= spiral-completion-last-context context)
         :same
-      (setq unrepl-completion-last-context context)
+      (setq spiral-completion-last-context context)
       context)))
 
 
-(declare-function unrepl-aux-sync-request "unrepl-loop")
-(defun unrepl-complete--candidates (str &optional ns)
+(declare-function spiral-aux-sync-request "spiral-loop")
+(defun spiral-complete--candidates (str &optional ns)
   "Find completion candidates for STR.
 NS is an optional namespace symbol."
   (with-current-project
-   (let* ((context (unrepl-complete--get-context))
+   (let* ((context (spiral-complete--get-context))
           (complete-tmpl (thread-first project
-                           (unrepl-project-actions)
-                           (unrepl-ast-map-elt :unrepl.el/complete)))
-          (candidates (unrepl-aux-sync-request
-                       (unrepl-command-template complete-tmpl
-                                                `((:unrepl.el/prefix . ,str)
-                                                  (:unrepl.el/context . ,context)
-                                                  (:unrepl.el/ns . ,ns))))))
+                           (spiral-project-actions)
+                           (spiral-ast-map-elt :spiral/complete)))
+          (candidates (spiral-aux-sync-request
+                       (spiral-command-template complete-tmpl
+                                                `((:spiral/prefix . ,str)
+                                                  (:spiral/context . ,context)
+                                                  (:spiral/ns . ,ns))))))
      (mapcar
       (lambda (candidate-node)
         (let* ((node-get (lambda (key) (thread-first candidate-node
-                                    (unrepl-ast-map-elt key)
+                                    (spiral-ast-map-elt key)
                                     (parseclj-ast-value))))
                (candidate (funcall node-get :candidate))
                (type (funcall node-get :type))
@@ -405,63 +405,63 @@ NS is an optional namespace symbol."
       (parseclj-ast-children candidates)))))
 
 
-(defun unrepl-complete--annotate-symbol (symbol)
+(defun spiral-complete--annotate-symbol (symbol)
   "Return a string suitable for annotating SYMBOL.
 Takes properties `type' and `ns' from SYMBOL, if any, and concat them into
 a single annotation.  `ns' is only used when the symbol to be completed is
 not fully qualified."
   (let ((type (get-text-property 0 'type symbol))
-        (ns (unless (unrepl-namespace-qualified-p symbol)
+        (ns (unless (spiral-namespace-qualified-p symbol)
               (get-text-property 0 'ns symbol))))
     (concat (when ns (format " (%s) " ns))
-            (when type (format " <%s> " (unrepl-keyword-name type))))))
+            (when type (format " <%s> " (spiral-keyword-name type))))))
 
 
-(defun unrepl-complete-at-point ()
+(defun spiral-complete-at-point ()
   "Complete the symbol at point.
 Used as a `completion-at-point-functions' function.
 BORROWED FROM CIDER."
-  (when (not (or (unrepl-in-string-p) (unrepl-in-comment-p)))
+  (when (not (or (spiral-in-string-p) (spiral-in-comment-p)))
     (when-let (bounds (bounds-of-thing-at-point 'symbol))
       (list (car bounds) (cdr bounds)
-            (completion-table-dynamic #'unrepl-complete--candidates)
-            :annotation-function #'unrepl-complete--annotate-symbol))))
+            (completion-table-dynamic #'spiral-complete--candidates)
+            :annotation-function #'spiral-complete--annotate-symbol))))
 
 
 
 ;; Setup
 ;; -------------------------------------------------------------------
 
-(defconst unrepl-mode-map
+(defconst spiral-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-TAB") #'complete-symbol)
-    (define-key map (kbd "C-c C-z") #'unrepl-switch-to-repl-buffer)
-    (define-key map (kbd "C-x C-e") #'unrepl-eval-last-sexp)
-    (define-key map (kbd "C-c C-c") #'unrepl-eval-top-level-form)
-    (define-key map (kbd "C-c C-r") #'unrepl-inspect-last-eval)
-    (define-key map (kbd "C-c C-b") #'unrepl-eval-buffer)
-    (define-key map (kbd "C-c C-g") #'unrepl-eval-interrupt)
-    (define-key map (kbd "C-c q") #'unrepl-quit)
-    (define-key map (kbd "C-c C-q") #'unrepl-quit)
+    (define-key map (kbd "C-c C-z") #'spiral-switch-to-repl-buffer)
+    (define-key map (kbd "C-x C-e") #'spiral-eval-last-sexp)
+    (define-key map (kbd "C-c C-c") #'spiral-eval-top-level-form)
+    (define-key map (kbd "C-c C-r") #'spiral-inspect-last-eval)
+    (define-key map (kbd "C-c C-b") #'spiral-eval-buffer)
+    (define-key map (kbd "C-c C-g") #'spiral-eval-interrupt)
+    (define-key map (kbd "C-c q") #'spiral-quit)
+    (define-key map (kbd "C-c C-q") #'spiral-quit)
     map))
 
 
-(define-minor-mode unrepl-mode
-  "Minor mode for UNREPL.
+(define-minor-mode spiral-mode
+  "Minor mode for SPIRAL.
 
-\\{unrepl-mode-map\}"
+\\{spiral-mode-map\}"
   nil
-  unrepl-mode-line
-  unrepl-mode-map
-  (if unrepl-mode
+  spiral-mode-line
+  spiral-mode-map
+  (if spiral-mode
       (progn
         (make-local-variable 'completion-at-point-functions)
         (add-to-list 'completion-at-point-functions
-                     #'unrepl-complete-at-point))
-    (mapc #'kill-local-variable '(unrepl-conn-id
+                     #'spiral-complete-at-point))
+    (mapc #'kill-local-variable '(spiral-conn-id
                                   completion-at-point-functions))))
 
 
-(provide 'unrepl-mode)
+(provide 'spiral-mode)
 
-;;; unrepl-mode.el ends here
+;;; spiral-mode.el ends here

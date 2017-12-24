@@ -1,6 +1,6 @@
-;;; unrepl-repl.el --- REPL interactions -*- lexical-binding: t; -*-
+;;; spiral-repl.el --- REPL interactions -*- lexical-binding: t; -*-
 ;;
-;; Filename: unrepl-repl.el
+;; Filename: spiral-repl.el
 ;; Author: Daniel Barreto <daniel@barreto.tech>
 ;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
@@ -34,53 +34,53 @@
 (require 'clojure-mode)
 (require 'subr-x)
 
-(require 'unrepl-mode)
-(require 'unrepl-project)
-(require 'unrepl-stacktrace)
-(require 'unrepl-util)
+(require 'spiral-mode)
+(require 'spiral-project)
+(require 'spiral-stacktrace)
+(require 'spiral-util)
 
 
-(defgroup unrepl-repl nil
-  "UNREPL interactive repl"
-  :prefix "unrepl-repl-"
-  :group 'unrepl)
+(defgroup spiral-repl nil
+  "SPIRAL interactive repl"
+  :prefix "spiral-repl-"
+  :group 'spiral)
 
-(defcustom unrepl-repl-pop-on-connect t
+(defcustom spiral-repl-pop-on-connect t
   "Pop REPL buffer on connect to new project.
 When nil, the REPL buffer will be created but not displayed."
   :type 'boolean
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defcustom unrepl-repl-group-stdout t
+(defcustom spiral-repl-group-stdout t
   "Group evaluation's output."
   :type 'boolean
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defvar-local unrepl-repl-prompt-start-mark nil
+(defvar-local spiral-repl-prompt-start-mark nil
   "Point marker of current prompt start.")
 
-(defvar-local unrepl-repl-input-start-mark nil
+(defvar-local spiral-repl-input-start-mark nil
   "Point marker of current input start.")
 
-(defvar-local unrepl-repl-inputting nil
+(defvar-local spiral-repl-inputting nil
   "Boolean value that indicates if the latest input sent to the server sent
   using the REPL.")
 
-(defvar-local unrepl-repl-transient-text-gid nil
+(defvar-local spiral-repl-transient-text-gid nil
   "Group ID of the last output displaying as transient text.")
 
-(defvar-local unrepl-repl-transient-text-start-mark nil
+(defvar-local spiral-repl-transient-text-start-mark nil
   "Marker to the beginning of a transient text, or nil if there's none.")
 
-(defvar-local unrepl-repl-transient-text-end-mark nil
+(defvar-local spiral-repl-transient-text-end-mark nil
   "Marker to the end of a transient text, or nil if there's none.")
 
-(defvar-local unrepl-repl-history nil
+(defvar-local spiral-repl-history nil
   "A list that holds history entries.
-A History Entry is a 3-tuple: the input string, an UNREPL group id, and a
+A History Entry is a 3-tuple: the input string, an SPIRAL group id, and a
 prompt position in buffer.")
 
-(defvar-local unrepl-repl-history-lookup nil
+(defvar-local spiral-repl-history-lookup nil
   "A number that represents the current history index being looked upon
   when searching through history.  When nil, search is inactive.")
 
@@ -89,62 +89,62 @@ prompt position in buffer.")
 ;; Common Faces
 ;; -------------------------------------------------------------------
 
-(defface unrepl-font-prompt-face
+(defface spiral-font-prompt-face
   '((t (:inherit font-lock-keyword-face)))
   "Face for the prompt in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-result-prompt-face
+(defface spiral-font-result-prompt-face
   '((t (:inherit font-lock-function-name-face)))
   "Face for the result prompt in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-exception-prompt-face
+(defface spiral-font-exception-prompt-face
   '((t (:inherit font-lock-warning-face)))
   "Face for the result prompt in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-constant-face
+(defface spiral-font-constant-face
   '((t (:inherit font-lock-constant-face)))
   "Face for constant things in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-variable-name-face
+(defface spiral-font-variable-name-face
   '((t (:inherit font-lock-variable-name-face)))
   "Face for constant things in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-class-name-face
+(defface spiral-font-class-name-face
   '((t (:inherit font-lock-variable-name-face)))
   "Face for constant things in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-stdout-face
+(defface spiral-font-stdout-face
   '((t (:inherit font-lock-doc-face)))
   "Face for STDOUT output in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-stderr-face
+(defface spiral-font-stderr-face
   '((t (:inherit compilation-error)))
   "Face for STDERR output in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-doc-face
+(defface spiral-font-doc-face
   '((t (:inherit font-lock-comment-face)))
   "Face for auto-documentation in the REPL buffer."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
-(defface unrepl-font-tooltip-face
+(defface spiral-font-tooltip-face
   '((t . (:inherit button)))
   "Face for tooltips."
-  :group 'unrepl-repl)
+  :group 'spiral-repl)
 
 
 
 ;; Utilities
 ;; -------------------------------------------------------------------
 
-(defun unrepl-repl--insert-newline (count)
+(defun spiral-repl--insert-newline (count)
   "Insert COUNT new lines.  Negative COUNT is not allowed."
   (let ((count (or count 1)))
     (while (> count 0)
@@ -152,22 +152,22 @@ prompt position in buffer.")
       (cl-decf count))))
 
 
-(defun unrepl-repl--newline-if-needed ()
+(defun spiral-repl--newline-if-needed ()
   "Go to max point in buffer and make sure it is the beginning of a new line."
   (unless (bolp)
-    (insert (propertize "%\n" 'font-lock-face 'unrepl-font-constant-face))))
+    (insert (propertize "%\n" 'font-lock-face 'spiral-font-constant-face))))
 
 
-(defun unrepl-repl--newline-and-indent (&optional count)
+(defun spiral-repl--newline-and-indent (&optional count)
   "Insert COUNT new lines, then indent."
-  (unrepl-repl--insert-newline count)
+  (spiral-repl--insert-newline count)
   (lisp-indent-line))
 
 
-(defun unrepl-repl-newline-and-scroll (&optional count)
+(defun spiral-repl-newline-and-scroll (&optional count)
   "Insert COUNT new lines and scroll til the end of the buffer.
 COUNT defaults to 1, negative numbers are not allowed."
-  (unrepl-repl--insert-newline count)
+  (spiral-repl--insert-newline count)
   (when (eobp)
     (when-let (win (get-buffer-window (current-buffer) t))
       (with-selected-window win
@@ -175,24 +175,24 @@ COUNT defaults to 1, negative numbers are not allowed."
         (recenter -1)))))
 
 
-(defun unrepl-repl--input-str ()
+(defun spiral-repl--input-str ()
   "Return the current input string in REPL buffer."
-  (buffer-substring-no-properties unrepl-repl-input-start-mark (point-max)))
+  (buffer-substring-no-properties spiral-repl-input-start-mark (point-max)))
 
 
-(defun unrepl-repl--in-input-area-p ()
+(defun spiral-repl--in-input-area-p ()
   "Return t if in input area."
-  (<= unrepl-repl-input-start-mark (point)))
+  (<= spiral-repl-input-start-mark (point)))
 
 
-(defun unrepl-repl--input-complete-p (end)
+(defun spiral-repl--input-complete-p (end)
   "Return t if the input region is a complete sexp.
 The input region is calculated as the region from
-`unrepl-repl-input-start-mark' to END.
+`spiral-repl-input-start-mark' to END.
 
 BORROWED FROM CIDER."
   (save-excursion
-    (let ((start unrepl-repl-input-start-mark))
+    (let ((start spiral-repl-input-start-mark))
       (goto-char start)
       (cond ((looking-at-p "\\s *[@'`#]?[(\"]")
              (ignore-errors
@@ -208,21 +208,21 @@ BORROWED FROM CIDER."
             (t t)))))
 
 
-(defun unrepl-repl--interactive-input-p (group-id)
+(defun spiral-repl--interactive-input-p (group-id)
   "Return whether GROUP-ID belongs to an interactive input.
 Interactive inputs are those that were not sent via REPL, hence do not have
 a REPL history entry.
 
 This function should only be called inside REPL buffers."
-  (let ((last-history-group-id (thread-first unrepl-repl-history
+  (let ((last-history-group-id (thread-first spiral-repl-history
                                  (car)
-                                 (unrepl-repl--history-entry-group-id)))
-        (pending-eval-group-id (unrepl-pending-eval-group-id :client unrepl-conn-id)))
+                                 (spiral-repl--history-entry-group-id)))
+        (pending-eval-group-id (spiral-pending-eval-group-id :client spiral-conn-id)))
     (and (eql group-id pending-eval-group-id)
          (not (eql group-id last-history-group-id)))))
 
 
-(defun unrepl-repl--find-next-prompt (&optional backward)
+(defun spiral-repl--find-next-prompt (&optional backward)
   "Find the beginning pos of the next prompt in the buffer, or nil if none.
 If BACKWARD is non-nil, search backwards."
   (let ((p (point))
@@ -231,7 +231,7 @@ If BACKWARD is non-nil, search backwards."
                     #'previous-single-char-property-change
                   #'next-single-char-property-change)))
     (while (not (or (= p 1) (= p (point-max))
-                    (eql current-field 'unrepl-repl-prompt-field)))
+                    (eql current-field 'spiral-repl-prompt-field)))
       (setq p (funcall nav-fn p'field))
       (setq current-field (get-char-property p 'field)))
     (save-excursion
@@ -239,7 +239,7 @@ If BACKWARD is non-nil, search backwards."
       (line-beginning-position))))
 
 
-(defun unrepl-repl--goto-char (pos)
+(defun spiral-repl--goto-char (pos)
   "Move current buffer's cursor to POS, no matter what!
 This function works when the buffer is active, in a viewable window, or
 buried."
@@ -248,17 +248,17 @@ buried."
   (goto-char pos))
 
 
-(defun unrepl-repl--move-cursor-to-point-max ()
+(defun spiral-repl--move-cursor-to-point-max ()
   "Move current buffer's cursor to `point-max', no matter what!"
-  (unrepl-repl--goto-char (point-max)))
+  (spiral-repl--goto-char (point-max)))
 
 
-(defun unrepl-repl-move-to-next-prompt (&optional backwards)
+(defun spiral-repl-move-to-next-prompt (&optional backwards)
   "Move current buffer's cursor to the beginning position of next prompt.
 I there's no next prompt, goes to `point-max'.
 
 If BACKWARDS is non-nil, goes to previous point (next point backwards)."
-  (unrepl-repl--goto-char (unrepl-repl--find-next-prompt backwards)))
+  (spiral-repl--goto-char (spiral-repl--find-next-prompt backwards)))
 
 
 (defmacro with-current-repl (&rest body)
@@ -267,9 +267,9 @@ This macro needs a `conn-id' variable in the scope, otherwise it will throw
 an error.
 A `project' variable will be added to the local scope."
   `(let* ((project (if (boundp 'conn-id)
-                       (unrepl-projects-get conn-id)
-                     (unrepl-ensure-connected!)))
-          (repl-buffer (unrepl-project-repl-buffer project)))
+                       (spiral-projects-get conn-id)
+                     (spiral-ensure-connected!)))
+          (repl-buffer (spiral-project-repl-buffer project)))
      (with-current-buffer repl-buffer
        ,@body)))
 
@@ -278,7 +278,7 @@ A `project' variable will be added to the local scope."
 ;; Phantom Input Entries
 ;; -------------------------------------------------------------------
 
-(defun unrepl-repl-insert-phantom-input (evaluation &optional payload display)
+(defun spiral-repl-insert-phantom-input (evaluation &optional payload display)
   "Insert a phantom input for EVALUATION.
 Adds a History Entry for this new input, as if it were typed by a ghost.
 
@@ -290,206 +290,206 @@ saved input.
 DISPLAY is expected to be either 'pop or 'switch.  When non-nil, pops or
 switches to the REPL buffer in another window."
   (with-current-repl
-   (unrepl-repl--transient-text-remove)
-   (let* ((current-input (buffer-substring unrepl-repl-input-start-mark (point-max)))
-          (evaluation-input (unrepl-pending-eval-entry-input evaluation))
-          (payload (or payload (unrepl-pending-eval-entry-payload evaluation)))
-          (group-id (unrepl-pending-eval-entry-group-id evaluation))
-          (pending-eval-status (unrepl-pending-eval-entry-status evaluation))
+   (spiral-repl--transient-text-remove)
+   (let* ((current-input (buffer-substring spiral-repl-input-start-mark (point-max)))
+          (evaluation-input (spiral-pending-eval-entry-input evaluation))
+          (payload (or payload (spiral-pending-eval-entry-payload evaluation)))
+          (group-id (spiral-pending-eval-entry-group-id evaluation))
+          (pending-eval-status (spiral-pending-eval-entry-status evaluation))
           (insert-payload-fn (pcase pending-eval-status
-                               (:eval #'unrepl-repl-insert-evaluation)
-                               (:exception #'unrepl-repl-insert-exception)
+                               (:eval #'spiral-repl-insert-evaluation)
+                               (:exception #'spiral-repl-insert-exception)
                                (:out (lambda (payload point &rest _)
-                                       (unrepl-repl-insert-std-stream :out payload point)))
+                                       (spiral-repl-insert-std-stream :out payload point)))
                                (:err (lambda (payload point &rest _)
-                                       (unrepl-repl-insert-std-stream :err payload point)))
-                               (_ (when unrepl-debug
+                                       (spiral-repl-insert-std-stream :err payload point)))
+                               (_ (when spiral-debug
                                     (error "No phantom insert function for pending eval status %S"
                                            pending-eval-status))))))
-     (goto-char unrepl-repl-input-start-mark)
+     (goto-char spiral-repl-input-start-mark)
      ;; Insert phantom input and payload
-     (delete-region unrepl-repl-input-start-mark (point-max))
+     (delete-region spiral-repl-input-start-mark (point-max))
      (let ((p (point)))
        (insert evaluation-input)
-       (unrepl-repl-newline-and-scroll)
+       (spiral-repl-newline-and-scroll)
        (indent-region p (point)))
      (funcall insert-payload-fn
               payload
               (point)
-              (1+ (length unrepl-repl-history))
-              (unrepl-project-namespace project))
+              (1+ (length spiral-repl-history))
+              (spiral-project-namespace project))
      ;; Insert it into history
-     (unrepl-repl--add-input-to-history evaluation-input)
-     (unrepl-repl--history-add-gid-to-top-entry group-id)
+     (spiral-repl--add-input-to-history evaluation-input)
+     (spiral-repl--history-add-gid-to-top-entry group-id)
      ;; Insert new prompt
-     (unrepl-repl-prompt unrepl-conn-id)
+     (spiral-repl-prompt spiral-conn-id)
      ;; Restore current input
      (insert current-input)
      ;; Display the repl accordingly
      (when (and display
                 (not (eql (current-buffer) (window-buffer (selected-window)))))
-       (unrepl-repl-display (current-buffer) display))
+       (spiral-repl-display (current-buffer) display))
      ;; Move to the end of the repl
-     (unrepl-repl--move-cursor-to-point-max))))
+     (spiral-repl--move-cursor-to-point-max))))
 
 
 
 ;; Transient Text
 ;; -------------------------------------------------------------------
 
-(defun unrepl-repl--transient-text-insert (group-id text &optional properties)
+(defun spiral-repl--transient-text-insert (group-id text &optional properties)
   "Insert TEXT at the end of the REPL in a 'transient' way.
 This TEXT is meant to be shown momentarily and to disappear at some
-point (by calling `unrepl-repl--transient-text-remove').
+point (by calling `spiral-repl--transient-text-remove').
 
 TEXT can be either a string or a AST node.  This function will either
 insert it or unparse it accordingly.
 GROUP-ID is an integer, and it's meant to identify text to be *appended* to
 a transient text block.  If there's already a transient text showing for
 GROUP-ID N, then any other subsequent call to
-`unrepl-repl--transient-text-insert' with the same GROUP-ID will be
+`spiral-repl--transient-text-insert' with the same GROUP-ID will be
 appended to it.  If there's a call with a different GROUP-ID, the text will
 be replaced.
 
 PROPERTIES is a plist of text properties."
   (with-current-repl
-   (unless (eql unrepl-repl-transient-text-gid group-id)
-     (unrepl-repl--transient-text-remove)
-     (setq-local unrepl-repl-transient-text-gid group-id))
+   (unless (eql spiral-repl-transient-text-gid group-id)
+     (spiral-repl--transient-text-remove)
+     (setq-local spiral-repl-transient-text-gid group-id))
    (save-excursion
      ;; Find the right place to start inserting.
-     (if (marker-position unrepl-repl-transient-text-end-mark)
-         (goto-char unrepl-repl-transient-text-end-mark)
+     (if (marker-position spiral-repl-transient-text-end-mark)
+         (goto-char spiral-repl-transient-text-end-mark)
        (goto-char (point-max))
        (insert "\n"))
      ;; If start is not set already, set it to current position.
-     (unless (marker-position unrepl-repl-transient-text-start-mark)
-       (set-marker unrepl-repl-transient-text-start-mark (point)))
+     (unless (marker-position spiral-repl-transient-text-start-mark)
+       (set-marker spiral-repl-transient-text-start-mark (point)))
      ;; Insert text
      (let ((inhibit-read-only t))
-       (unrepl-propertize-region (append properties
-                                         '(font-lock-face unrepl-font-doc-face
+       (spiral-propertize-region (append properties
+                                         '(font-lock-face spiral-font-doc-face
                                                           read-only t
                                                           intangible t
-                                                          field unrepl-repl-transient-field))
-         (unrepl-ast-unparse-stdout-string text)))
+                                                          field spiral-repl-transient-field))
+         (spiral-ast-unparse-stdout-string text)))
      ;; And mark the end
-     (set-marker unrepl-repl-transient-text-end-mark (point)))
+     (set-marker spiral-repl-transient-text-end-mark (point)))
    (recenter)))
 
 
-(defun unrepl-repl--transient-text-remove ()
+(defun spiral-repl--transient-text-remove ()
   "Remove transient text from the REPL buffer."
   (with-current-repl
-   (when (and (marker-position unrepl-repl-transient-text-start-mark)
-              (marker-position unrepl-repl-transient-text-end-mark))
+   (when (and (marker-position spiral-repl-transient-text-start-mark)
+              (marker-position spiral-repl-transient-text-end-mark))
      (save-excursion
        (let ((inhibit-read-only t))
-         (goto-char unrepl-repl-transient-text-start-mark)
-         (delete-region unrepl-repl-transient-text-start-mark
+         (goto-char spiral-repl-transient-text-start-mark)
+         (delete-region spiral-repl-transient-text-start-mark
                         (point-max))
          (delete-char -1)))
-     (set-marker unrepl-repl-transient-text-start-mark nil)
-     (set-marker unrepl-repl-transient-text-end-mark nil))))
+     (set-marker spiral-repl-transient-text-start-mark nil)
+     (set-marker spiral-repl-transient-text-end-mark nil))))
 
 
 
 ;; History
 ;; -------------------------------------------------------------------
 
-(defun unrepl-repl--history-add (entry)
-  "Add History ENTRY to `unrepl-repl-history'."
-  (push entry unrepl-repl-history))
+(defun spiral-repl--history-add (entry)
+  "Add History ENTRY to `spiral-repl-history'."
+  (push entry spiral-repl-history))
 
 
-(defun unrepl-repl--make-history-entry (str)
+(defun spiral-repl--make-history-entry (str)
   "Create a History Entry for STR and return it."
   (list
-   (1+ (length unrepl-repl-history))  ;; index
+   (1+ (length spiral-repl-history))  ;; index
    str                                ;; input
    nil                                ;; pending eval's group-id -- optional
    nil                                ;; next prompt marker
    ))
 
 
-(defun unrepl-repl--history-get (idx)
+(defun spiral-repl--history-get (idx)
   "Return the history entry with reverse index IDX.
 Indices, as saved in pending evaluations, start with 1."
   (nth
-   (- (length unrepl-repl-history) idx)
-   unrepl-repl-history))
+   (- (length spiral-repl-history) idx)
+   spiral-repl-history))
 
 
-(defun unrepl-repl--history-get-by-group-id (group-id)
+(defun spiral-repl--history-get-by-group-id (group-id)
   "Return a history entry for GROUP-ID, if any."
   (seq-find (lambda (e)
-              (eql (unrepl-repl--history-entry-group-id e)
+              (eql (spiral-repl--history-entry-group-id e)
                    group-id))
-            unrepl-repl-history))
+            spiral-repl-history))
 
 
-(defun unrepl-repl--history-entry-idx (entry)
+(defun spiral-repl--history-entry-idx (entry)
   "Return the index of the given History ENTRY."
   (car entry))
 
 
-(defun unrepl-repl--history-entry-str (entry)
+(defun spiral-repl--history-entry-str (entry)
   "Return the string of the given History ENTRY."
   (cadr entry))
 
 
-(defun unrepl-repl--history-entry-group-id (entry)
+(defun spiral-repl--history-entry-group-id (entry)
   "Return the UNREPL group id of the given History ENTRY."
   (cl-caddr entry))
 
 
-(defun unrepl-repl--history-entry-prompt-marker (entry)
+(defun spiral-repl--history-entry-prompt-marker (entry)
   "Return the prompt position of the given History ENTRY."
   (cl-cadddr entry))
 
 
-(defun unrepl-repl--add-input-to-history (str)
+(defun spiral-repl--add-input-to-history (str)
   "Add input STR to history."
   (unless (string= str "")
-    (unrepl-repl--history-add (unrepl-repl--make-history-entry str))))
+    (spiral-repl--history-add (spiral-repl--make-history-entry str))))
 
 
-(defun unrepl-repl--history-add-gid-to-top-entry (group-id)
+(defun spiral-repl--history-add-gid-to-top-entry (group-id)
   "Add GROUP-ID to the top entry in history."
-  (setf (cl-caddr (car unrepl-repl-history)) group-id))
+  (setf (cl-caddr (car spiral-repl-history)) group-id))
 
 
-(defun unrepl-repl--history-set-prompt-marker (history-idx)
+(defun spiral-repl--history-set-prompt-marker (history-idx)
   "Set HISTORY-IDX entry `prompt-marker' to current point."
   (setf
    (cl-cadddr
     (nth
-     (- (length unrepl-repl-history) history-idx)
-     unrepl-repl-history))
+     (- (length spiral-repl-history) history-idx)
+     spiral-repl-history))
    (point-marker)))
 
 
-(defun unrepl-repl-input-history-assoc (conn-id group-id)
+(defun spiral-repl-input-history-assoc (conn-id group-id)
   "Possibly return a list =(:repl-history-idx <some index>)=.
-Check CONN-ID REPL to see if `unrepl-repl-inputting' is true.  If so,
+Check CONN-ID REPL to see if `spiral-repl-inputting' is true.  If so,
 return the tuple using the latest history index available.  nil otherwise.
 
 This function includes an important side effect: If REPL is inputting, the
 latest history entry will be associated with GROUP-ID."
   (with-current-repl
-   (when (and unrepl-repl-inputting
-              unrepl-repl-history)
-     (unrepl-repl--history-add-gid-to-top-entry group-id)
-     `(:repl-history-idx ,(length unrepl-repl-history)))))
+   (when (and spiral-repl-inputting
+              spiral-repl-history)
+     (spiral-repl--history-add-gid-to-top-entry group-id)
+     `(:repl-history-idx ,(length spiral-repl-history)))))
 
 
 
 ;; Interactive
 ;; -------------------------------------------------------------------
 
-(declare-function unrepl-client-send "unrepl-loop")
-(declare-function unrepl-aux-send "unrepl-loop")
-(defun unrepl-repl-return (&optional _end-of-input)
+(declare-function spiral-client-send "spiral-loop")
+(declare-function spiral-aux-send "spiral-loop")
+(defun spiral-repl-return (&optional _end-of-input)
   "Send the current input string to UNREPL for evaluation.
 
 Input is expected to be a complete expression (whole form).  In case of
@@ -502,74 +502,74 @@ there is in there.
 
 Most of the behavior is BORROWED FROM CIDER."
   (interactive "P")
-  (unless (unrepl-repl--in-input-area-p)
+  (unless (spiral-repl--in-input-area-p)
     (error "No input at point"))
-  (unrepl-repl--transient-text-remove)
+  (spiral-repl--transient-text-remove)
   (cond
    ;; (end-of-input
-   ;;  (unrepl-client-send start (point)))
-   ((unrepl-repl--input-complete-p (point-max))
+   ;;  (spiral-client-send start (point)))
+   ((spiral-repl--input-complete-p (point-max))
     (goto-char (point-max))
-    (let ((history-idx (1+ (length unrepl-repl-history))))
-      (thread-first (unrepl-repl--input-str)
-        (unrepl-client-send (lambda (result-payload)
+    (let ((history-idx (1+ (length spiral-repl-history))))
+      (thread-first (spiral-repl--input-str)
+        (spiral-client-send (lambda (result-payload)
                               (with-current-repl
-                               (unrepl-repl-insert-evaluation
+                               (spiral-repl-insert-evaluation
                                 result-payload nil
-                                (unrepl-project-namespace project)
+                                (spiral-project-namespace project)
                                 history-idx))))
-        (unrepl-repl--add-input-to-history)))
-    (unrepl-repl-newline-and-scroll)
-    (setq-local unrepl-repl-inputting t))
+        (spiral-repl--add-input-to-history)))
+    (spiral-repl-newline-and-scroll)
+    (setq-local spiral-repl-inputting t))
    (t
-    (unrepl-repl--newline-and-indent)
+    (spiral-repl--newline-and-indent)
     (message "[input not complete]"))))
 
 
-(defun unrepl-request-symbol-doc ()
+(defun spiral-request-symbol-doc ()
   "Request `clojure.repl/doc' for `symbol-at-point' through the `:aux' conn.
 Point needs to be in the REPL input.
 If `:aux' returns a string of data, display it temporarily as stdout.  This
 would get automatically removed after input is sent."
   (interactive)
-  (when (unrepl-repl--in-input-area-p)
+  (when (spiral-repl--in-input-area-p)
     (when-let (sym (symbol-at-point))
       (with-current-repl
-       (let ((doc-action-templ (unrepl-project-actions-get project :unrepl.el/doc)))
-         (unrepl-aux-send (unrepl-command-template doc-action-templ
-                                                   `((:unrepl.el/symbol . ,sym)))
+       (let ((doc-action-templ (spiral-project-actions-get project :spiral/doc)))
+         (spiral-aux-send (spiral-command-template doc-action-templ
+                                                   `((:spiral/symbol . ,sym)))
                           nil
                           (lambda (stdout-payload group-id)
-                            (unrepl-repl--transient-text-insert group-id
+                            (spiral-repl--transient-text-insert group-id
                                                                 stdout-payload))))))))
 
 
 ;; history
 
-(defun unrepl-repl--replace-input (str)
+(defun spiral-repl--replace-input (str)
   "Replace the current REPL input with STR."
-  (delete-region unrepl-repl-input-start-mark (point-max))
+  (delete-region spiral-repl-input-start-mark (point-max))
   (goto-char (point-max))
   (insert str))
 
 
-(defun unrepl-repl--history-search-in-progress-p ()
+(defun spiral-repl--history-search-in-progress-p ()
   "Return t if there's a search in progress, by looking at `last-command'."
-  (eq last-command 'unrepl-repl--history-replace))
+  (eq last-command 'spiral-repl--history-replace))
 
 
-(defun unrepl-repl--history-replace (direction-fn)
+(defun spiral-repl--history-replace (direction-fn)
   "Replace current input with the next history input following DIRECTION-FN.
 DIRECTION-FN is a function that takes a history index and returns a tuple
 with the next history entry's idx and input string to be evaluated."
   (let* (next-in-history
-         (history-size (length unrepl-repl-history))
+         (history-size (length spiral-repl-history))
          (lookup (cond
-                  ((unrepl-repl--history-search-in-progress-p)
-                   unrepl-repl-history-lookup)
+                  ((spiral-repl--history-search-in-progress-p)
+                   spiral-repl-history-lookup)
                   (t
                    (1+ history-size))))
-         (current-input (unrepl-repl--input-str)))
+         (current-input (spiral-repl--input-str)))
     (setq next-in-history (funcall direction-fn lookup))
     (while (and
             (<= 1 (car next-in-history) history-size)
@@ -580,92 +580,92 @@ with the next history entry's idx and input string to be evaluated."
       (cond
        ((< idx 1) (message "Beginning of history"))
        ((> idx history-size) (message "End of history"))
-       (t (unrepl-repl--replace-input str)))
-      (setq-local unrepl-repl-history-lookup idx))
-    (setq this-command 'unrepl-repl--history-replace)))
+       (t (spiral-repl--replace-input str)))
+      (setq-local spiral-repl-history-lookup idx))
+    (setq this-command 'spiral-repl--history-replace)))
 
 
-(defun unrepl-repl--history-search-tuple (idx)
+(defun spiral-repl--history-search-tuple (idx)
   "Helper function that return a tuple of (index, str) for a given IDX.
 This function makes sure to not get out of history boundaries."
-  (if (<= 1 idx (length unrepl-repl-history))
-      (cons idx (unrepl-repl--history-entry-str
-                 (unrepl-repl--history-get idx)))
+  (if (<= 1 idx (length spiral-repl-history))
+      (cons idx (spiral-repl--history-entry-str
+                 (spiral-repl--history-get idx)))
     (cons idx nil)))
 
 
-(defun unrepl-repl-previous-input ()
+(defun spiral-repl-previous-input ()
   "Replace current input with previous input in history."
   (interactive)
-  (unrepl-repl--history-replace
+  (spiral-repl--history-replace
    (lambda (idx)
-     (unrepl-repl--history-search-tuple (1- idx)))))
+     (spiral-repl--history-search-tuple (1- idx)))))
 
 
-(defun unrepl-repl-next-input ()
+(defun spiral-repl-next-input ()
   "Replace current input with previous input in history."
   (interactive)
-  (unrepl-repl--history-replace
+  (spiral-repl--history-replace
    (lambda (idx)
-     (unrepl-repl--history-search-tuple (1+ idx)))))
+     (spiral-repl--history-search-tuple (1+ idx)))))
 
 
 
 ;; REPL Buffer
 ;; -------------------------------------------------------------------
 
-(defun unrepl-repl-buffer-name (conn-id)
-  "Return a proper name for an UNREPL REPL to CONN-ID."
-  (format "UNREPL[%s]" conn-id))
+(defun spiral-repl-buffer-name (conn-id)
+  "Return a proper name for a SPIRAL REPL to CONN-ID."
+  (format "SPIRAL[%s]" conn-id))
 
-(defun unrepl-repl-create-buffer (conn-id)
-  "Create a new UNREPL buffer for a connection CONN-ID.
+(defun spiral-repl-create-buffer (conn-id)
+  "Create a new SPIRAL buffer for a connection CONN-ID.
 
 This function would kill any buffer that share's the same CONN-ID, to
 guarantee a fresh start.
 
 Associates to it some control local variables:
-- `unrepl-repl-history': holds the current history of this REPL."
-  (let ((buf-name (unrepl-repl-buffer-name conn-id)))
+- `spiral-repl-history': holds the current history of this REPL."
+  (let ((buf-name (spiral-repl-buffer-name conn-id)))
     (when (get-buffer buf-name)
       (kill-buffer buf-name))
     (let ((repl-buffer (get-buffer-create buf-name)))
       (with-current-buffer repl-buffer
-        (unless (derived-mode-p 'unrepl-repl-mode)
-          (unrepl-repl-mode))
+        (unless (derived-mode-p 'spiral-repl-mode)
+          (spiral-repl-mode))
         ;; Init REPL
-        (setq-local unrepl-conn-id conn-id)
-        (setq-local unrepl-repl-prompt-start-mark (make-marker))
-        (setq-local unrepl-repl-input-start-mark (make-marker))
-        (setq-local unrepl-repl-transient-text-start-mark (make-marker))
-        (setq-local unrepl-repl-transient-text-end-mark (make-marker))
+        (setq-local spiral-conn-id conn-id)
+        (setq-local spiral-repl-prompt-start-mark (make-marker))
+        (setq-local spiral-repl-input-start-mark (make-marker))
+        (setq-local spiral-repl-transient-text-start-mark (make-marker))
+        (setq-local spiral-repl-transient-text-end-mark (make-marker))
         (thread-first ";; Waiting on UNREPL... "
           (propertize 'font-lock-face 'font-lock-comment-face)
           (insert))
-        (when unrepl-repl-pop-on-connect
+        (when spiral-repl-pop-on-connect
           (pop-to-buffer repl-buffer))
         repl-buffer))))
 
 
-(defun unrepl-repl-display (conn-id-or-buffer method)
+(defun spiral-repl-display (conn-id-or-buffer method)
   "Display REPL buffer using METHOD.
 METHOD can be either 'switch or 'pop.  Defaults to 'pop.
 CONN-ID-OR-BUFFER is either a connection id or a REPL buffer.
 This function only if it's not displayed in another window already."
   (let ((repl-buffer (if (bufferp conn-id-or-buffer)
                          conn-id-or-buffer
-                       (unrepl-project-repl-buffer
-                        (unrepl-projects-get conn-id-or-buffer)))))
+                       (spiral-project-repl-buffer
+                        (spiral-projects-get conn-id-or-buffer)))))
     (pcase method
       ('switch (switch-to-buffer-other-window repl-buffer t))
       ('pop (when (not (get-buffer-window repl-buffer))
               (pop-to-buffer repl-buffer nil t)))
-      (_ (when unrepl-debug
-           (error "Unrecognized `unrepl-repl-display' method: %S" method))))
+      (_ (when spiral-debug
+           (error "Unrecognized `spiral-repl-display' method: %S" method))))
     repl-buffer))
 
 
-(defun unrepl-repl-connected (conn-id)
+(defun spiral-repl-connected (conn-id)
   "Init the REPL buffer for CONN-ID."
   (with-current-repl
    (thread-first "Connected to %s\n"
@@ -674,104 +674,104 @@ This function only if it's not displayed in another window already."
      (insert))))
 
 
-(defun unrepl-repl-disconnect (conn-id message)
+(defun spiral-repl-disconnect (conn-id message)
   "Disconnect REPL buffer for CONN-ID, and display explanation MESSAGE to user."
-  (with-current-buffer (unrepl-repl-display conn-id 'pop)
+  (with-current-buffer (spiral-repl-display conn-id 'pop)
     (goto-char (point-max))
     (insert "\n\n"
-            (propertize message 'font-lock-face 'unrepl-font-exception-title-face))
+            (propertize message 'font-lock-face 'spiral-font-exception-title-face))
     (let ((inhibit-read-only t))
       (add-text-properties (point-min) (point-max) '(read-only t)))))
 
 
-(defun unrepl-repl--build-prompt (history-id namespace)
+(defun spiral-repl--build-prompt (history-id namespace)
   "Build a prompt for HISTORY-ID and NAMESPACE."
   (format "[%s] %s=> " history-id namespace))
 
 
-(defun unrepl-repl--build-result-indicator (_history-id _namespace)
+(defun spiral-repl--build-result-indicator (_history-id _namespace)
   "Return an indicator for results of evaluation."
   "> ")
 
 
-(defun unrepl-repl--build-exception-indicator (_history-id _namespace)
+(defun spiral-repl--build-exception-indicator (_history-id _namespace)
   "Return an indicator for exception."
   "~ ")
 
 
-(defun unrepl-repl-prompt (conn-id)
+(defun spiral-repl-prompt (conn-id)
   "Insert prompt in CONN-ID'S REPL."
   (with-current-repl
    (goto-char (point-max))
-   (unrepl-repl--newline-if-needed)
+   (spiral-repl--newline-if-needed)
    ;; Remove 'field property from previous prompt
-   ;; (when (marker-position unrepl-repl-prompt-start-mark)
+   ;; (when (marker-position spiral-repl-prompt-start-mark)
    ;;   (let ((inhibit-read-only t))
-   ;;     (remove-text-properties unrepl-repl-prompt-start-mark
-   ;;                             unrepl-repl-input-start-mark
+   ;;     (remove-text-properties spiral-repl-prompt-start-mark
+   ;;                             spiral-repl-input-start-mark
    ;;                             '(field nil))))
    ;; The new prompt starts here, so we mark it.
-   (set-marker unrepl-repl-prompt-start-mark (point))
+   (set-marker spiral-repl-prompt-start-mark (point))
    ;; Tell previous history entry that the new prompt starts here
-   (when unrepl-repl-history
-     (unrepl-repl--history-set-prompt-marker (length unrepl-repl-history)))
+   (when spiral-repl-history
+     (spiral-repl--history-set-prompt-marker (length spiral-repl-history)))
    ;; Insert prompt
-   (unrepl-propertize-region '(font-lock-face unrepl-font-prompt-face
-                                              field unrepl-repl-prompt-field
+   (spiral-propertize-region '(font-lock-face spiral-font-prompt-face
+                                              field spiral-repl-prompt-field
                                               intangible t
                                               read-only t
                                               rear-nonsticky (field font-lock-face intangible read-only))
      (insert
-      (unrepl-repl--build-prompt (1+ (length unrepl-repl-history))
-                                 (unrepl-project-namespace project))))
+      (spiral-repl--build-prompt (1+ (length spiral-repl-history))
+                                 (spiral-project-namespace project))))
    ;; Mark current input start
-   (set-marker unrepl-repl-input-start-mark (point))
-   ;; Reset the `unrepl-repl-inputting' variable.
-   (setq-local unrepl-repl-inputting nil)
-   (unrepl-repl--move-cursor-to-point-max)))
+   (set-marker spiral-repl-input-start-mark (point))
+   ;; Reset the `spiral-repl-inputting' variable.
+   (setq-local spiral-repl-inputting nil)
+   (spiral-repl--move-cursor-to-point-max)))
 
 
-(defun unrepl-repl-insert-evaluation (eval-payload &optional point history-idx namespace)
+(defun spiral-repl-insert-evaluation (eval-payload &optional point history-idx namespace)
   "In CONN-ID REPL buffer, unparse EVAL-PAYLOAD AST node at POINT.
 If POINT is nil, unparse at the end of the buffer.
 HISTORY-IDX and NAMESPACE are used to format/populate an exception prompt
 for the REPL.  If any of them is nil, the exception prompt won't be
 inserted."
   (goto-char (or point (point-max)))
-  (unrepl-repl--newline-if-needed)
-  (unrepl-propertize-region '(font-lock-face unrepl-font-result-prompt-face
+  (spiral-repl--newline-if-needed)
+  (spiral-propertize-region '(font-lock-face spiral-font-result-prompt-face
                                              intangible t
                                              read-only t
                                              rear-nonsticky (font-lock-face intangible read-only))
     (insert
-     (unrepl-repl--build-result-indicator history-idx namespace)))
-  (unrepl-ast-unparse eval-payload)
-  (unrepl-repl-newline-and-scroll))
+     (spiral-repl--build-result-indicator history-idx namespace)))
+  (spiral-ast-unparse eval-payload)
+  (spiral-repl-newline-and-scroll))
 
 
-(defun unrepl-repl-insert-std-stream (type payload &optional point)
+(defun spiral-repl-insert-std-stream (type payload &optional point)
   "Insert std TYPE PAYLOAD at POINT.
 TYPE can be either `:out' or `:err', and it's used to present the unparsed
 PAYLOAD in formatted in a recognizable way.
 PAYLOAD is either a string or a #unrepl/string tagged literal.
 If POINT is nil, prints the payload right before the last prompt"
-  (goto-char (or point unrepl-repl-prompt-start-mark))
+  (goto-char (or point spiral-repl-prompt-start-mark))
   (if (eql type :err)
-      (unrepl-propertize-region '(font-lock-face 'unrepl-font-stderr-face)
-        (unrepl-ast-unparse-stdout-string payload))
-    (unrepl-ast-unparse-stdout-string payload))
+      (spiral-propertize-region '(font-lock-face 'spiral-font-stderr-face)
+        (spiral-ast-unparse-stdout-string payload))
+    (spiral-ast-unparse-stdout-string payload))
   ;; Update marker.
   ;; If point was a marker, move it forward
   ;; If there was no point (*philosophical sadness rushes in*), move
-  ;; `unrepl-repl-prompt-start-mark' forward
+  ;; `spiral-repl-prompt-start-mark' forward
   ;; Else, point was just a point, nothing to do.
   (when (markerp point)
     (set-marker point (point)))
   (unless point
-    (set-marker unrepl-repl-prompt-start-mark (point))))
+    (set-marker spiral-repl-prompt-start-mark (point))))
 
 
-(defun unrepl-repl-handle-std-stream (type conn-id payload group-id)
+(defun spiral-repl-handle-std-stream (type conn-id payload group-id)
   "Figure out where to unparse PAYLOAD for GROUP-ID in CONN-ID REPL.
 TYPE can be either `:out' or `:err', and it's used to present the unparsed
 PAYLOAD in formatted in a recognizable way.
@@ -779,101 +779,101 @@ STDOUT-PAYLOAD is either a string or a #unrepl/string tagged literal.
 GROUP-ID is a number as described in UNREPL docs.
 
 If GROUP-ID is not the same as the current pending evaluation's, and
-`unrepl-repl-group-stdout' is non nil, this function will try to figure out
+`spiral-repl-group-stdout' is non nil, this function will try to figure out
 a place in the REPL buffer where to print the STDOUT-PAYLOAD, by searching
 through history for an entry that shares its same GROUP-ID.  If it can't
 find a match, it will print it at the end of the buffer but before the last
 prompt."
   (with-current-repl
-   (if unrepl-repl-group-stdout
+   (if spiral-repl-group-stdout
        ;; Find the best place to print the output.
-       (let ((pending-eval (unrepl-pending-eval :client conn-id)))
-         (if (unrepl-repl--interactive-input-p group-id)  ;; interactive input
-             (unrepl-repl-insert-phantom-input pending-eval payload 'pop)
-           (if-let (h-entry (unrepl-repl--history-get-by-group-id group-id))
-               (if (eql (unrepl-repl--history-entry-group-id h-entry)
-                        (unrepl-pending-eval-entry-group-id pending-eval))  ;; last repl input
-                   (unrepl-repl-insert-std-stream type payload (point-max))
+       (let ((pending-eval (spiral-pending-eval :client conn-id)))
+         (if (spiral-repl--interactive-input-p group-id)  ;; interactive input
+             (spiral-repl-insert-phantom-input pending-eval payload 'pop)
+           (if-let (h-entry (spiral-repl--history-get-by-group-id group-id))
+               (if (eql (spiral-repl--history-entry-group-id h-entry)
+                        (spiral-pending-eval-entry-group-id pending-eval))  ;; last repl input
+                   (spiral-repl-insert-std-stream type payload (point-max))
                  (save-excursion  ;; old repl input
-                   (unrepl-repl-insert-std-stream
+                   (spiral-repl-insert-std-stream
                     type
                     payload
-                    (unrepl-repl--history-entry-prompt-marker h-entry))))
+                    (spiral-repl--history-entry-prompt-marker h-entry))))
              (save-excursion  ;; didn't find a right place to print, printing before the last prompt
-               (unrepl-repl-insert-std-stream type payload)))))
+               (spiral-repl-insert-std-stream type payload)))))
      ;; Just print right before the last prompt
      (save-excursion
-       (unrepl-repl-insert-std-stream type payload)))))
+       (spiral-repl-insert-std-stream type payload)))))
 
 
-(defun unrepl-repl-insert-exception (payload &optional point history-idx namespace)
+(defun spiral-repl-insert-exception (payload &optional point history-idx namespace)
   "Insert exception PAYLOAD at POINT.
 HISTORY-IDX and NAMESPACE are used to format/populate an exception prompt
 for the REPL.  If any of them is nil, the exception prompt won't be
 inserted."
   (goto-char (or point (point-max)))
-  (unrepl-repl--newline-if-needed)
+  (spiral-repl--newline-if-needed)
   (when (and history-idx namespace)
-    (unrepl-propertize-region '(font-lock-face unrepl-font-exception-prompt-face
+    (spiral-propertize-region '(font-lock-face spiral-font-exception-prompt-face
                                                intangible t
                                                read-only t
                                                rear-nonsticky (font-lock-face intangible read-only))
       (insert
-       (unrepl-repl--build-exception-indicator history-idx namespace))))
-  (unrepl-stacktrace-insert payload))
+       (spiral-repl--build-exception-indicator history-idx namespace))))
+  (spiral-stacktrace-insert payload))
 
 
-(defun unrepl-repl-handle-exception (conn-id payload group-id)
+(defun spiral-repl-handle-exception (conn-id payload group-id)
   "Figure out where to insert exception's PAYLOAD for GROUP-ID in CONN-ID's REPL."
   (with-current-repl
-   (let ((namespace (unrepl-project-namespace project)))
-     (if (unrepl-repl--interactive-input-p group-id)  ;; Interactive input
-         (let ((pending-eval (unrepl-pending-eval :client conn-id)))
-           (unrepl-repl-insert-phantom-input pending-eval payload 'switch))
-       (let ((h-entry (unrepl-repl--history-get-by-group-id group-id)))  ;; REPL input
+   (let ((namespace (spiral-project-namespace project)))
+     (if (spiral-repl--interactive-input-p group-id)  ;; Interactive input
+         (let ((pending-eval (spiral-pending-eval :client conn-id)))
+           (spiral-repl-insert-phantom-input pending-eval payload 'switch))
+       (let ((h-entry (spiral-repl--history-get-by-group-id group-id)))  ;; REPL input
          (when (and (not h-entry)  ;; an exception happened before `:read'
-                    (unrepl-repl--history-entry-group-id (car unrepl-repl-history)))
-           (unrepl-repl--history-add-gid-to-top-entry group-id)
-           (setq h-entry (car unrepl-repl-history)))
-         (unrepl-repl-insert-exception
+                    (spiral-repl--history-entry-group-id (car spiral-repl-history)))
+           (spiral-repl--history-add-gid-to-top-entry group-id)
+           (setq h-entry (car spiral-repl-history)))
+         (spiral-repl-insert-exception
           payload
-          (unrepl-repl--history-entry-prompt-marker h-entry)
-          (unrepl-repl--history-entry-idx h-entry)
+          (spiral-repl--history-entry-prompt-marker h-entry)
+          (spiral-repl--history-entry-idx h-entry)
           namespace))))))
 
 
 
-;; UNREPL REPL mode
+;; SPIRAL REPL mode
 ;; -------------------------------------------------------------------
 
-(defvar unrepl-repl-mode-hook nil
-  "Hook for `unrepl-repl-mode'.")
+(defvar spiral-repl-mode-hook nil
+  "Hook for `spiral-repl-mode'.")
 
-(defvar unrepl-repl-mode-map
+(defvar spiral-repl-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") #'unrepl-repl-return)
-    (define-key map (kbd "C-c C-c") #'unrepl-eval-interrupt)
-    (define-key map (kbd "C-c C-d") #'unrepl-request-symbol-doc)
-    (define-key map (kbd "C-<up>") #'unrepl-repl-previous-input)
-    (define-key map (kbd "C-<down>") #'unrepl-repl-next-input)
+    (define-key map (kbd "RET") #'spiral-repl-return)
+    (define-key map (kbd "C-c C-c") #'spiral-eval-interrupt)
+    (define-key map (kbd "C-c C-d") #'spiral-request-symbol-doc)
+    (define-key map (kbd "C-<up>") #'spiral-repl-previous-input)
+    (define-key map (kbd "C-<down>") #'spiral-repl-next-input)
     map))
 
-(defvar unrepl-repl-mode-syntax-table
+(defvar spiral-repl-mode-syntax-table
   (copy-syntax-table clojure-mode-syntax-table))
 
-(define-derived-mode unrepl-repl-mode fundamental-mode "REPL"
-  "Major mode for Clojure UNREPL interactions.
+(define-derived-mode spiral-repl-mode fundamental-mode "REPL"
+  "Major mode for Clojure SPIRAL interactions.
 
-\\{unrepl-repl-mode-map}"
+\\{spiral-repl-mode-map}"
   (clojure-mode-variables)
   (clojure-font-lock-setup)
-  (unrepl-mode)
-  (set-syntax-table unrepl-repl-mode-syntax-table)
+  (spiral-mode)
+  (set-syntax-table spiral-repl-mode-syntax-table)
   ;; TODO: eldoc
   (hack-dir-local-variables-non-file-buffer)
 
-  (run-hooks 'unrepl-repl-mode-hook))
+  (run-hooks 'spiral-repl-mode-hook))
 
-(provide 'unrepl-repl)
+(provide 'spiral-repl)
 
-;;; unrepl-repl.el ends here
+;;; spiral-repl.el ends here

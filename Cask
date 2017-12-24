@@ -1,7 +1,7 @@
 (source gnu)
 (source melpa)
 
-(package-file "unrepl.el")
+(package-file "spiral.el")
 (files "*.el" (:exclude ".dir-locals.el"))
 
 (development

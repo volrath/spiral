@@ -1,66 +1,71 @@
-#+TITLE:     UNREPL.el (0.1.0)
+#+TITLE:     SPIRAL (beta)
 #+AUTHOR:    Daniel Barreto
 #+EMAIL:     daniel@barreto.tech
-#+DESCRIPTION: UNREPL.el project README
+#+DESCRIPTION: SPIRAL project README
 #+LANGUAGE:  en
 #+OPTIONS:   H:4 num:nil toc:2 p:t
 #+STARTUP: showall
 
 #+caption: Build Status
-[[https://travis-ci.org/Unrepl/unrepl.el][file:https://travis-ci.org/Unrepl/unrepl.el.svg?branch=master]]
+[[https://travis-ci.org/Unrepl/spiral][file:https://travis-ci.org/Unrepl/spiral.svg?branch=master]]
 
 Emacs >= 25.1, Clojure >= 1.8.0
 
 Pick your definition:
-- UNREPL.el is a Clojure IDE for Emacs.
-- UNREPL.el is a client interface to a Clojure's Socket REPL through the [[https://github.com/unrepl/unrepl][UNREPL]]
+- SPIRAL is a Clojure IDE for Emacs.
+- SPIRAL is a client interface to a Clojure's Socket REPL through the [[https://github.com/unrepl/unrepl][UNREPL]]
   protocol.
 
 * Introduction
   Both definitions above are correct and complement each other.
 
-  UNREPL.el started as a simple experiment for using the [[https://github.com/unrepl/unrepl][UNREPL]] protocol as the
+  SPIRAL started as a simple experiment for using the [[https://github.com/unrepl/unrepl][UNREPL]] protocol as the
   communication method between an Emacs buffer and a Clojure Socket REPL.  With
   the pass of time, it has been evolving into a baby Clojure IDE.  Currently it
   has a fair amount of [[#features][Features]].
 
-  UNREPL.el's UI is meant to rely heavily on the REPL buffer for displaying any
+  SPIRAL's UI is meant to rely heavily on the REPL buffer for displaying any
   kind of data that may be too big or complex to display in the Echo Area or as
   an overlay.  The main idea is to allow you maintain focus on only two things
   during your development workflow: Your Clojure code (in =clojure-mode=
-  buffers) and the REPL buffer.  UNREPL.el will try, whenever possible and
+  buffers) and the REPL buffer.  SPIRAL will try, whenever possible and
   reasonable, to favor displaying data in the REPL buffer over using external
   temporary buffers.
 
-  UNREPL.el is of the same nature as [[https://cider.readthedocs.io/en/latest/][CIDER]]. In fact, UREPL.el takes a lot of
+  SPIRAL is of the same nature as [[https://cider.readthedocs.io/en/latest/][CIDER]]. In fact, SPIRAL takes a lot of
   inspiration from CIDER's features, but both differ in certain UI decisions
   (included the aforementioned.)
 
-  Another important difference is that UNREPL.el is meant to be used to connect
-  to Socket REPLs, where CIDER is built to connect to [[https://github.com/clojure/tools.nrepl][nREPL]].  Both Socket REPLs
-  and nREPL serve the purpose of allowing you to connect to a running Clojure
+  Another important difference is that SPIRAL is meant to be used to connect to
+  Socket REPLs, where CIDER is built to connect to [[https://github.com/clojure/tools.nrepl][nREPL]].  Both Socket REPLs and
+  nREPL serve the purpose of allowing you to connect to a running Clojure
   process, send it stuff to be evaluated and get data back.  If you want to get
   deeper into these concepts, I encourage you to go read Arne Brasseur's
   [[https://lambdaisland.com/guides/clojure-repls][The Ultimate Guide To Clojure REPLs]].
 
-  Lastly, UNREPL.el is a young project, so if you are new to Clojure development
-  in Emacs, for now I would recommend to start with [[https://cider.readthedocs.io/en/latest/][CIDER]], since it's more
-  stable, more & better documented, and has a bigger community behind it.
+  Lastly, SPIRAL is a young project, so if you are new to Clojure development in
+  Emacs, for now I would recommend to start with [[https://cider.readthedocs.io/en/latest/][CIDER]], since it's more stable,
+  more & better documented, and has a bigger community behind it.
 
 * Features
   :PROPERTIES:
   :CUSTOM_ID: Features
   :END:
 
-*** Automatically create a Socket REPL using your project's build tool
-    UNREPL.el currently supports [[https://leiningen.org/][Leiningen]] or [[http://boot-clj.com/][Boot]] >= 2.7.2.
+  SPIRAL was previously named UNREPL.el, and all of its commands started with
+  =unrepl-*=.  These gifs were created by then, so they might show outdated
+  commands.  Just replace =unrepl-= with =spiral-= in your mind, everything will
+  be alright!
 
-    #+caption: M-x unrepl-connect
+*** Automatically create a Socket REPL using your project's build tool
+    SPIRAL currently supports [[https://leiningen.org/][Leiningen]] or [[http://boot-clj.com/][Boot]] >= 2.7.2.
+
+    #+caption: M-x spiral-connect
     [[file:gifs/connect.gif]]
 
 *** Connect to an existing Socket REPL
 
-    #+caption: M-x unrepl-connect-to
+    #+caption: M-x spiral-connect-to
     [[file:gifs/connect-to.gif]]
 
 *** Elided data structures
@@ -71,14 +76,14 @@ Pick your definition:
     [[file:gifs/elision.gif]]
 
 *** Playing with Images? why not opening them in the REPL?
-    UNREPL.el supports displaying buffered images directly in the REPL.
+    SPIRAL supports displaying buffered images directly in the REPL.
 
     #+caption: Image support
     [[file:gifs/hendrix.gif]]
 
 *** Standard output strings can be grouped into their respective REPL entries
     This is a customizable feature, you can turn it off by setting
-    =unrepl-repl-group-stdout= to =nil=.
+    =spiral-repl-group-stdout= to =nil=.
 
     #+caption: Grouped stdout strings
     [[file:gifs/grouped-outs.gif]]
@@ -112,7 +117,7 @@ Pick your definition:
     When interactive results are too big for in-buffer overlays, you can just
     move them to the REPL buffer and inspect them there.
 
-    UNREPL.el will also copy/paste the evaluated expression and add it to the
+    SPIRAL will also copy/paste the evaluated expression and add it to the
     REPL history.
 
     #+caption: Interactive inspection
@@ -120,14 +125,14 @@ Pick your definition:
 
 *** Interactive Exception happened? Inspect it in the REPL
     Exceptions are shown in the REPL buffer, no matter where they come from.
-    UNREPL.el will try to figure out which expression caused the exception and
+    SPIRAL will try to figure out which expression caused the exception and
     will copy it to the REPL buffer as well.
 
     #+caption: Interactive exception
     [[file:gifs/interactive-exception.gif]]
 
 *** And there is more to come...
-    Before releasing the first UNREPL.el stable version, a couple more features
+    Before releasing the first SPIRAL stable version, a couple more features
     might land in:
     - REPL pretty printing for evaluation results.
     - Visible UI for interrupting pending evaluations.
@@ -136,7 +141,7 @@ Pick your definition:
 * (not so) Quick Start
 
 ** Installing
-   As of right now, UNREPL.el is not in [[http://melpa.milkbox.net/#/][MELPA]] yet, so in order to install it,
+   As of right now, SPIRAL is not in [[http://melpa.milkbox.net/#/][MELPA]] yet, so in order to install it,
    you might need to get your hands a bit dirty:
 
    1. Install [[https://github.com/plexus/a.el][a.el]], [[https://github.com/clojure-emacs/clojure-mode][clojure-mode]], and [[https://github.com/volrath/treepy.el][treepy]].  All available in [[http://melpa.milkbox.net/#/][MELPA]].
@@ -152,23 +157,23 @@ Pick your definition:
       evaluate it:
 
       #+BEGIN_SRC emacs-lisp
-      (let ((unrepl-dir "/path/to/your/copy/of/unrepl.el/"))
-        (add-to-list 'load-path unrepl-dir)
-        (add-to-list 'load-path (expand-file-name "parseclj" unrepl-dir))
-        (require 'unrepl))
+      (let ((spiral-dir "/path/to/your/copy/of/unrepl.el/"))
+        (add-to-list 'load-path spiral-dir)
+        (add-to-list 'load-path (expand-file-name "parseclj" spiral-dir))
+        (require 'spiral))
       #+END_SRC
 
 ** Connecting to a Socket REPL
    The main way to connect to a Socket REPL in UNREPL.EL is by issuing:
-   =M-x unrepl-connect=.
+   =M-x spiral-connect=.
 
    When this command is executed in a buffer that belongs to a Clojure project,
    it will automagically create a Socket REPL for it and connect.  Right now,
-   UNREPL.el supports only automatic connection in projects using [[https://leiningen.org/][Leiningen]] or
-   [[http://boot-clj.com/][Boot]] >= 2.7.2.
+   SPIRAL supports only automatic connection in projects using [[https://leiningen.org/][Leiningen]] or [[http://boot-clj.com/][Boot]]
+   >= 2.7.2.
 
    If you already have a Socket REPL running, you can prefix the connect command
-   (=C-u M-x unrepl-connect=) or issue =M-x unrepl-connect-to= to get a prompt
+   (=C-u M-x spiral-connect=) or issue =M-x spiral-connect-to= to get a prompt
    for inserting your Socket's host and port.
 
    There are several ways to create your own Socket REPL, here are some examples:
@@ -184,13 +189,13 @@ Pick your definition:
     $ java -Dclojure.server.myrepl="{:port 5555,:accept,clojure.core.server/repl}" -jar ~/.m2/repository/org/clojure/clojure/1.8.0/clojure-1.8.0.jar
     #+END_SRC
 
-   After UNREPL.el successfully connects to a Socket REPL you will be greeted
-   with a REPL Buffer, and all your Clojure buffers related to the project you
-   just connected will have the =unrepl-mode= activated automatically.
+   After SPIRAL successfully connects to a Socket REPL you will be greeted with
+   a REPL Buffer, and all your Clojure buffers related to the project you just
+   connected will have the =spiral-mode= activated automatically.
 
 ** Usage
-   Besides the REPL Buffer, UNREPL.el enables a few commands in each Clojure
-   Buffer running =unrepl-mode=:
+   Besides the REPL Buffer, SPIRAL enables a few commands in each Clojure Buffer
+   running =spiral-mode=:
 
    - Autocompletion with [[http://company-mode.github.io/][company-mode]].
    - =C-c C-z=: Switch to REPL buffer
@@ -199,7 +204,7 @@ Pick your definition:
    - =C-c C-r=: Send last evaluation to the REPL buffer.
    - =C-c C-b=: Evaluate buffer.
    - =C-c C-g=: Interrupt current evaluation.
-   - =C-c C-q=: Quit UNREPL.el
+   - =C-c C-q=: Quit SPIRAL
 
 * Resources
   - [[https://github.com/unrepl/unrepl][UNREPL]]: the protocol.

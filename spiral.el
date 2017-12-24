@@ -1,6 +1,6 @@
-;;; unrepl.el --- Clojure Socket REPL Client based on UNREPL -*- lexical-binding: t; -*-
+;;; spiral.el --- Clojure IDE based on UNREPL -*- lexical-binding: t; -*-
 ;;
-;; Filename: unrepl.el
+;; Filename: spiral.el
 ;; Description:
 ;; Author: Daniel Barreto <daniel@barreto.tech>
 ;; Maintainer: Daniel Barreto <daniel@barreto.tech>
@@ -8,7 +8,7 @@
 ;; Created: Thu Nov  9 23:26:00 2017 (+0100)
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "25.1") (a "0.1.0alpha4") (clojure-mode "5.6.0") (treepy "1.0.0"))
-;; URL: https://github.com/volrath/unrepl.el
+;; URL: https://github.com/Unrepl/spiral
 ;; Keywords: languages, clojure
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -36,84 +36,84 @@
 ;;
 ;;; Code:
 
-(require 'unrepl-loop)
-(require 'unrepl-mode)
-(require 'unrepl-project)
-(require 'unrepl-socket)
-(require 'unrepl-util)
+(require 'spiral-loop)
+(require 'spiral-mode)
+(require 'spiral-project)
+(require 'spiral-socket)
+(require 'spiral-util)
 
 
-(defvar unrepl-connect--history nil
-  "Used as a minibuffer history variable for `unrepl-connect' prompt.")
+(defvar spiral-connect--history nil
+  "Used as a minibuffer history variable for `spiral-connect' prompt.")
 
 
-(defun unrepl--assoc-buffer (project &optional new-p)
+(defun spiral--assoc-buffer (project &optional new-p)
   "Associate current buffer to PROJECT.
 If NEW-P is non-nil, search for all other clojure-mode buffers in PROJECT's
 project-dir and associate them to the same project."
   (when (derived-mode-p 'clojure-mode)
-    (let ((conn-id (unrepl-project-id project)))
-      (unrepl-mode-turn-on conn-id)
-      (when (and unrepl-auto-mode new-p)
-        (unrepl-mode-enable-auto)
-        (dolist (buf (unrepl-project-buffers project))
-          (unrepl-mode-turn-on conn-id buf))))
-    (message "Successfully connected to %s" (unrepl-project-repr project))))
+    (let ((conn-id (spiral-project-id project)))
+      (spiral-mode-turn-on conn-id)
+      (when (and spiral-auto-mode new-p)
+        (spiral-mode-enable-auto)
+        (dolist (buf (spiral-project-buffers project))
+          (spiral-mode-turn-on conn-id buf))))
+    (message "Successfully connected to %s" (spiral-project-repr project))))
 
 
-(defun unrepl--init-project-connection (host port project-dir
+(defun spiral--init-project-connection (host port project-dir
                                              &optional server-proc)
   "Create a new Project for PROJECT-DIR with a conn-pool connected to HOST:PORT.
-Adds the project to `unrepl-projects'.  This function can be called for
+Adds the project to `spiral-projects'.  This function can be called for
 Socket REPLs that are already running, or it can be called for a Socket
-REPL that has been automatically created by UNREPL.el, in which case
+REPL that has been automatically created by SPIRAL, in which case
 SERVER-PROC should be the process that represents it."
-  (let* ((conn-id (unrepl-make-conn-id host port))
-         (conn-pool `((:client . ,(unrepl-socket-connect
+  (let* ((conn-id (spiral-make-conn-id host port))
+         (conn-pool `((:client . ,(spiral-socket-connect
                                    :client host port
-                                   #'unrepl-loop-client-dispatcher))))
-         (new-project (unrepl-create-project conn-id
+                                   #'spiral-loop-client-dispatcher))))
+         (new-project (spiral-create-project conn-id
                                              project-dir
                                              conn-pool
                                              server-proc)))
-    (unrepl-projects-add new-project)
+    (spiral-projects-add new-project)
     new-project))
 
 
-(defun unrepl--connection-prompt-choices (project-dir)
+(defun spiral--connection-prompt-choices (project-dir)
   "Return a list of available connections.
 The returned list will have connections related to PROJECT-DIR appear
 first."
-  (let* ((projects (unrepl-projects-as-list))
+  (let* ((projects (spiral-projects-as-list))
          (for-project-dir (seq-filter (lambda (p)
-                                        (string= (unrepl-project-dir p) project-dir))
+                                        (string= (spiral-project-dir p) project-dir))
                                       projects))
          (rest (seq-filter (lambda (p)
-                             (not (string= (unrepl-project-dir p) project-dir)))
+                             (not (string= (spiral-project-dir p) project-dir)))
                            projects)))
-    (mapcar #'unrepl-project-repr (append for-project-dir rest))))
+    (mapcar #'spiral-project-repr (append for-project-dir rest))))
 
 
-(defun unrepl--connection-prompt (&optional project-dir)
+(defun spiral--connection-prompt (&optional project-dir)
   "Prompt the user for a Clojure Socket REPL coordinates.
 The user is prompted based on available connections found in
-`unrepl-projects', with the possibility to specify a host:port for a
+`spiral-projects', with the possibility to specify a host:port for a
 project that might not be in the existing choices.
 
-This function returns a list with an UNREPL project and a 'new project'
+This function returns a list with an SPIRAL project and a 'new project'
 boolean flag (nil or t-ish) indicating if the selected project comes from
 an existing selection (nil), or if it was brand new (t-ish).
 
-If PROJECT-DIR is non-nil and a string, `unrepl-projects' connections
+If PROJECT-DIR is non-nil and a string, `spiral-projects' connections
 already created for PROJECT-DIR will appear first in the list."
-  (let* ((connection-choices (unrepl--connection-prompt-choices project-dir))
+  (let* ((connection-choices (spiral--connection-prompt-choices project-dir))
          (prompt (if connection-choices
                      "Select project (or type <host>:<port> for a new connection): "
                    "Type <host>:<port> coordinates of your running Socket REPL: "))
          (selection (completing-read prompt
                                      connection-choices
                                      nil nil nil
-                                     'unrepl-connect--history
+                                     'spiral-connect--history
                                      (car connection-choices)))
          (conn-id-regexp "[^\\:]+:[0-9]+")
          (named-project-repr-regexp (format "[a-zA-Z0-9].* \\[\\(%s\\)\\]"
@@ -123,26 +123,26 @@ already created for PROJECT-DIR will appear first in the list."
                         ((string-match-p conn-id-regexp selection)
                          (intern selection))
                         (t (user-error "%S does not look like a valid <host>:<port>" selection)))))
-    (if-let (project (unrepl-projects-get conn-id))
-        (list (unrepl-projects-get conn-id) nil)
-      (let* ((host-port (unrepl-conn-host-port conn-id))
+    (if-let (project (spiral-projects-get conn-id))
+        (list (spiral-projects-get conn-id) nil)
+      (let* ((host-port (spiral-conn-host-port conn-id))
              (host (car host-port))
              (port (cdr host-port)))
-        (list (unrepl--init-project-connection host port project-dir)
+        (list (spiral--init-project-connection host port project-dir)
               'new)))))
 
 
-(defun unrepl--connect-to (host port &optional buffer)
+(defun spiral--connect-to (host port &optional buffer)
   "Create a project for a connection to a Socket REPL running on HOST:PORT.
 If BUFFER is non-nil, associates it to the new project/connection.
 
 This function is meant to be a debugging helper, and not to be used to
-connect to socket REPLs.  Refer to `unrepl-connect' and
-`unrepl-connect-to'."
-  (let ((project (unrepl--init-project-connection host port (unrepl-clojure-dir))))
+connect to socket REPLs.  Refer to `spiral-connect' and
+`spiral-connect-to'."
+  (let ((project (spiral--init-project-connection host port (spiral-clojure-dir))))
     (when buffer
       (with-current-buffer buffer
-        (unrepl--assoc-buffer project 'new)))))
+        (spiral--assoc-buffer project 'new)))))
 
 
 
@@ -150,7 +150,7 @@ connect to socket REPLs.  Refer to `unrepl-connect' and
 ;; -------------------------------------------------------------------
 
 ;;;###autoload
-(defun unrepl-connect (&optional just-ask)
+(defun spiral-connect (&optional just-ask)
   "Ask user for a Clojure Socket REPL coordinates and connect to it.
 Use a list of suitable connections to aid the user into selecting and
 connecting to an existing one.  Before connecting, this command will try to
@@ -170,34 +170,34 @@ way."
              (concat "This is not a Clojure buffer. You can connect to a Socket "
                      "REPL but this buffer won't be able to interact with it.\n"
                      "Do you still want to create a connection to a REPL? ")))
-    (let* ((project-dir (unrepl-clojure-dir))
-           (project (unrepl-projects-get-by-dir project-dir)))
+    (let* ((project-dir (spiral-clojure-dir))
+           (project (spiral-projects-get-by-dir project-dir)))
       (cond ((or just-ask (not (derived-mode-p 'clojure-mode)))
-             (apply #'unrepl--assoc-buffer (unrepl--connection-prompt project-dir)))
-            (unrepl-conn-id (thread-first (concat
+             (apply #'spiral--assoc-buffer (spiral--connection-prompt project-dir)))
+            (spiral-conn-id (thread-first (concat
                                            "You are already connected to %s.  "
                                            "If you really want to change this connection, "
-                                           "type `C-u \\[unrepl-connect]'")
-                              (format unrepl-conn-id)
+                                           "type `C-u \\[spiral-connect]'")
+                              (format spiral-conn-id)
                               (substitute-command-keys)
                               (message)
                               (ding)))
-            (project (unrepl--assoc-buffer project))
-            (project-dir (unrepl-socket-create-server
+            (project (spiral--assoc-buffer project))
+            (project-dir (spiral-socket-create-server
                           (lambda (process host port)
-                            (unrepl--assoc-buffer
-                             (unrepl--init-project-connection host port project-dir process)
+                            (spiral--assoc-buffer
+                             (spiral--init-project-connection host port project-dir process)
                              'new))))
-            (t (apply #'unrepl--assoc-buffer (unrepl--connection-prompt)))))))
+            (t (apply #'spiral--assoc-buffer (spiral--connection-prompt)))))))
 
 
 ;;;###autoload
-(defun unrepl-connect-to ()
-  "Same as `unrepl-connect' but force a prompt so the user can decide where to connect."
+(defun spiral-connect-to ()
+  "Same as `spiral-connect' but force a prompt so the user can decide where to connect."
   (interactive)
-  (unrepl-connect 'ask!))
+  (spiral-connect 'ask!))
 
 
-(provide 'unrepl)
+(provide 'spiral)
 
-;;; unrepl.el ends here
+;;; spiral.el ends here

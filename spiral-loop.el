@@ -1,6 +1,6 @@
-;;; unrepl-loop.el --- UNREPL EDN messages processing -*- lexical-binding: t; -*-
+;;; spiral-loop.el --- UNREPL EDN messages processing -*- lexical-binding: t; -*-
 ;;
-;; Filename: unrepl-loop.el
+;; Filename: spiral-loop.el
 ;; Author: Daniel Barreto <daniel@barreto.tech>
 ;; Maintainer: Daniel Barreto <daniel@barreto.tech>
 ;; Copyright (C) 2017 Daniel Barreto
@@ -36,56 +36,56 @@
 (require 'subr-x)
 (require 'treepy)
 
-(require 'unrepl-ast)
-(require 'unrepl-mode)
-(require 'unrepl-project)
-(require 'unrepl-repl)
+(require 'spiral-ast)
+(require 'spiral-mode)
+(require 'spiral-project)
+(require 'spiral-repl)
 
 
-(defcustom unrepl-aux-sync-request-timeout 10
+(defcustom spiral-aux-sync-request-timeout 10
   "The number of seconds to wait for a sync response.
 Setting this to nil disables the timeout functionality."
   :type 'integer
-  :group 'unrepl)
+  :group 'spiral)
 
-(defvar-local unrepl-loop-process-type nil
+(defvar-local spiral-loop-process-type nil
   "Type of process.
 This local variable is meant to be set in conn-pool processes' buffers so
 that they are easily distinguishable.")
 
-(defvar-local unrepl-loop-process-dispatcher nil
+(defvar-local spiral-loop-process-dispatcher nil
   "The EDN message dispatcher function for a process buffer.")
 
-(defvar-local unrepl-loop-process-output-start 1
+(defvar-local spiral-loop-process-output-start 1
   "The start of the most recent output UNREPL message.")
 
-(defvar-local unrepl-loop-greeted-p nil
+(defvar-local spiral-loop-greeted-p nil
   "Predicate that defines if the client for the current buffer has been greeted already.")
 
 
-(defun unrepl-loop--announce-greeting-p (process)
+(defun spiral-loop--announce-greeting-p (process)
   "Decide whether or not to announce this PROCESS greetings."
   (with-current-buffer (process-buffer process)
-    (eql unrepl-loop-process-type :client)))
+    (eql spiral-loop-process-type :client)))
 
 
-(defun unrepl-loop--send (conn-id proc-type str &optional no-line-break)
+(defun spiral-loop--send (conn-id proc-type str &optional no-line-break)
   "Send input STR to PROC-TYPE of CONN-ID.
 PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'.
 By default, this function will add a new line after STR.  NO-LINE-BREAK
 overrides this behavior."
-  (let* ((project (unrepl-projects-get conn-id))
-         (proc (unrepl-project-conn-pool-get-process project proc-type)))
+  (let* ((project (spiral-projects-get conn-id))
+         (proc (spiral-project-conn-pool-get-process project proc-type)))
     (process-send-string proc (concat str (unless no-line-break "\n")))
     str))
 
 
-(defun unrepl-loop--destructure-message-ast (msg-node)
+(defun spiral-loop--destructure-message-ast (msg-node)
   "Traverse MSG-NODE and return its UNREPL tag, payload and group-id.
 Tag is returned as a keyword.
 Payload is returned as a parseclj AST node.
 Group-id is returned as an integer."
-  (let* ((zp (unrepl-ast-zip msg-node))
+  (let* ((zp (spiral-ast-zip msg-node))
          (tag (thread-first zp
                 (treepy-down)
                 (treepy-node)
@@ -103,17 +103,17 @@ Group-id is returned as an integer."
     (list tag payload group-id)))
 
 
-(defun unrepl-loop-handle-proc-message (process output)
+(defun spiral-loop-handle-proc-message (process output)
   "Decode OUTPUT's EDN messages from PROCESS, and dispatch accordingly."
   (let ((proc-buf (process-buffer process)))
     (with-current-buffer proc-buf
-      (unless unrepl-loop-greeted-p
+      (unless spiral-loop-greeted-p
         (when-let (hello-match (string-match-p "\\[:unrepl.*/hello" output))
           (setq output (substring output hello-match))
-          (setq-local unrepl-loop-greeted-p t)
-          (when (unrepl-loop--announce-greeting-p process)
+          (setq-local spiral-loop-greeted-p t)
+          (when (spiral-loop--announce-greeting-p process)
             (message "UNREPL says hi!"))))
-      (when unrepl-loop-greeted-p
+      (when spiral-loop-greeted-p
         (goto-char (point-max))
         (insert output)
 
@@ -121,23 +121,23 @@ Group-id is returned as an integer."
         ;; message.
         ;; If output ends in ]\n we assume it is complete, and we iterate over
         ;; all possible forms in it.
-        (when (string-suffix-p "]\n" (buffer-substring-no-properties unrepl-loop-process-output-start
+        (when (string-suffix-p "]\n" (buffer-substring-no-properties spiral-loop-process-output-start
                                                                      (point-max)))
-          (goto-char unrepl-loop-process-output-start)
+          (goto-char spiral-loop-process-output-start)
           (mapc (lambda (msg-ast-node)
-                  (apply unrepl-loop-process-dispatcher
-                         unrepl-conn-id
-                         (unrepl-loop--destructure-message-ast msg-ast-node)))
+                  (apply spiral-loop-process-dispatcher
+                         spiral-conn-id
+                         (spiral-loop--destructure-message-ast msg-ast-node)))
                 (parseclj-ast-children (parseclj-parse-clojure)))
-          (setq-local unrepl-loop-process-output-start (point-max)))))))
+          (setq-local spiral-loop-process-output-start (point-max)))))))
 
 
 
 ;; Client Process
 ;; =============================================================================
 
-(defun unrepl-client-send (str &optional eval-callback stdout-callback buffer)
-  "Send input STR to UNREPL client connection.
+(defun spiral-client-send (str &optional eval-callback stdout-callback buffer)
+  "Send input STR to UNREPL using the client connection.
 EVAL-CALLBACK is a function that takes the evaluation payload and displays
 it in any given way.
 STDOUT-CALLBACK is a function that takes any output payload taken from this
@@ -145,9 +145,9 @@ evaluation and process it in any given way.
 If the given STR input is interactive, BUFFER gets saved into the new
 pending evaluation so that it can be moved to said buffer as 'latest
 evaluation' before being discarded from the pending evaluations queue.
-Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (prog1 (unrepl-loop--send unrepl-conn-id :client str)
-    (unrepl-pending-eval-add :client unrepl-conn-id
+Connection to sent the input to is inferred from `spiral-conn-id'."
+  (prog1 (spiral-loop--send spiral-conn-id :client str)
+    (spiral-pending-eval-add :client spiral-conn-id
                              :status :sent
                              :input str
                              :buffer buffer
@@ -155,8 +155,8 @@ Connection to sent the input to is inferred from `unrepl-conn-id'."
                              :stdout-callback stdout-callback)))
 
 
-(defun unrepl-loop-client-dispatcher (conn-id tag payload &optional group-id)
-  "Dispatch an UNREPL message to an `unrepl-loop--client-*' message handler.
+(defun spiral-loop-client-dispatcher (conn-id tag payload &optional group-id)
+  "Dispatch an UNREPL message to an `spiral-loop--client-*' message handler.
 CONN-ID is provided to client message handlers so they know which
 project/repl to modify.
 TAG is the UNREPL tag, and it's used to select the handler function for the
@@ -164,22 +164,22 @@ message.
 PAYLOAD is a parseclj AST node of the message's payload.
 GROUP-ID is a number."
   (pcase tag
-    (:unrepl/hello (unrepl-loop--client-hello conn-id payload))
-    (:prompt (unrepl-loop--client-prompt conn-id payload))
-    (:read (unrepl-loop--client-read conn-id payload group-id))
-    (:started-eval (unrepl-loop--client-started-eval conn-id payload group-id))
-    (:eval (unrepl-loop--client-eval conn-id payload group-id))
-    (:out (unrepl-loop--client-std-stream conn-id payload group-id :out))
-    (:err (unrepl-loop--client-std-stream conn-id payload group-id :err))
-    (:exception (unrepl-loop--client-exception-handler conn-id payload group-id))
-    (:bye (unrepl-loop--bye-handler :client conn-id payload))
-    (_ (when unrepl-debug
+    (:unrepl/hello (spiral-loop--client-hello conn-id payload))
+    (:prompt (spiral-loop--client-prompt conn-id payload))
+    (:read (spiral-loop--client-read conn-id payload group-id))
+    (:started-eval (spiral-loop--client-started-eval conn-id payload group-id))
+    (:eval (spiral-loop--client-eval conn-id payload group-id))
+    (:out (spiral-loop--client-std-stream conn-id payload group-id :out))
+    (:err (spiral-loop--client-std-stream conn-id payload group-id :err))
+    (:exception (spiral-loop--client-exception-handler conn-id payload group-id))
+    (:bye (spiral-loop--bye-handler :client conn-id payload))
+    (_ (when spiral-debug
          (error (format "[client] Unrecognized message: %S" tag))))))
 
 ;; Message Processing
 ;; ------------------
 
-(defmacro unrepl-loop--unpack-payload (vars &rest body)
+(defmacro spiral-loop--unpack-payload (vars &rest body)
   "Take VARS out of `payload' and make them available in BODY scope.
 This macro assumes the existence of a `payload' variable in scope, if there
 isn't, an error will be raised.
@@ -192,165 +192,164 @@ gets executed."
   (declare (indent 1))
   `(let (,@(mapcar
             (lambda (v)
-              `(,v (unrepl-ast-map-elt payload ,(intern-soft (format ":%s" v)))))
+              `(,v (spiral-ast-map-elt payload ,(intern-soft (format ":%s" v)))))
             vars))
      ,@body))
 
 
-(declare-function unrepl-socket-connect "unrepl-socket")
-(defun unrepl-loop--client-hello (conn-id payload)
+(declare-function spiral-socket-connect "spiral-socket")
+(defun spiral-loop--client-hello (conn-id payload)
   "Handle a `:unrepl/hello' message transmitted through CONN-ID.
 It processes the PAYLOAD to init the corresponding REPL and subsequent
 evaluation of inputs."
-  (unrepl-loop--unpack-payload
-      (actions)
-    (unrepl-repl-connected conn-id)                   ;; Start REPL
-    (unrepl-project-set-in conn-id :actions actions)  ;; Store global actions
+  (spiral-loop--unpack-payload (actions)
+    (spiral-repl-connected conn-id)                   ;; Start REPL
+    (spiral-project-set-in conn-id :actions actions)  ;; Store global actions
     ;; And start aux connections
-    (let* ((host-port (unrepl-conn-host-port conn-id))
+    (let* ((host-port (spiral-conn-host-port conn-id))
            (host (car host-port))
            (port (cdr host-port))
-           (start-aux-msg (unrepl-command-template (unrepl-ast-map-elt actions :start-aux)))
-           (start-sl-msg (unrepl-command-template (unrepl-ast-map-elt actions :unrepl.jvm/start-side-loader))))
-      (unrepl-project-conn-pool-set-in
+           (start-aux-msg (spiral-command-template (spiral-ast-map-elt actions :start-aux)))
+           (start-sl-msg (spiral-command-template (spiral-ast-map-elt actions :unrepl.jvm/start-side-loader))))
+      (spiral-project-conn-pool-set-in
        conn-id
-       :aux (unrepl-socket-connect :aux host port
-                                   #'unrepl-loop-aux-handler
+       :aux (spiral-socket-connect :aux host port
+                                   #'spiral-loop-aux-handler
                                    (concat start-aux-msg "\n"))
-       :side-loader (unrepl-socket-connect :side-loader host port
-                                           #'unrepl-loop-side-loader-handler
+       :side-loader (spiral-socket-connect :side-loader host port
+                                           #'spiral-loop-side-loader-handler
                                            (concat start-sl-msg "\n"))))))
 
 
-(defun unrepl-loop--client-prompt (conn-id payload)
+(defun spiral-loop--client-prompt (conn-id payload)
   "Handle a `:prompt' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:prompt' as a AST NODE."
   (let* ((previous-ns (thread-first conn-id
-                        (unrepl-projects-get)
-                        (unrepl-project-namespace)))
+                        (spiral-projects-get)
+                        (spiral-project-namespace)))
          (new-ns (thread-first payload
-                   (unrepl-ast-map-elt 'clojure.core/*ns*)  ;; tagged element
+                   (spiral-ast-map-elt 'clojure.core/*ns*)  ;; tagged element
                    (parseclj-ast-children)
                    (car)                                    ;; actual ns symbol
                    (parseclj-ast-value)))
          (changed-namespace-p (not (eq previous-ns new-ns))))
-    (unrepl-project-set-in conn-id :namespace new-ns)
-    (if-let (pending-eval (unrepl-pending-evals-shift :client conn-id))
+    (spiral-project-set-in conn-id :namespace new-ns)
+    (if-let (pending-eval (spiral-pending-evals-shift :client conn-id))
         (progn
-          (when (or (unrepl-pending-eval-entry-history-idx pending-eval)
+          (when (or (spiral-pending-eval-entry-history-idx pending-eval)
                     changed-namespace-p)
-            (unrepl-repl-prompt conn-id))
-          (when-let (buffer (unrepl-pending-eval-entry-buffer pending-eval))
+            (spiral-repl-prompt conn-id))
+          (when-let (buffer (spiral-pending-eval-entry-buffer pending-eval))
             (with-current-buffer buffer
-              (setq-local unrepl-latest-eval pending-eval))))
-      (unrepl-repl-prompt conn-id))))
+              (setq-local spiral-latest-eval pending-eval))))
+      (spiral-repl-prompt conn-id))))
 
 
-(defun unrepl-loop--client-read (conn-id _payload group-id)
+(defun spiral-loop--client-read (conn-id _payload group-id)
   "Handle a `:read' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:read' as a hash table.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (let ((history-assoc (unrepl-repl-input-history-assoc conn-id group-id)))
+  (let ((history-assoc (spiral-repl-input-history-assoc conn-id group-id)))
     ;; `history-assoc' is either nil or a tuple that contains
     ;; `:repl-history-idx' as its first element and a history entry id as its
     ;; second element.  For more information, read its documentation.
-    (apply #'unrepl-pending-eval-update :client conn-id
+    (apply #'spiral-pending-eval-update :client conn-id
            :status :read
            :group-id group-id
            :actions nil
            history-assoc)))
 
 
-(defun unrepl-loop--client-started-eval (conn-id payload group-id)
+(defun spiral-loop--client-started-eval (conn-id payload group-id)
   "Handle a `:started-eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:started-eval' as an AST node.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-loop--unpack-payload (actions)
-    (unrepl-pending-eval-update :client conn-id
+  (spiral-loop--unpack-payload (actions)
+    (spiral-pending-eval-update :client conn-id
                                 :status :started-eval
                                 :group-id group-id
                                 :actions actions)))
 
 
-(defun unrepl-loop--client-eval (conn-id payload _group-id)
+(defun spiral-loop--client-eval (conn-id payload _group-id)
   "Handle a `:eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:eval' as an AST node.
 GROUP-ID is an integer as described by UNREPL's documentation.
 
 This function will see if there's an evaluation display callback function,
 and it will use it to show the result.  If not, it will try to determine
-where did this evaluation come from (REPL buffer, `unrepl-eval-last-sexp'
+where did this evaluation come from (REPL buffer, `spiral-eval-last-sexp'
 command, etc), and will call a different function to display the result
 accordingly."
-  (unrepl-pending-eval-update :client conn-id
+  (spiral-pending-eval-update :client conn-id
                               :status :eval
                               :payload payload)
   ;; Display the evaluation payload somewhere...
-  (if-let (eval-callback (unrepl-pending-eval-callback :client conn-id))
+  (if-let (eval-callback (spiral-pending-eval-callback :client conn-id))
       (funcall eval-callback payload)
     (message "%s" (parseclj-unparse-clojure-to-string payload))))
 
 
-(defun unrepl-loop--client-std-stream (conn-id payload group-id type)
+(defun spiral-loop--client-std-stream (conn-id payload group-id type)
   "Handle either std `:out' or `:err' message transmitted through CONN-ID.
 TYPE should be either `:out' or `:err'.
 PAYLOAD is the UNREPL payload for `:out' as a string or as a #unrepl/string
 tagged literal.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-pending-eval-update :client conn-id
+  (spiral-pending-eval-update :client conn-id
                               :status type
                               :payload payload)
-  (unrepl-repl-handle-std-stream type conn-id payload group-id))
+  (spiral-repl-handle-std-stream type conn-id payload group-id))
 
 
-(defun unrepl-loop--client-exception-handler (conn-id payload group-id)
+(defun spiral-loop--client-exception-handler (conn-id payload group-id)
   "Handle `:exception' messages transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:exception' as an AST node.
 GROUP-ID is an integer as described by UNREPL'S documentation."
-  (unrepl-pending-eval-update :client conn-id
+  (spiral-pending-eval-update :client conn-id
                               :status :exception)
-  (unrepl-repl-handle-exception conn-id payload group-id))
+  (spiral-repl-handle-exception conn-id payload group-id))
 
 
 
 ;; Aux Connection Process
 ;; =============================================================================
 
-(defun unrepl-aux-send (str &optional eval-callback stdout-callback)
+(defun spiral-aux-send (str &optional eval-callback stdout-callback)
   "Send input STR to UNREPL aux connection.
 EVAL-CALLBACK is a function that takes the evaluation payload and displays
 it in any given way.
 STDOUT-CALLBACK is a function that takes any possible output payload and
 handles it in any given way.
-Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (prog1 (unrepl-loop--send unrepl-conn-id :aux str)
-    (unrepl-pending-eval-add :aux unrepl-conn-id
+Connection to sent the input to is inferred from `spiral-conn-id'."
+  (prog1 (spiral-loop--send spiral-conn-id :aux str)
+    (spiral-pending-eval-add :aux spiral-conn-id
                              :status :sent
                              :eval-callback eval-callback
                              :stdout-callback stdout-callback)))
 
 
-(defun unrepl-aux-sync-request (str)
+(defun spiral-aux-sync-request (str)
   "Send input STR to UNREPL aux connection and waits for a response."
   (let* ((start (current-time))
-         (conn-id unrepl-conn-id)
+         (conn-id spiral-conn-id)
          result)
-    (unrepl-loop--send conn-id :aux str)
-    (unrepl-pending-eval-add :aux conn-id
+    (spiral-loop--send conn-id :aux str)
+    (spiral-pending-eval-add :aux conn-id
                              :status :sent
                              :eval-callback (lambda (eval-payload)
                                               (setq result eval-payload)))
     (while (and (not result)
                 (not (input-pending-p))  ;; do not hang UI
-                (or (not unrepl-aux-sync-request-timeout)
+                (or (not spiral-aux-sync-request-timeout)
                     (< (cadr (time-subtract (current-time) start))
-                       unrepl-aux-sync-request-timeout)))
+                       spiral-aux-sync-request-timeout)))
       (accept-process-output nil 0.01))
     result))
 
 
-(defun unrepl-loop-aux-handler (conn-id tag payload &optional group-id)
-  "Dispatch MSG to an `unrepl-loop--aux-*' message handler.
+(defun spiral-loop-aux-handler (conn-id tag payload &optional group-id)
+  "Dispatch MSG to an `spiral-loop--aux-*' message handler.
 CONN-ID is provided to the handlers so they know which project/repl they
 will be affecting.
 TAG is the UNREPL tag, and it's used to select the handler function for the
@@ -358,54 +357,54 @@ message.
 PAYLOAD is a parseclj AST node of the message's payload.
 GROUP-ID is an integer as described by UNREPL's documentation."
   (pcase tag
-    (:prompt (unrepl-loop--aux-prompt conn-id))
-    (:read (unrepl-loop--aux-read conn-id group-id))
-    (:started-eval (unrepl-loop--aux-started-eval conn-id payload group-id))
-    (:eval (unrepl-loop--aux-eval conn-id payload))
-    (:out (unrepl-loop--aux-out conn-id payload group-id))
+    (:prompt (spiral-loop--aux-prompt conn-id))
+    (:read (spiral-loop--aux-read conn-id group-id))
+    (:started-eval (spiral-loop--aux-started-eval conn-id payload group-id))
+    (:eval (spiral-loop--aux-eval conn-id payload))
+    (:out (spiral-loop--aux-out conn-id payload group-id))
     (:err #'ignore)  ;; for now
-    (:exception (unrepl-loop--aux-exception conn-id payload group-id))
-    (:bye (unrepl-loop--bye-handler :aux conn-id payload))))
+    (:exception (spiral-loop--aux-exception conn-id payload group-id))
+    (:bye (spiral-loop--bye-handler :aux conn-id payload))))
 
 
-(defun unrepl-loop--aux-prompt (conn-id)
+(defun spiral-loop--aux-prompt (conn-id)
   "Handle a `:prompt' message transmitted through CONN-ID.
 Shifts the pending evaluations queue for the `:aux' connection."
-  (unrepl-pending-evals-shift :aux conn-id))
+  (spiral-pending-evals-shift :aux conn-id))
 
 
-(defun unrepl-loop--aux-read (conn-id group-id)
+(defun spiral-loop--aux-read (conn-id group-id)
   "Handle a `:read' message transmitted through CONN-ID.
 GROUP-ID is an integer as described by UNREPL's documentation.
 Updates the top of the pending evaluations queue with the `:read' status,
 its group id, and its actions."
-  (unrepl-pending-eval-update :aux conn-id
+  (spiral-pending-eval-update :aux conn-id
                               :status :read
                               :group-id group-id
                               :actions nil))
 
-(defun unrepl-loop--aux-started-eval (conn-id payload group-id)
+(defun spiral-loop--aux-started-eval (conn-id payload group-id)
   "Handle a `:started-eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:started-eval' as an AST node.
 GROUP-ID is an integer as described by UNREPL's documentation."
-  (unrepl-loop--unpack-payload (actions)
-    (unrepl-pending-eval-update :aux conn-id
+  (spiral-loop--unpack-payload (actions)
+    (spiral-pending-eval-update :aux conn-id
                                 :status :started-eval
                                 :group-id group-id
                                 :actions actions)))
 
 
-(defun unrepl-loop--aux-eval (conn-id payload)
+(defun spiral-loop--aux-eval (conn-id payload)
   "Handle a `:eval' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:eval' as an AST node.
 
 This function will see if there's an evaluation callback function, and it
 will use it to handle the PAYLOAD.  If not, it will just ignore it."
-  (when-let (eval-callback (unrepl-pending-eval-callback :aux conn-id))
+  (when-let (eval-callback (spiral-pending-eval-callback :aux conn-id))
     (funcall eval-callback payload)))
 
 
-(defun unrepl-loop--aux-out (conn-id payload group-id)
+(defun spiral-loop--aux-out (conn-id payload group-id)
   "Handle a `:out' message transmitted through CONN-ID.
 PAYLOAD is the UNREPL payload for `:out' as an AST node.
 GROUP-ID is an integer as described by UNREPL's documentation.
@@ -414,35 +413,35 @@ This function will only work if GROUP-ID matches the current pending
 evaluation's, or in other words, if the output is not async.  It will look
 for a STDOUT callback function in the pending evaluation's data and call it
 with PAYLOAD and GROUP-ID, if any."
-  (when (eql (unrepl-pending-eval-group-id :aux conn-id) group-id)
-    (unrepl-pending-eval-update :aux conn-id
+  (when (eql (spiral-pending-eval-group-id :aux conn-id) group-id)
+    (spiral-pending-eval-update :aux conn-id
                                 :status :out)
-    (when-let (out-callback (unrepl-pending-eval-stdout-callback :aux conn-id))
+    (when-let (out-callback (spiral-pending-eval-stdout-callback :aux conn-id))
       (funcall out-callback payload group-id))))
 
 
-(declare-function unrepl-stacktrace-popup "unrepl-stacktrace")
-(defun unrepl-loop--aux-exception (conn-id payload _group-id)
+(declare-function spiral-stacktrace-popup "spiral-stacktrace")
+(defun spiral-loop--aux-exception (conn-id payload _group-id)
   "Handle `:exception' messages transmitted through CONN-ID in `:aux'.
 PAYLOAD is the UNREPL payload for `:exception' as an AST node.
 GROUP-ID is an integer as described by UNREPL'S documentation."
-  (unrepl-pending-eval-update :aux conn-id
+  (spiral-pending-eval-update :aux conn-id
                               :status :exception)
-  (unrepl-stacktrace-popup conn-id payload))
+  (spiral-stacktrace-popup conn-id payload))
 
 
 
 ;; Side Loader Process
 ;; =============================================================================
 
-(defun unrepl-side-loader-send (str)
+(defun spiral-side-loader-send (str)
   "Send input STR to UNREPL side loader connection.
-Connection to sent the input to is inferred from `unrepl-conn-id'."
-  (unrepl-loop--send unrepl-conn-id :side-loader str))
+Connection to sent the input to is inferred from `spiral-conn-id'."
+  (spiral-loop--send spiral-conn-id :side-loader str))
 
 
-(defun unrepl-loop-side-loader-handler (conn-id tag payload &rest _extra)
-  "Dispatch message to an `unrepl-loop--side-loader-*' message handler.
+(defun spiral-loop-side-loader-handler (conn-id tag payload &rest _extra)
+  "Dispatch message to an `spiral-loop--side-loader-*' message handler.
 CONN-ID is provided to side-loader message handlers so they know which
 project/repl to modify.
 TAG is the UNREPL tag for side-loading, expected to be either `:class' or
@@ -451,14 +450,14 @@ PAYLOAD is a parseclj AST node of the message's payload, which should be a
 string."
   (pcase tag
     (:unrepl.jvm.side-loader/hello #'ignore)
-    (:resource (unrepl-loop--side-loader-resource-handler conn-id payload))
-    (:class (unrepl-loop--side-loader-class-handler conn-id payload))
-    (:bye (unrepl-loop--bye-handler :side-loader conn-id payload))
-    (_ (when unrepl-debug
+    (:resource (spiral-loop--side-loader-resource-handler conn-id payload))
+    (:class (spiral-loop--side-loader-class-handler conn-id payload))
+    (:bye (spiral-loop--bye-handler :side-loader conn-id payload))
+    (_ (when spiral-debug
          (error (format "[side-loader] Unrecognized message %S" tag))))))
 
 
-(defun unrepl-loop--side-loader-find-file (file-path classpath)
+(defun spiral-loop--side-loader-find-file (file-path classpath)
   "Try to find FILE-PATH in CLASSPATH.
 CLASSPATH should be a list of paths.  If nothing is found, return nil.
 Return the file contents encoded as a base64 string."
@@ -476,7 +475,7 @@ Return the file contents encoded as a base64 string."
               (with-temp-buffer
                 (insert-file-contents file-path-complete)
                 (funcall encoded-buffer))
-            (unrepl-loop--side-loader-find-file file-path (cdr classpath)))))
+            (spiral-loop--side-loader-find-file file-path (cdr classpath)))))
        ;; path as a file (assumed to be jar/zip)
        (t
         (with-temp-buffer
@@ -487,53 +486,53 @@ Return the file contents encoded as a base64 string."
                   (archive-zip-extract path file-path))
                 (if (> (buffer-size) 0)
                     (funcall encoded-buffer)
-                  (unrepl-loop--side-loader-find-file file-path (cdr classpath))))
+                  (spiral-loop--side-loader-find-file file-path (cdr classpath))))
             (error
              (ding (message "%S" err))
-             (unrepl-loop--side-loader-find-file file-path (cdr classpath))))))))))
+             (spiral-loop--side-loader-find-file file-path (cdr classpath))))))))))
 
 
-(defun unrepl-loop--side-loader-load (conn-id file-path)
+(defun spiral-loop--side-loader-load (conn-id file-path)
   "Find a FILE-PATH in classpath and load it through the side-loader conn.
 Classpath is taken from CONN-ID'S project.
 The actual file is then sent back to the side-loader as a base64 string.
 If FILE-PATH cannot be found, send nil to side-loader."
   (let ((classpath (thread-first conn-id
-                     (unrepl-projects-get)
-                     (unrepl-project-classpath))))
-    (let ((base64-contents (unrepl-loop--side-loader-find-file file-path classpath)))
-      (unrepl-side-loader-send (or base64-contents "nil")))))
+                     (spiral-projects-get)
+                     (spiral-project-classpath))))
+    (let ((base64-contents (spiral-loop--side-loader-find-file file-path classpath)))
+      (spiral-side-loader-send (or base64-contents "nil")))))
 
 
-(defun unrepl-loop--side-loader-resource-handler (conn-id payload)
+(defun spiral-loop--side-loader-resource-handler (conn-id payload)
   "Handle a `:resource' message from CONN-ID's side-loader.
 PAYLOAD is a string pointing to the file-path, as an AST node."
-  (unrepl-loop--side-loader-load conn-id (parseclj-ast-value payload)))
+  (spiral-loop--side-loader-load conn-id (parseclj-ast-value payload)))
 
 
-(defun unrepl-loop--side-loader-class-handler (conn-id payload)
+(defun spiral-loop--side-loader-class-handler (conn-id payload)
   "Handle a `:class' message from CONN-ID's side-loader.
 PAYLOAD is a string pointing to the file-path, as an AST node."
   (let* ((payload-val (parseclj-ast-value payload))
          (file-path (format "%s.class"
                             (replace-regexp-in-string "\\." "/" payload-val))))
-    (unrepl-loop--side-loader-load conn-id file-path)))
+    (spiral-loop--side-loader-load conn-id file-path)))
 
 
 
 ;; Generic handlers
 ;; -------------------------------------------------------------------
 
-(defun unrepl-loop--bye-handler (type conn-id payload)
+(defun spiral-loop--bye-handler (type conn-id payload)
   "Handle UNREPL `:bye' message for TYPE connection to CONN-ID.
 PAYLOAD is the `:bye' message payload as an AST node.
 Announce disconnection to the user and quit the project."
   (let ((msg (format "UNREPL %s connection disconnected, shutting down." type))
-        (payload (unrepl-ast-unparse-to-string payload)))
-    (unrepl-project-quit conn-id)
+        (payload (spiral-ast-unparse-to-string payload)))
+    (spiral-project-quit conn-id)
     (error (concat msg "%s") payload)))
 
 
-(provide 'unrepl-loop)
+(provide 'spiral-loop)
 
-;;; unrepl-loop.el ends here
+;;; spiral-loop.el ends here

@@ -1,7 +1,7 @@
 #+TITLE:     Documentation
 #+AUTHOR:    Daniel Barreto
 #+EMAIL:     daniel@barreto.tech
-#+DESCRIPTION: UNREPL.el dev documentation
+#+DESCRIPTION: SPIRAL dev documentation
 #+LANGUAGE:  en
 #+OPTIONS:   H:4 num:nil toc:2 p:t
 #+STARTUP: showall
@@ -12,12 +12,12 @@ Early stage, this might be out of date.
 
 ** Main Internal Data Structure
 
-   UNREPL.el depends on a running Clojure's Socket REPL.
+   SPIRAL depends on a running Clojure's Socket REPL.
 
    Multiple connections to Socket REPLs can be created in the same running
    Emacs instance, ideally each for a different Clojure project.
 
-   In the UNREPL.el context, a /Project/ represents a set of connections
+   In the SPIRAL context, a /Project/ represents a set of connections
    (normally 3 different connections, explained below) to a Clojure Socket REPL.
    A project is identified by a /Connection ID/, which is a symbol of the form
    =host:port=.
@@ -29,7 +29,7 @@ Early stage, this might be out of date.
      project's Socket REPL.
    - =:repl-buffer=: A buffer that holds human-focused REPL interaction.
    - =:classpath=: An optional list of files/directories to append to
-     UNREPL.el's global classpath on a project basis.
+     SPIRAL's global classpath on a project basis.
    - =:project-dir=: An optional strinng pointing to the project's dir.
    - =:socket-repl=: An optional process referring to the Socket REPL server.
 
@@ -40,8 +40,8 @@ Early stage, this might be out of date.
    - One auxiliary connection for an UNREPL sider loader, identified by the
      keyword =:side-loader=.
 
-   All UNREPL.el projects are stored in an associative data structure called
-   =unrepl-projects=, where keys are connection ids.
+   All SPIRAL projects are stored in an associative data structure called
+   =spiral-projects=, where keys are connection ids.
 
 ** Pending Evaluations
 
