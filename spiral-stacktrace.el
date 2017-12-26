@@ -39,7 +39,7 @@
 
 
 (defcustom spiral-stacktrace-print-length 50
-  "Set the maximum length of sequences in displayed trace data.
+  "Set the maximum length of frames in displayed trace data.
 
 This sets the value of UNREPL session's `*print-length*` when pretty
 printing the `ex-data` map for exception causes in the stacktrace that are
@@ -61,8 +61,8 @@ cyclical data structures."
   :type '(choice integer (const nil))
   :group 'spiral)
 
-(defvar spiral-stacktrace-detail-max 2
-  "The maximum detail level for causes.")
+(defvar spiral-stacktrace-detail-max nil
+  "The maximum detail level for causes.  When nil, there's no limit.")
 
 (defvar spiral-stacktrace--calm-down-indent
   (concat (propertize " "
