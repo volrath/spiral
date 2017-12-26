@@ -58,12 +58,32 @@ NODE is an AST node.  CHILDREN is a list of AST nodes."
               pair))
           node))
 
+
 (defun spiral-ast-zip (ast-node)
   "Create a treepy zipper for AST-NODE."
   (treepy-zipper #'parseclj-ast-branch-node-p
                  #'parseclj-ast-children
                  #'spiral-ast--make-node
                  ast-node))
+
+
+(defun spiral-ast-to-elisp (ast-node)
+  "Transform AST-NODE into an elisp data structure.
+This algorithm tries to follow the same logic `parseedn' uses, but will
+ignore tagged elements and not raise on missing tag readers."
+  (let ((node-type (parseclj-ast-node-type ast-node))
+        (children (parseclj-ast-children ast-node)))
+    (cl-case node-type
+      (:root (mapcar #'spiral-ast-to-elisp children))
+      (:list (mapcar #'spiral-ast-to-elisp children))
+      (:vector (apply #'vector (mapcar #'spiral-ast-to-elisp children)))
+      (:set (mapcar #'spiral-ast-to-elisp children))
+      (:map (mapcar (lambda (kv)
+                      (cons (spiral-ast-to-elisp (car kv))
+                            (spiral-ast-to-elisp (cadr kv))))
+                    (seq-partition children 2)))
+      (t (parseclj-ast-value ast-node)))))
+
 
 (defun spiral-ast-map-elt (map-node key)
   "Traverse MAP-NODE in look for KEY, and return corresponding value.
