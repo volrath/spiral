@@ -233,6 +233,8 @@ KWARGS are the key-values to update the pending evaluation entry."
 ;; - `:project-dir': An optional stringn pointing to the project's dir.
 ;; - `:project-type': An optional string referring to the type of project.
 ;; - `:socket-repl': An optional process referring to the Socket REPL server.
+;; - `:actions': UNREPL session actions represented as a Clojure map AST.
+;; - `:print-settings': UNREPL print settings represented as an alist.
 
 (declare-function spiral-repl-create-buffer "spiral-repl")
 (defun spiral-create-project (conn-id project-dir conn-pool server-proc)
@@ -376,6 +378,11 @@ KWARGS is expected to be pairs of keywords and processes."
 (defun spiral-project-actions (project)
   "Return all `:actions' in PROJECT."
   (map-elt project :actions))
+
+
+(defun spiral-project-print-settings (project)
+  "Return `:print-settings' in PROJECT."
+  (map-elt project :print-settings))
 
 
 (defun spiral-project-actions-get (project action)

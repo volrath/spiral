@@ -202,9 +202,11 @@ gets executed."
   "Handle a `:unrepl/hello' message transmitted through CONN-ID.
 It processes the PAYLOAD to init the corresponding REPL and subsequent
 evaluation of inputs."
-  (spiral-loop--unpack-payload (actions)
+  (spiral-loop--unpack-payload (actions print-settings)
     (spiral-repl-connected conn-id)                   ;; Start REPL
     (spiral-project-set-in conn-id :actions actions)  ;; Store global actions
+    (spiral-project-set-in conn-id :print-settings    ;; Store print settings
+                           (spiral-ast-to-elisp print-settings))
     ;; And start aux connections
     (let* ((host-port (spiral-conn-host-port conn-id))
            (host (car host-port))
