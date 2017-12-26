@@ -154,14 +154,17 @@ Return a SPIRAL project"
 
 
 (declare-function spiral-aux-send "spiral-loop")
-(defun spiral-update-print-settings (project context coll-length nesting-depth string-length)
+(defun spiral-update-print-settings (project context coll-length nesting-depth string-length
+                                             &optional eval-callback)
   "Adjust UNREPL print settings for PROJECT's CONTEXT.
 COLL-LENGTH, NESTING-DEPTH, and STRING-LENGTH are UNREPL's update-able
 settings.
 If any of them is the symbol `max', the symbol `Long/MAX_VALUE' will be
 sent instead.
 If any of them is the symbol `same', the value will be unaltered in
-UNREPL."
+UNREPL.
+EVAL-CALLBACK is an optional function to execute after receiving evaluation
+for the updated print settings."
   (let* ((actions (spiral-project-actions project))
          (print-settings-action (spiral-ast-map-elt actions :print-settings))
          (print-settings (spiral-project-print-settings project))
@@ -177,32 +180,34 @@ UNREPL."
       `((:unrepl.print/context . ,context)
         (:unrepl.print/coll-length . ,(funcall parse-value :coll-length coll-length))
         (:unrepl.print/nesting-depth . ,(funcall parse-value :nesting-depth nesting-depth))
-        (:unrepl.print/string-length . ,(funcall parse-value :string-length string-length)))))))
+        (:unrepl.print/string-length . ,(funcall parse-value :string-length string-length))))
+     eval-callback)))
 
 
-(defmacro spiral-binding-print-limits (bindings &rest body)
-  "Edit UNREPL `:print-limits' with BINDINGS, exec BODY and revert limits back.
+(defmacro spiral-binding-print-limits (coll-length nesting-depth string-length &rest body)
+  "Edit UNREPL `:eval' print settings, exec BODY and revert limits back.
+COLL-LENGTH, NESTING-DEPTH, and STRING-LENGTH are UNREPL's update-able
+settings.
 This macro adds a `revert-bindings-back' function into BODY's lexical
 context.  BODY is in charge of calling this function whenever it seems
 appropriate."
-  (declare (indent 1))
+  (declare (indent 3))
   `(with-current-project
-    (let ((print-limits-templ (spiral-project-actions-get project :print-limits))
-          (ast-limits->alist (lambda (bindings-node)
-                               (mapcar
-                                (lambda (key)
-                                  (cons key (parseclj-ast-value (spiral-ast-map-elt bindings-node key))))
-                                '(:unrepl.print/string-length
-                                  :unrepl.print/coll-length
-                                  :unrepl.print/nesting-depth)))))
-      (spiral-aux-send (spiral-command-template print-limits-templ ,bindings)
-                       (lambda (previous-limits)
-                         (let ((revert-bindings-back (lambda (&rest _args)
-                                                       (spiral-aux-send (spiral-command-template
-                                                                         print-limits-templ
-                                                                         (funcall ast-limits->alist
-                                                                                  previous-limits))))))
-                           ,@body))))))
+    (let ((ast-limits (lambda (bindings-node)
+                        (mapcar
+                         (lambda (key)
+                           (parseclj-ast-value (spiral-ast-map-elt bindings-node key)))
+                         '(:unrepl.print/coll-length
+                           :unrepl.print/nesting-depth
+                           :unrepl.print/string-length)))))
+      (spiral-update-print-settings
+       project :eval
+       ,coll-length ,nesting-depth ,string-length
+       (lambda (previous-limits)
+         (let ((revert-bindings-back (lambda (&rest _args)
+                                       (apply #'spiral-update-print-settings project :eval
+                                              (funcall ast-limits previous-limits)))))
+           ,@body))))))
 
 
 
