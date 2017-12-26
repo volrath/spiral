@@ -168,7 +168,7 @@ for the updated print settings."
   (let* ((actions (spiral-project-actions project))
          (print-settings-action (spiral-ast-map-elt actions :print-settings))
          (print-settings (spiral-project-print-settings project))
-         (context-print-settings (map-elt print-settings :context))
+         (context-print-settings (map-elt print-settings context))
          (parse-value (lambda (key val)
                         (cl-case val
                           ('max 'Long/MAX_VALUE)
