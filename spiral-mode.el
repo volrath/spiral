@@ -153,6 +153,33 @@ Return a SPIRAL project"
      ,@body))
 
 
+(declare-function spiral-aux-send "spiral-loop")
+(defun spiral-update-print-settings (project context coll-length nesting-depth string-length)
+  "Adjust UNREPL print settings for PROJECT's CONTEXT.
+COLL-LENGTH, NESTING-DEPTH, and STRING-LENGTH are UNREPL's update-able
+settings.
+If any of them is the symbol `max', the symbol `Long/MAX_VALUE' will be
+sent instead.
+If any of them is the symbol `same', the value will be unaltered in
+UNREPL."
+  (let* ((actions (spiral-project-actions project))
+         (print-settings-action (spiral-ast-map-elt actions :print-settings))
+         (print-settings (spiral-project-print-settings project))
+         (context-print-settings (map-elt print-settings :context))
+         (parse-value (lambda (key val)
+                        (cl-case val
+                          ('max 'Long/MAX_VALUE)
+                          ('same (map-elt context-print-settings key))
+                          (t val)))))
+    (spiral-aux-send
+     (spiral-command-template
+      print-settings-action
+      `((:unrepl.print/context . ,context)
+        (:unrepl.print/coll-length . ,(funcall parse-value :coll-length coll-length))
+        (:unrepl.print/nesting-depth . ,(funcall parse-value :nesting-depth nesting-depth))
+        (:unrepl.print/string-length . ,(funcall parse-value :string-length string-length)))))))
+
+
 (defmacro spiral-binding-print-limits (bindings &rest body)
   "Edit UNREPL `:print-limits' with BINDINGS, exec BODY and revert limits back.
 This macro adds a `revert-bindings-back' function into BODY's lexical
@@ -268,7 +295,6 @@ current buffer."
   (spiral-repl-insert-phantom-input spiral-latest-eval nil 'switch))
 
 
-(declare-function spiral-aux-send "spiral-loop")
 (defun spiral-eval-interrupt ()
   "Interrupt pending evaluation."
   (interactive)
