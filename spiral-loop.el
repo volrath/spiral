@@ -359,6 +359,7 @@ message.
 PAYLOAD is a parseclj AST node of the message's payload.
 GROUP-ID is an integer as described by UNREPL's documentation."
   (pcase tag
+    (:unrepl/hello (spiral-loop--aux-hello conn-id))
     (:prompt (spiral-loop--aux-prompt conn-id))
     (:read (spiral-loop--aux-read conn-id group-id))
     (:started-eval (spiral-loop--aux-started-eval conn-id payload group-id))
@@ -367,6 +368,30 @@ GROUP-ID is an integer as described by UNREPL's documentation."
     (:err #'ignore)  ;; for now
     (:exception (spiral-loop--aux-exception conn-id payload group-id))
     (:bye (spiral-loop--bye-handler :aux conn-id payload))))
+
+
+(defun spiral-loop--aux-hello (conn-id)
+  "Handle `:unrepl/hello' messages transmitted through aux CONN-ID.
+When a aux connection initializes, print settings should be set according
+to spiral customs."
+  (let* ((project (spiral-projects-get conn-id))
+         (actions (spiral-project-actions project))
+         (print-settings-action (spiral-ast-map-elt actions :print-settings))
+         (print-settings (spiral-project-print-settings project))
+         (eval-print-settings (map-elt print-settings :eval))
+         (out-print-settings (map-elt print-settings :out)))
+    (spiral-aux-send
+     (spiral-command-template print-settings-action
+                              `((:unrepl.print/context . :eval)
+                                (:unrepl.print/coll-length . ,spiral-repl-print-length)
+                                (:unrepl.print/nesting-depth . ,spiral-repl-print-level)
+                                (:unrepl.print/string-length . ,(map-elt eval-print-settings :string-length)))))
+    (spiral-aux-send
+     (spiral-command-template print-settings-action
+                              `((:unrepl.print/context . :out)
+                                (:unrepl.print/coll-length . ,(map-elt out-print-settings :coll-length))
+                                (:unrepl.print/nesting-depth . ,(map-elt out-print-settings :nesting-depth))
+                                (:unrepl.print/string-length . ,spiral-repl-stdout-string-length))))))
 
 
 (defun spiral-loop--aux-prompt (conn-id)
