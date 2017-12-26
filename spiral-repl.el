@@ -56,6 +56,26 @@ When nil, the REPL buffer will be created but not displayed."
   :type 'boolean
   :group 'spiral-repl)
 
+(defcustom spiral-repl-print-length 10
+  "Set the maximum length of elements in sequences to be printed before elision.
+This variable sets `clojure.core/*print-length*' in the running Socket
+REPL.  If nil, there won't be elided content."
+  :type '(choice integer (const nil))
+  :group 'spiral-repl)
+
+(defcustom spiral-repl-print-level 8
+  "Set the number of levels deep the printer will print nested objects.
+This variable sets `clojure.core/*print-level*' in the running Socket REPL.
+If nil, there won't be any limit."
+  :type '(choice integer (const nil))
+  :group 'spiral-repl)
+
+(defcustom spiral-repl-stdout-string-length nil
+  "Set the maximum length of stdout strings before elision.
+If nil, stdout strings won't be elided."
+  :type '(choice integer (const nil))
+  :group 'spiral-repl)
+
 (defvar-local spiral-repl-prompt-start-mark nil
   "Point marker of current prompt start.")
 
