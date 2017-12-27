@@ -32,6 +32,7 @@
 ;;
 ;;; Code:
 
+(require 'ansi-color)
 (require 'find-func)
 
 (require 'spiral-loop)
@@ -273,7 +274,9 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
               (with-current-buffer calling-buffer
                 (funcall connected-callback process "localhost" port)))
             (goto-char (point-max))
-            (insert output)))))))
+            (insert (if (string-match "^\s*\\[" output)
+                        (ansi-color-apply output)
+                      output))))))))
 
 
 (defun spiral-socket--server-sentinel (process event)
