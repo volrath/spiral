@@ -46,11 +46,11 @@ where the spiral package ins installed."
   :type 'file
   :group 'spiral)
 
-(defcustom spiral-default-socket-repl-command 'boot
+(defcustom spiral-default-socket-repl-command "boot"
   "The default command to be used when creating a Clojure Socket REPL."
-  :type '(choice (const boot)
-                 (const lein)
-                 (const gradle))
+  :type '(choice (const "clj")
+                 (const "boot")
+                 (const "lein"))
   :group 'spiral)
 
 (defcustom spiral-preferred-build-tool nil
@@ -61,8 +61,9 @@ variable will suppress this behavior and will select whatever build system
 is indicated by the variable if present.  Note, this is only when CIDER
 cannot decide which of many build systems to use and will never override a
 command when there is no ambiguity."
-  :type '(choice boot
-                 lein
+  :type '(choice "clj"
+                 "boot"
+                 "lein"
                  (const :tag "Always ask" nil))
   :group 'spiral)
 
@@ -109,6 +110,17 @@ these parameters.  See `spiral-socket--repl-cmd' for more info."
   :type 'string
   :group 'spiral)
 
+(defcustom spiral-clj-command "clj"
+  "The command used to execute Clojure."
+  :type 'string
+  :group 'spiral
+  :safe #'stringp)
+
+(defcustom spiral-clj-global-options nil
+  "Command global options to execute Clojure."
+  :type 'string
+  :group 'spiral)
+
 (defvar-local spiral-server-host-port nil
   "Tuple with host and port of a Socket REPL.
 Only used when spinning a new Socket REPL and waiting for it to boot so
@@ -131,9 +143,9 @@ that its corresponding connection pool can be created.")
 
 BORROWED FROM CIDER."
   (let* ((default-directory (spiral-clojure-dir))
-         (build-files '((lein . "project.clj")
-                        (boot . "build.boot")
-                        (gradle . "build.gradle"))))
+         (build-files '(("lein" . "project.clj")
+                        ("boot" . "build.boot")
+                        ("clj" . "deps.edn"))))
     (delq nil
           (mapcar (lambda (candidate)
                     (when (file-exists-p (cdr candidate))
@@ -166,20 +178,26 @@ choose."
 
 PROJECT-TYPE is a symbol.  It can be either `boot' or `lein'."
   (pcase project-type
-    ('boot (format "%s%s call -e \"%s\" %s"
-                   spiral-boot-command
-                   (if spiral-boot-global-options
-                       (concat " " spiral-boot-global-options)
-                     "")
-                   spiral-start-socket-repl-expr
-                   spiral-boot-parameters))
-    ('lein (format "%s%s %s -m clojure.main -e \"%s\""
-                   spiral-lein-command
-                   (if spiral-lein-global-options
-                       (concat " " spiral-lein-global-options)
-                     " ")
-                   spiral-lein-parameters
-                   spiral-start-socket-repl-expr))
+    ("clj"  (format "%s%s -e \"%s\""
+                    spiral-clj-command
+                    (if spiral-clj-global-options
+                        (concat " " spiral-clj-global-options)
+                      "")
+                    spiral-start-socket-repl-expr))
+    ("boot" (format "%s%s call -e \"%s\" %s"
+                    spiral-boot-command
+                    (if spiral-boot-global-options
+                        (concat " " spiral-boot-global-options)
+                      "")
+                    spiral-start-socket-repl-expr
+                    spiral-boot-parameters))
+    ("lein" (format "%s%s %s -m clojure.main -e \"%s\""
+                    spiral-lein-command
+                    (if spiral-lein-global-options
+                        (concat " " spiral-lein-global-options)
+                      " ")
+                    spiral-lein-parameters
+                    spiral-start-socket-repl-expr))
     (_ (user-error (format
                     (concat
                      "SPIRAL couldn't figure out your build tool (%s).\n"
