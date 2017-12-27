@@ -111,7 +111,7 @@ these parameters.  See `spiral-socket--repl-cmd' for more info."
   :type 'string
   :group 'spiral)
 
-(defcustom spiral-clj-command "clj"
+(defcustom spiral-clj-command "clojure"
   "The command used to execute Clojure."
   :type 'string
   :group 'spiral
