@@ -55,8 +55,8 @@ Pick your definition:
 
 *** Package.el
 
-   SPIRAL is available in [[http://melpa.milkbox.net/#/][MELPA]] and [[http://stable.melpa.org][MELPA Stable]], and it's the recommended way
-   to install it.  Simply run:
+   SPIRAL is available in [[http://melpa.milkbox.net/#/][MELPA]], and it's the recommended way to install it.
+   Simply run:
 
    #+BEGIN_SRC
    M-x package-install [RET] spiral [RET]
