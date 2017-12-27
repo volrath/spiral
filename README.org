@@ -99,6 +99,8 @@ Pick your definition:
    There are several ways to create your own Socket REPL, here are some examples:
 
    #+BEGIN_SRC shell-script
+    # clojure 1.9.0
+    $ clj -J-Dclojure.server.myrepl="{:port 5555,:accept,clojure.core.server/repl}"
     # lein:
     $ JVM_OPTS='-Dclojure.server.myrepl={:port,5555,:accept,clojure.core.server/repl}' lein repl
     # or boot < 2.7.2:
