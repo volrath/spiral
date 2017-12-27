@@ -127,7 +127,7 @@ these parameters.  See `spiral-socket--repl-cmd' for more info."
 Only used when spinning a new Socket REPL and waiting for it to boot so
 that its corresponding connection pool can be created.")
 
-(defvar-local spiral-server-started nil
+(defvar-local spiral-server-initializing t
   "Boolean flag that indicates if a server Socket REPL has started yet.")
 
 (define-error 'spiral-connection-error "There was a problem connecting")
@@ -262,7 +262,7 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
     (lambda (process output)
       (let ((server-buffer (process-buffer process)))
         (when (and (buffer-live-p server-buffer)
-                   (not (buffer-local-value 'spiral-server-started server-buffer)))
+                   (buffer-local-value 'spiral-server-initializing server-buffer))
           (with-current-buffer server-buffer
             (when-let (port (spiral-socket--server-initialized-p
                              (concat (buffer-substring-no-properties (point-min) (point-max))
@@ -271,7 +271,7 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
               (rename-buffer
                (replace-regexp-in-string "init" (number-to-string port) (buffer-name))
                t)
-              (setq-local spiral-server-started t)
+              (setq-local spiral-server-initializing nil)
               (with-current-buffer calling-buffer
                 (funcall connected-callback process "localhost" port)))
             (goto-char (point-max))
@@ -283,14 +283,15 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
 (defun spiral-socket--server-sentinel (process event)
   "Handle a Socket REPL server PROCESS EVENT."
   (let* ((server-buffer (process-buffer process))
-         (conn-id (buffer-local-value 'spiral-conn-id server-buffer))
-         (problem (if (and server-buffer (buffer-live-p server-buffer))
-                      (with-current-buffer server-buffer
-                        (buffer-substring (point-min) (point-max)))
-                    "")))
+         (conn-id (buffer-local-value 'spiral-conn-id server-buffer)))
     (spiral-project-quit conn-id)
     (unless (string-match-p "^killed\\|^interrupt\\|^hangup\\|^broken" event)
-      (error "Could not start Socket REPL server: %s" problem))))
+      (if (and server-buffer (buffer-live-p server-buffer))
+          (with-current-buffer server-buffer
+            (setq-local spiral-server-initializing nil)
+            (error "Could not start Socket REPL server: %s"
+                   (buffer-substring-no-properties (point-min) (point-max))))
+        (error "Could not start Socket REPL server")))))
 
 
 (defun spiral-socket--client-sentinel (process event)
@@ -313,17 +314,35 @@ has started, it should receive three parameters: PROCESS, HOST, and PORT."
   (let* ((default-directory (spiral-clojure-dir))
          (project-type (spiral-socket--clojure-project-type))
          (cmd (spiral-socket--repl-cmd project-type))
-         (server-buf (spiral-socket--get-network-buffer :server "localhost"))
+         (pretty-cmd (propertize cmd 'face 'font-lock-keyword-face))
+         (server-buf (let ((b (spiral-socket--get-network-buffer :server "localhost")))
+                       (with-current-buffer b
+                         (setq-local spiral-server-initializing t))
+                       b))
          (server-proc (start-file-process-shell-command "spiral-socket-server"
                                                         server-buf
                                                         cmd)))
-    (message "Starting a new Socket REPL via %s"
-             (propertize cmd 'face 'font-lock-keyword-face))
+    (message "Starting a new Socket REPL via %s" pretty-cmd)
+    ;; Set process configuration
     (set-process-coding-system server-proc 'utf-8-unix 'utf-8-unix)
     (set-process-sentinel server-proc #'spiral-socket--server-sentinel)
     (set-process-filter
      server-proc
      (spiral-socket--server-message-handler connected-callback))
+    ;; If initialization takes too much time, we want to show the server buffer
+    ;; to users so they know why its taking that long (or at least to give a
+    ;; sense of 'work being done...')
+    (run-at-time 5 nil (lambda ()
+                         (with-current-buffer server-buf
+                           (when spiral-server-initializing
+                             (save-excursion
+                               (goto-char (point-min))
+                               (insert (propertize "Things seem to be taking a bit too long... here's the command's output" 'face 'font-lock-comment-face)
+                                       "\n"
+                                       pretty-cmd
+                                       "\n\n"))
+                             (pop-to-buffer server-buf)))))
+    ;; Finally return the process
     server-proc))
 
 
