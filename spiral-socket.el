@@ -248,6 +248,7 @@ output of a network connection process."
          (buff (get-buffer-create buff-name)))
     (when (and server-host server-port)
       (with-current-buffer buff
+        (erase-buffer)
         (setq-local spiral-server-host-port (cons server-host server-port))))
     buff))
 
