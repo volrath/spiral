@@ -249,8 +249,10 @@ The returned data structure is meant to be placed in `spiral-projects'."
     (:namespace . ,nil)
     (:project-dir . ,project-dir)
     (:socket-repl . ,server-proc)
-    (:repl-buffer . ,(spiral-repl-create-buffer conn-id))
-    (:conn-pool . ,conn-pool)))
+    (:conn-pool . ,conn-pool)
+    (:repl-buffer . ,(spiral-repl-create-buffer
+                      conn-id
+                      (when server-proc (process-buffer server-proc))))))
 
 
 (declare-function spiral--conn-pool-procs "spiral")

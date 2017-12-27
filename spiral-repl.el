@@ -641,14 +641,18 @@ This function makes sure to not get out of history boundaries."
   "Return a proper name for a SPIRAL REPL to CONN-ID."
   (format "SPIRAL[%s]" conn-id))
 
-(defun spiral-repl-create-buffer (conn-id)
+(defun spiral-repl-create-buffer (conn-id server-buffer)
   "Create a new SPIRAL buffer for a connection CONN-ID.
 
 This function would kill any buffer that share's the same CONN-ID, to
 guarantee a fresh start.
 
 Associates to it some control local variables:
-- `spiral-repl-history': holds the current history of this REPL."
+- `spiral-repl-history': holds the current history of this REPL.
+
+SERVER-BUFFER is a buffer for the Socket REPL server, or nil.  When
+SERVER-BUFFER and `spiral-repl-pop-on-connect' are non nil, this function
+will open the REPL buffer in SERVER-BUFFER window."
   (let ((buf-name (spiral-repl-buffer-name conn-id)))
     (when (get-buffer buf-name)
       (kill-buffer buf-name))
@@ -666,7 +670,10 @@ Associates to it some control local variables:
           (propertize 'font-lock-face 'font-lock-comment-face)
           (insert))
         (when spiral-repl-pop-on-connect
-          (pop-to-buffer repl-buffer))
+          (if (and server-buffer
+                   (get-buffer-window server-buffer))
+              (set-window-buffer (get-buffer-window server-buffer) repl-buffer)
+            (pop-to-buffer repl-buffer)))
         repl-buffer))))
 
 
