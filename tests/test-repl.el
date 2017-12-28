@@ -39,6 +39,12 @@
 (require 'spiral)
 
 
+(defun wait-for-aux (conn-id)
+  "Wait while a new prompt is available in `:aux' conn for CONN-ID."
+  (while (spiral-pending-eval :aux conn-id)
+    (accept-process-output nil 0.01)))
+
+
 (defmacro describe-evaluation (&rest opts)
   "Expand to a buttercup `it' form that ensures correct behavior for an input.
 OPTS should be a plist that contains `:input' and `:expected' properties.
@@ -178,6 +184,32 @@ start of the next prompt."
 
     ;; Test clicking elisions
     )
+
+  (describe "interactive"
+    (it "`spiral-request-symbol-doc' works"
+      (with-current-buffer "SPIRAL[localhost:5555]"
+        (goto-char (point-max))
+        (insert "(map")
+        (call-interactively #'spiral-request-symbol-doc)
+        (wait-for-aux 'localhost:5555)
+        (let ((transient-text (buffer-substring-no-properties
+                               spiral-repl-transient-text-start-mark
+                               spiral-repl-transient-text-end-mark)))
+          (expect transient-text
+                  :to-equal
+                  (concat "-------------------------\n"
+                          "clojure.core/map\n"
+                          "([f] [f coll] [f c1 c2] [f c1 c2 c3] [f c1 c2 c3 & colls])\n"
+                          "  Returns a lazy sequence consisting of the result of applying f to\n"
+                          "  the set of first items of each coll, followed by applying f to the\n"
+                          "  set of second items in each coll, until any one of the colls is\n"
+                          "  exhausted.  Any remaining items in other colls are ignored. Function\n"
+                          "  f should accept number-of-colls arguments. Returns a transducer when\n"
+                          "  no collection is provided.\n")))
+        (insert "inc (range 3))")
+        (spiral-repl-return)
+        (expect (and (null (marker-position spiral-repl-transient-text-start-mark))
+                     (null (marker-position spiral-repl-transient-text-end-mark)))))))
 
   (describe "completion"
     (it "returns correct candidates"
