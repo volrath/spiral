@@ -90,93 +90,103 @@ start of the next prompt."
   (after-all
     (spiral-quit 'do-it 'localhost:5555))
 
-  (describe-evaluation
-   :input ":foo"
-   :expected "> :foo")
+  (describe "buffer"
+    (describe-evaluation
+     :input ":foo"
+     :expected "> :foo")
 
-  (describe-evaluation
-   :input "{:foo 'bar}"
-   :expected "> {:foo bar}")
+    (describe-evaluation
+     :input "{:foo 'bar}"
+     :expected "> {:foo bar}")
 
-  (describe-evaluation
-   :input "(+ 1 1)"
-   :expected "> 2")
+    (describe-evaluation
+     :input "(+ 1 1)"
+     :expected "> 2")
 
-  (describe-evaluation
-   :input "(def square #(* % %))"
-   :expected "> user/square")
+    (describe-evaluation
+     :input "(def square #(* % %))"
+     :expected "> user/square")
 
-  (describe-evaluation
-   :input "(square 5)"
-   :expected "> 25")
+    (describe-evaluation
+     :input "(square 5)"
+     :expected "> 25")
 
-  (describe-evaluation
-   :input "(/ 1 2)"
-   :expected "> 1/2")
+    (describe-evaluation
+     :input "(/ 1 2)"
+     :expected "> 1/2")
 
-  (describe-evaluation
-   :input "(range 100)"
-   :expected "> (0 1 2 3 4 5 6 7 8 9  ...)")
+    (describe-evaluation
+     :input "(range 100)"
+     :expected "> (0 1 2 3 4 5 6 7 8 9  ...)")
 
-  (describe-evaluation
-   :input "(into [] (range 100))"
-   :expected "> [0 1 2 3 4 5 6 7 8 9  ...]")
+    (describe-evaluation
+     :input "(into [] (range 100))"
+     :expected "> [0 1 2 3 4 5 6 7 8 9  ...]")
 
-  (describe-evaluation
-   :input "(into #{} (range 100))"
-   :expected "> #{0 65 70 62 74 7 59 86 20 72  ...}")
+    (describe-evaluation
+     :input "(into #{} (range 100))"
+     :expected "> #{0 65 70 62 74 7 59 86 20 72  ...}")
 
-  (describe-evaluation
-   :input "(str (apply str (repeat 27 \"Na \")) \"Batman!\")"
-   :expected "> \"Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na\" ...")
+    (describe-evaluation
+     :input "(str (apply str (repeat 27 \"Na \")) \"Batman!\")"
+     :expected "> \"Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na Na\" ...")
 
-  (describe-evaluation
-   :input "(println \"spiral?\")"
-   :expected "spiral?\n> nil")
+    (describe-evaluation
+     :input "(println \"spiral?\")"
+     :expected "spiral?\n> nil")
 
-  (describe-evaluation
-   :input "(print \"stroem?\")"
-   :expected "stroem?%\n> nil")
+    (describe-evaluation
+     :input "(print \"stroem?\")"
+     :expected "stroem?%\n> nil")
 
-  (describe-evaluation
-   :input "(binding [*out* *err*] (println \"oh noes...\"))"
-   :expected "oh noes...\n> nil")
+    (describe-evaluation
+     :input "(binding [*out* *err*] (println \"oh noes...\"))"
+     :expected "oh noes...\n> nil")
 
-  (describe-evaluation
-   :input "(zipmap (map char (range 97 (+ 97 26))) (range 26))"
-   :expected "> {\\a 0 \\b 1 \\c 2 \\d 3 \\e 4 \\f 5 \\g 6 \\h 7 \\i 8 \\j 9  ...}")
+    (describe-evaluation
+     :input "(zipmap (map char (range 97 (+ 97 26))) (range 26))"
+     :expected "> {\\a 0 \\b 1 \\c 2 \\d 3 \\e 4 \\f 5 \\g 6 \\h 7 \\i 8 \\j 9  ...}")
 
-  (describe-evaluation
-   :input "1 2 3"
-   :expected "> 1\n> 2\n> 3")
+    (describe-evaluation
+     :input "1 2 3"
+     :expected "> 1\n> 2\n> 3")
 
-  (describe-evaluation
-   :input "(/ 1 0)"
-   :expected "~ Unhandled Exception
+    (describe-evaluation
+     :input "(/ 1 0)"
+     :expected "~ Unhandled Exception
   java.lang.ArithmeticException: Divide by zero
 
  [Show Trace]
 ")
 
-  (describe-evaluation
-   :input "(map / (iterate dec 3))"
-   :expected "> (1/3 1/2 1 ~lazy-error \"Divide by zero\" [Inspect]~)")
+    (describe-evaluation
+     :input "(map / (iterate dec 3))"
+     :expected "> (1/3 1/2 1 ~lazy-error \"Divide by zero\" [Inspect]~)")
 
-  (describe-evaluation
-   :input "/not-an-input"
-   :expected "UNREPL could not read this input
+    (describe-evaluation
+     :input "/not-an-input"
+     :expected "UNREPL could not read this input
                java.lang.RuntimeException: Invalid token: /not-an-input
   clojure.lang.LispReader$ReaderException: java.lang.RuntimeException: Invalid token: /not-an-input
 
  [Show Trace]
 ")
 
-  ;; (describe-evaluation
-  ;;  :input ""
-  ;;  :expected "")
+    ;; (describe-evaluation
+    ;;  :input ""
+    ;;  :expected "")
 
-  ;; Test clicking elisions
-  )
+    ;; Test clicking elisions
+    )
 
+  (describe "completion"
+    (it "returns correct candidates"
+      (with-current-buffer "SPIRAL[localhost:5555]"
+        (let ((candidates (spiral-complete--candidates "red"))
+              (expected '("reduce" "reduced" "reduced?" "reduce-kv" "reductions")))
+          (dolist (candidate candidates)
+            (expect (substring-no-properties candidate) :to-equal (pop expected))
+            (expect (get-text-property 0 'type candidate) :to-equal :function)
+            (expect (get-text-property 0 'ns candidate) :to-equal "clojure.core")))))))
 
 ;;; test-repl.el ends here
