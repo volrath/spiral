@@ -219,6 +219,10 @@ Pick your definition:
     - Visible UI for interrupting pending evaluations.
     - Key bindings to navigate buttons in the REPL.
 
+* Contributing
+
+Please refer to [[file:CONTRIBUTING.org][CONTRIBUTING.org]].
+
 * Resources
   - [[https://github.com/unrepl/unrepl][UNREPL]]: the protocol.
   - [[https://github.com/unrepl/unravel][Unravel]]: an UNREPL terminal-based client.

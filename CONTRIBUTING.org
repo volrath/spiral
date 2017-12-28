@@ -5,8 +5,8 @@
 #+LANGUAGE:  en
 #+STARTUP: showall
 
-UNREPL.el is a very young project, so contribution guidelines are fairly simple
-and straight forward.
+UNREPL.el is a very young project, so contribution guidelines are fairly simple,
+straight forward, and very welcome.
 
 * Bug Reporting and Feature Suggestions
 
@@ -14,6 +14,15 @@ and straight forward.
 
 * Code contributions
 
-  These are even better than the above! Feel free to open [[https://github.com/unrepl/unrepl.el/pulls][pull requests]].  Be
-  careful to create atomic commits with descriptive messages; when in doubt,
+  Feel free to open [[https://github.com/unrepl/unrepl.el/pulls][pull requests]].
+
+  Be careful to create atomic commits with descriptive messages; when in doubt,
   please refer to [[https://chris.beams.io/posts/git-commit/#seven-rules][these seven rules]].
+
+  Make sure to test your changes before creating your pull requests.  Tests run
+  under [[https://github.com/jorgenschaefer/emacs-buttercup][buttercup]], and you can get everything setup easily with [[http://cask.readthedocs.io/][Cask]].  After you
+  have installed Cask, just run from the root of the project:
+
+  #+BEGIN_SRC shell-script
+  $ cask exec buttercup -L . tests
+  #+END_SRC
