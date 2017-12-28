@@ -101,7 +101,8 @@
         (expect spiral-loop-process-type :to-equal :client)
         (expect spiral-loop-process-dispatcher :to-equal #'spiral-loop-client-dispatcher))
 
-      (spiral-disconnect'barreto.tech:12345)))
+      (with-simulated-input "y RET"
+        (spiral-disconnect'barreto.tech:12345))))
 
 
   (it "raises `user-error' if not given something that looks like <host>:<port>"
@@ -120,7 +121,8 @@
                 "159.98.201.23:60100"
                 "secret [localhost:5566]"))
       (spy-on 'delete-process)
-      (spiral-disconnect'localhost:5544))
+      (with-simulated-input "y RET"
+        (spiral-disconnect'localhost:5544)))
 
     (it "when called nil project-dir, returns projects with no dir first"
       (expect (spiral--connection-prompt-choices nil)
@@ -196,7 +198,8 @@
 
           (expect spiral-mode)
           (expect spiral-conn-id :to-equal (spiral-project-id project))
-          (spiral-disconnect'127.0.0.1:60189)))))
+          (with-simulated-input "y RET"
+            (spiral-disconnect'127.0.0.1:60189))))))
 
 
   (describe "when using it outside a Clojure project"
@@ -213,7 +216,8 @@
 
 (describe "When socket connection gets broken"
   (before-each
-    (spiral-projects-add (spiral-create-project 'localhost:5555 "/foo/bar/" nil nil))
+    (with-simulated-input "y RET"
+      (spiral-projects-add (spiral-create-project 'localhost:5555 "/foo/bar/" nil nil)))
     (let ((mocked-buf-name "*temp proc buffer*"))
       (when (get-buffer mocked-buf-name)
         (kill-buffer mocked-buf-name))
@@ -230,7 +234,7 @@
                          (spiral-projects-get)
                          (spiral-project-repl-buffer))))
       (spiral-socket--client-sentinel 'mocked-proc "connection broken by peer.")
-
+      
       (expect (get-buffer-window repl-buffer))
       (with-current-buffer repl-buffer
         (expect (string-match-p

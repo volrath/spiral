@@ -31,6 +31,7 @@
 ;;; Code:
 
 (require 'buttercup)
+(require 'with-simulated-input)
 
 (require 'spiral)
 
@@ -227,7 +228,8 @@ start of the next prompt."
           (let ((inhibit-message t))
             (spiral--connect-to "localhost" 5555))
           (push (current-buffer) connected-buffer-list)))
-      (kill-buffer "SPIRAL[localhost:5555]"))
+      (with-simulated-input "y RET"
+        (kill-buffer "SPIRAL[localhost:5555]")))
 
     (it "localhost:5555 is no longer in the available projects"
       (expect (length spiral-projects) :to-equal 0))
