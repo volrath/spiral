@@ -167,6 +167,16 @@ prompt position in buffer.")
 ;; Utilities
 ;; -------------------------------------------------------------------
 
+
+(defun spiral-repl--quit-confirm ()
+  "Ask for confirmation before quitting the REPL."
+  (y-or-n-p
+   (format
+    (concat "By killing the buffer, you will be disconnecting all Clojure "
+            "buffers from %S.  Are you sure you want to proceed?")
+    spiral-conn-id)))
+
+
 (defun spiral-repl--insert-newline (count)
   "Insert COUNT new lines.  Negative COUNT is not allowed."
   (let ((count (or count 1)))
@@ -900,6 +910,8 @@ inserted."
   (spiral-mode)
   (set-syntax-table spiral-repl-mode-syntax-table)
   (add-hook 'kill-buffer-hook (lambda () (spiral-project-quit (spiral-projects-get spiral-conn-id))) 'append 'local)
+  (make-local-variable 'kill-buffer-query-functions)
+  (add-to-list 'kill-buffer-query-functions #'spiral-repl--quit-confirm)
   ;; TODO: eldoc
   (hack-dir-local-variables-non-file-buffer)
 
