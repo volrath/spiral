@@ -256,17 +256,14 @@ The returned data structure is meant to be placed in `spiral-projects'."
 
 
 (declare-function spiral--conn-pool-procs "spiral")
-(declare-function spiral-repl-disconnect "spiral-repl")
-(defun spiral-project-quit (conn-id &optional message)
-  "Kill and remove project with CONN-ID.
-If MESSAGE is non-nil, it will be displayed at the end of the REPL
-buffer, which won't be automatically killed."
+(defun spiral-project-quit (project)
+  "Kill and remove PROJECT.
+Removes all PROJECT's related buffers except the REPL buffer.  Quits all
+processes in the connection pool."
   (interactive)
-  (let* ((proj (spiral-projects-get conn-id))
-         (repl-buf (spiral-project-repl-buffer proj))
-         (server-proc (spiral-project-socket-repl proj))
+  (let* ((server-proc (spiral-project-socket-repl project))
          (server-buf (when server-proc (process-buffer server-proc)))
-         (pool (spiral-project-conn-pool proj)))
+         (pool (spiral-project-conn-pool project)))
     ;; Kill the main Socket REPL, if any.
     (when server-proc
       (delete-process server-proc))
@@ -281,18 +278,13 @@ buffer, which won't be automatically killed."
               (when p-conn-buf
                 (kill-buffer p-conn-buf))))
           pool)
-    ;; Handle REPL buffer, if there's a message display it, if not, kill it
-    (if message
-        (spiral-repl-disconnect conn-id message)
-      (when repl-buf
-        (kill-buffer repl-buf)))
     ;; Search for all buffers connected to this project and unbind their connection.
     (mapc (lambda (spiral-buf)
             (with-current-buffer spiral-buf
               (kill-local-variable 'spiral-conn-id)))
-          (spiral-project-buffers proj))
+          (spiral-project-buffers project))
     ;; Remove the entry from `spiral-projects'
-    (setq spiral-projects (map-delete spiral-projects conn-id))))
+    (setq spiral-projects (map-delete spiral-projects (spiral-project-id project)))))
 
 
 (defun spiral-project-id (proj)
