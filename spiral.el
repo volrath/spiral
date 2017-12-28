@@ -47,18 +47,20 @@
   "Used as a minibuffer history variable for `spiral-connect' prompt.")
 
 
-(defun spiral--assoc-buffer (project &optional new-p)
+(defun spiral--assoc-buffer (project &optional new-p buffer)
   "Associate current buffer to PROJECT.
 If NEW-P is non-nil, search for all other clojure-mode buffers in PROJECT's
-project-dir and associate them to the same project."
-  (when (derived-mode-p 'clojure-mode)
-    (let ((conn-id (spiral-project-id project)))
-      (spiral-mode-turn-on conn-id)
-      (when (and spiral-auto-mode new-p)
-        (spiral-mode-enable-auto)
-        (dolist (buf (spiral-project-buffers project))
-          (spiral-mode-turn-on conn-id buf))))
-    (message "Successfully connected to %s" (spiral-project-repr project))))
+project-dir and associate them to the same project.
+If BUFFER is non-nil, associates BUFFER instead of current buffer."
+  (with-current-buffer (or buffer (current-buffer))
+    (when (derived-mode-p 'clojure-mode)
+      (let ((conn-id (spiral-project-id project)))
+        (spiral-mode-turn-on conn-id)
+        (when (and spiral-auto-mode new-p)
+          (spiral-mode-enable-auto)
+          (dolist (buf (spiral-project-buffers project))
+            (spiral-mode-turn-on conn-id buf))))
+      (message "Successfully connected to %s" (spiral-project-repr project)))))
 
 
 (defun spiral--init-project-connection (host port project-dir
@@ -139,10 +141,10 @@ If BUFFER is non-nil, associates it to the new project/connection.
 This function is meant to be a debugging helper, and not to be used to
 connect to socket REPLs.  Refer to `spiral-connect' and
 `spiral-connect-to'."
-  (let ((project (spiral--init-project-connection host port (spiral-clojure-dir))))
-    (when buffer
-      (with-current-buffer buffer
-        (spiral--assoc-buffer project 'new)))))
+  (if-let (project (spiral-projects-get (spiral-make-conn-id host port)))
+      (spiral--assoc-buffer project nil buffer)
+    (let ((project (spiral--init-project-connection host port (spiral-clojure-dir))))
+      (spiral--assoc-buffer project 'new buffer))))
 
 
 
