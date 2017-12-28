@@ -30,10 +30,6 @@
 ;;
 ;;; Code:
 
-(add-to-list 'load-path (expand-file-name "parseclj/"))
-;; HACK: this is a temporary meassure while MELPA/package-build.el fixes:
-;;       https://github.com/melpa/package-build/commit/063e64ad55ac07a348af0373605fd90348a8bc11#r26028026
-
 (require 'buttercup)
 (require 'seq)
 (require 'with-simulated-input)
