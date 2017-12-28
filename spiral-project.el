@@ -393,18 +393,13 @@ ACTION should be a key in the UNREPL session-actions map."
   (spiral-ast-map-elt (spiral-project-actions project) action))
 
 
-(defun spiral-project-buffers (project &optional require-connected)
-  "Return a list of buffers that belong to this PROJECT's directory.
-REQUIRE-CONNECTED is an optional conn-id to filter only those buffers that
-are already connected to it."
-  (when-let (dir (spiral-project-dir project))
+(defun spiral-project-buffers (project)
+  "Return a list of buffers that belong to this PROJECT's directory."
+  (let ((conn-id (spiral-project-id project)))
     (seq-filter (lambda (b)
                   (with-current-buffer b
-                    (and (string-prefix-p dir buffer-file-name)
-                         (derived-mode-p 'clojure-mode)
-                         (or (not require-connected)
-                             (and (bound-and-true-p spiral-conn-id)
-                                  (eql spiral-conn-id require-connected))))))
+                    (and (bound-and-true-p spiral-conn-id)
+                         (eql spiral-conn-id conn-id))))
                 (buffer-list))))
 
 
