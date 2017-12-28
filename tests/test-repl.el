@@ -215,6 +215,25 @@ start of the next prompt."
           (dolist (candidate candidates)
             (expect (substring-no-properties candidate) :to-equal (pop expected))
             (expect (get-text-property 0 'type candidate) :to-equal :function)
-            (expect (get-text-property 0 'ns candidate) :to-equal "clojure.core")))))))
+            (expect (get-text-property 0 'ns candidate) :to-equal "clojure.core"))))))
+
+  (describe "when buffer is killed by user"
+    :var (connected-buffer-list)
+
+    (before-all
+      (dolist (buffer-name '("core.clj" "test.clj" "utils.clj"))
+        (with-current-buffer (get-buffer-create buffer-name)
+          (clojure-mode)
+          (let ((inhibit-message t))
+            (spiral--connect-to "localhost" 5555))
+          (push (current-buffer) connected-buffer-list)))
+      (kill-buffer "SPIRAL[localhost:5555]"))
+
+    (it "localhost:5555 is no longer in the available projects"
+      (expect (length spiral-projects) :to-equal 0))
+
+    (it "no other buffer will still be connected to localhost:5555"
+      (dolist (buffer connected-buffer-list)
+        (expect (buffer-local-value 'spiral-conn-id buffer) :to-equal nil)))))
 
 ;;; test-repl.el ends here
