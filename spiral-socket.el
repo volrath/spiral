@@ -284,7 +284,7 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
   "Handle a Socket REPL server PROCESS EVENT."
   (let* ((server-buffer (process-buffer process))
          (conn-id (buffer-local-value 'spiral-conn-id server-buffer)))
-    (spiral-project-quit conn-id)
+    (spiral-disconnect conn-id)
     (unless (string-match-p "^killed\\|^interrupt\\|^hangup\\|^broken" event)
       (if (and server-buffer (buffer-live-p server-buffer))
           (with-current-buffer server-buffer
@@ -299,8 +299,8 @@ PROJECT-TYPE is used to figure out when has the REPL been initialized."
 When a 'disconnect' EVENT comes from PROCESS, quit the PROCESS' project and
 shares the message with the user."
   (when (string-match-p "^killed\\|^interrupt\\|^hangup\\|broken" event)
-    (spiral-project-quit (buffer-local-value 'spiral-conn-id (process-buffer process))
-                         event)))
+    (spiral-disconnect (buffer-local-value 'spiral-conn-id (process-buffer process))
+                       event)))
 
 
 

@@ -704,8 +704,8 @@ This function only if it's not displayed in another window already."
      (insert))))
 
 
-(defun spiral-repl-disconnect (conn-id message)
-  "Disconnect REPL buffer for CONN-ID, and display explanation MESSAGE to user."
+(defun spiral-repl-disconnect-message (conn-id message)
+  "Show a disconnection MESSAGE in REPL buffer for CONN-ID."
   (with-current-buffer (spiral-repl-display conn-id 'pop)
     (goto-char (point-max))
     (insert "\n\n"
@@ -899,6 +899,7 @@ inserted."
   (clojure-font-lock-setup)
   (spiral-mode)
   (set-syntax-table spiral-repl-mode-syntax-table)
+  (add-hook 'kill-buffer-hook (lambda () (spiral-project-quit (spiral-projects-get spiral-conn-id))) 'append 'local)
   ;; TODO: eldoc
   (hack-dir-local-variables-non-file-buffer)
 

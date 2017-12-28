@@ -147,6 +147,21 @@ Return a SPIRAL project"
         (error "Could not find a SPIRAL connection for this buffer")))))
 
 
+(declare-function spiral-repl-disconnect-message "unrepl-repl")
+(defun spiral-disconnect (conn-id &optional message)
+  "Quit a project for CONN-ID, and possibly kill its REPL buffer.
+If MESSAGE is non-nil, it will be displayed at the end of the REPL buffer,
+which won't be automatically killed."
+  (let* ((project (spiral-projects-get conn-id))
+         (repl-buffer (spiral-project-repl-buffer project)))
+    (if message
+        (progn
+          (spiral-repl-disconnect-message conn-id message)
+          (spiral-project-quit project))
+      (when repl-buffer
+        (kill-buffer repl-buffer)))))
+
+
 (defmacro with-current-project (&rest body)
   "Ensure the current buffer is connected and put its project in BODY's local scope."
   `(let ((project (spiral-ensure-connected!)))
@@ -352,7 +367,7 @@ If JUST-DO-IT is non-nil, don't ask for confirmation."
     (if-let (project (spiral-projects-get conn-id))
         (when (or just-do-it
                   (y-or-n-p (format "Are you sure you want to quit connection to %s? " conn-id)))
-          (spiral-project-quit conn-id)
+          (spiral-disconnect conn-id)
           (message "UNREPL connection to %s terminated" conn-id))
       (error "Connection %s could not be found" conn-id))))
 

@@ -274,7 +274,7 @@ BORROWED FROM CIDER."
      (mapc (lambda (filename)
              (load (expand-file-name filename spiral-dir)))
            (directory-files default-directory nil "^spiral.*\\.el$")))
-   (spiral-project-quit 'localhost:5555)
+   (spiral-disconnect 'localhost:5555)
    (spiral--connect-to "localhost" 5555))
 
  (global-set-key (kbd "C-c C-u r") #'spiral-debug-retry)

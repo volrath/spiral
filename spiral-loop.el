@@ -547,7 +547,7 @@ PAYLOAD is the `:bye' message payload as an AST node.
 Announce disconnection to the user and quit the project."
   (let ((msg (format "UNREPL %s connection disconnected, shutting down." type))
         (payload (spiral-ast-unparse-to-string payload)))
-    (spiral-project-quit conn-id)
+    (spiral-disconnect conn-id)
     (error (concat msg "%s") payload)))
 
 
