@@ -10,4 +10,5 @@
              :git "https://github.com/lambdaisland/parseclj"
              :ref "bad1fb8745bbf8d72e252006abbdb7aa4f4a7906")
  (depends-on "buttercup")
+ (depends-on "undercover")
  (depends-on "with-simulated-input"))
