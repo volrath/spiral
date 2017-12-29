@@ -177,6 +177,8 @@ Pick your definition:
     [[file:gifs/in-place-doc.gif]]
 
 *** Pretty (and elided) stacktraces
+    For now, stacktraces show differently between Clojure 1.8.0 and 1.9.0, due
+    to a [[https://github.com/clojure/clojure/blob/master/changes.md#33-other-fixes][breaking change in Clojure]].  See also [[https://github.com/Unrepl/unrepl/issues/27][unrepl#27]].
 
     #+caption: Elided stacktraces
     [[file:gifs/exceptions.gif]]
