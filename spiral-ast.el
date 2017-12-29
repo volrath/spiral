@@ -101,6 +101,7 @@ Value is returned as an AST node."
 (defun spiral-ast-elision-p (node)
   "Predicate to identify if NODE is an elision."
   (and (eql (parseclj-ast-node-type node) :tag)
+       (eql (parseclj-ast-node-attr node :tag) 'unrepl/...)
        (member (parseclj-ast-node-type (spiral-ast-tag-child node))
                '(:map :nil))))
 
