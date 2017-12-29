@@ -98,6 +98,13 @@ Value is returned as an AST node."
   (eql (parseclj-ast-node-type node) :nil))
 
 
+(defun spiral-ast-elision-p (node)
+  "Predicate to identify if NODE is an elision."
+  (and (eql (parseclj-ast-node-type node) :tag)
+       (member (parseclj-ast-node-type (spiral-ast-tag-child node))
+               '(:map :nil))))
+
+
 
 ;; Tag Readers
 ;; -------------------------------------------------------------------
