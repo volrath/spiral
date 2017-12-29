@@ -6,10 +6,7 @@
 #+OPTIONS:   H:4 num:nil toc:2 p:t
 #+STARTUP: showall
 
-#+caption: Build Status
-[[https://travis-ci.org/Unrepl/spiral][file:https://travis-ci.org/Unrepl/spiral.svg?branch=master]]
-#+caption: MELPA
-[[https://melpa.org/#/spiral][file:https://melpa.org/packages/spiral-badge.svg]]
+[[https://www.gnu.org/software/emacs/][file:https://img.shields.io/badge/Emacs-25-8e44bd.svg]] [[https://travis-ci.org/Unrepl/spiral][file:https://travis-ci.org/Unrepl/spiral.svg?branch=master]] [[https://melpa.org/#/spiral][file:https://melpa.org/packages/spiral-badge.svg]]
 
 Emacs >= 25.1, Clojure >= 1.8.0
 
