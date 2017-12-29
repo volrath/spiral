@@ -102,7 +102,7 @@
         (expect spiral-loop-process-dispatcher :to-equal #'spiral-loop-client-dispatcher))
 
       (with-simulated-input "y RET"
-        (spiral-disconnect'barreto.tech:12345))))
+        (spiral-disconnect 'barreto.tech:12345))))
 
 
   (it "raises `user-error' if not given something that looks like <host>:<port>"
@@ -122,7 +122,7 @@
                 "secret [localhost:5566]"))
       (spy-on 'delete-process)
       (with-simulated-input "y RET"
-        (spiral-disconnect'localhost:5544)))
+        (spiral-disconnect 'localhost:5544)))
 
     (it "when called nil project-dir, returns projects with no dir first"
       (expect (spiral--connection-prompt-choices nil)
@@ -199,7 +199,7 @@
           (expect spiral-mode)
           (expect spiral-conn-id :to-equal (spiral-project-id project))
           (with-simulated-input "y RET"
-            (spiral-disconnect'127.0.0.1:60189))))))
+            (spiral-disconnect '127.0.0.1:60189))))))
 
 
   (describe "when using it outside a Clojure project"
