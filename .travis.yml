@@ -16,12 +16,14 @@ before_install:
 install:
   - cask install
 script:
+  - export ECUKES_EMACS=${EMACS:-$(which emacs)}
+  - $ECUKES_EMACS --version
+  # Lint
+  - cask emacs -batch -L . -l tests/lint.el
+  # Test
   - echo "*** Starting Socket REPL on 5555 ***"
   - clojure -e "(do (require 'clojure.core.server) (clojure.core.server/start-server {:name :repl :port 5555 :accept 'clojure.core.server/repl :server-daemon false}))" &
   - until sudo fuser 5555/tcp; do sleep 0.1; done;
   - echo "*** Socket REPL Started ***"
-  - echo "*** Emacs Version ***"
-  - export ECUKES_EMACS=${EMACS:-$(which emacs)}
-  - $ECUKES_EMACS --version
   - cask exec buttercup -L . tests
   - kill $!
