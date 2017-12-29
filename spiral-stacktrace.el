@@ -126,9 +126,9 @@ the inserted text.  For more information, see
   (insert spiral-stacktrace--calm-down-indent)
   ;; Insert the actual cause
   (let ((padded-format (concat "%" (format "%ds: " format-spacing)))
-        (type (parseclj-ast-value (spiral-ast-map-elt cause :type)))
+        (type (spiral-ast-map-elt cause :type))
         (cause-msg (spiral-ast-map-elt cause :message)))
-    (insert (propertize (format padded-format type)
+    (insert (propertize (format padded-format (spiral-ast-unparse-to-string type))
                         'font-lock-face 'spiral-font-stacktrace-cause-class-face))
     (unless (spiral-ast-nil-p cause-msg)
       (spiral-ast-unparse-stdout-string cause-msg))
@@ -189,22 +189,24 @@ be used for each trace entry's file name and line number"
          (file-format (format "%%%ds: " (car paddings)))
          (lineno-format (format "%%%dd " (cdr paddings))))
     (mapc (lambda (frame)
-            (if (eql (parseclj-ast-node-type frame) :tag)
+            (if (spiral-ast-elision-p frame)
                 (spiral-ast-elision-tag-unparse
                  frame nil nil
                  (lambda (eval-payload &rest _args)
                    (let ((inhibit-read-only t)
                          (buffer-read-only nil))
                      (spiral-stacktrace--insert-trace eval-payload paddings))))
-              (insert
-               spiral-stacktrace--calm-down-indent
-               (concat
-                (propertize (format file-format (funcall get-file frame))
-                            'font-lock-face 'spiral-font-stacktrace-frame-file-face)
-                (propertize (format lineno-format (funcall get-lineno frame))
-                            'font-lock-face 'spiral-font-stacktrace-frame-lineno-face)
-                (propertize (format "- %s" (funcall get-where frame))
-                            'font-lock-face 'spiral-font-stacktrace-frame-where-face)))
+              (if (eql (parseclj-ast-node-type frame) :vector)  ;; clojure 1.9.0
+                  (insert
+                   spiral-stacktrace--calm-down-indent
+                   (concat
+                    (propertize (format file-format (funcall get-file frame))
+                                'font-lock-face 'spiral-font-stacktrace-frame-file-face)
+                    (propertize (format lineno-format (funcall get-lineno frame))
+                                'font-lock-face 'spiral-font-stacktrace-frame-lineno-face)
+                    (propertize (format "- %s" (funcall get-where frame))
+                                'font-lock-face 'spiral-font-stacktrace-frame-where-face)))
+                (spiral-ast-unparse frame))  ;; clojure 1.8.0
               (spiral-repl-newline-and-scroll)))
           frames)))
 
