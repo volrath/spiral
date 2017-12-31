@@ -117,6 +117,13 @@ Ideal for REPL tooling."
     (expand-file-name dir)))
 
 
+(defun spiral-edn-file-p (&optional file-name)
+  "Predicate that determines if current buffer's file is an EDN file.
+If FILE-NAME is non nil, uses it instead of current buffer's file."
+  (let ((file-name (or file-name buffer-file-name)))
+    (and file-name (equal (file-name-extension file-name) "edn"))))
+
+
 (defun spiral-file-string (file)
   "Read the contents of a FILE and return it as a string."
   (with-current-buffer (find-file-noselect file)
@@ -127,6 +134,8 @@ Ideal for REPL tooling."
   "Return the name of KEYWORD, without the leading colon `:'."
   (substring (symbol-name keyword) 1))
 
+
+;; Structural navigation / editing
 
 (defun spiral-last-sexp (&optional bounds)
   "Return the sexp preceding the point.
@@ -178,6 +187,22 @@ BORROWED FROM CIDER."
                  bound-points))))))
 
 
+(defun spiral-symbol-name-at-point (&optional look-back)
+  "Return the name of the symbol at point, otherwise nil.
+Ignores the REPL prompt.  If LOOK-BACK is non-nil, move backwards trying to
+find a symbol if there isn't one at point.
+BORROWED FROM CIDER."
+  (or (when-let (str (thing-at-point 'symbol))
+        (unless (text-property-any 0 (length str) 'field 'spiral-repl-prompt-field str)
+          (substring-no-properties str)))
+      (when look-back
+        (save-excursion
+          (ignore-errors
+            (while (not (looking-at "\\sw\\|\\s_\\|\\`"))
+              (forward-sexp -1)))
+          (spiral-symbol-name-at-point)))))
+
+
 (defun spiral-namespace-qualified-p (sym)
   "Return t if SYM is namespace-qualified.
 BORROWED FROM CIDER."
@@ -197,6 +222,8 @@ BORROWED FROM CIDER."
   (let ((beg (save-excursion (beginning-of-defun) (point))))
     (nth 4 (parse-partial-sexp beg (point)))))
 
+
+;; Font locking
 
 (defun spiral--make-buffer-for-mode (mode)
   "Return a temp buffer using MODE as `major-mode'.
