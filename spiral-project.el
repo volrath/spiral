@@ -385,6 +385,14 @@ ACTION should be a key in the UNREPL session-actions map."
   (spiral-ast-map-elt (spiral-project-actions project) action))
 
 
+(defun spiral-project-templated-action (project action &rest params)
+  "Return a string created out of PROJECT's ACTION template, using PARAMS."
+  (let ((template (spiral-project-actions-get project action))
+        (template-params (mapcar (lambda (kv) (cons (car kv) (cadr kv)))
+                                 (seq-partition params 2))))
+    (spiral-command-template template template-params)))
+
+
 (defun spiral-project-buffers (project)
   "Return a list of buffers that belong to this PROJECT's directory."
   (let ((conn-id (spiral-project-id project)))

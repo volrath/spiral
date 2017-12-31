@@ -180,22 +180,20 @@ If any of them is the symbol `same', the value will be unaltered in
 UNREPL.
 EVAL-CALLBACK is an optional function to execute after receiving evaluation
 for the updated print settings."
-  (let* ((actions (spiral-project-actions project))
-         (print-settings-action (spiral-ast-map-elt actions :print-settings))
-         (print-settings (spiral-project-print-settings project))
-         (context-print-settings (map-elt print-settings context))
+  (let* ((print-settings (spiral-project-print-settings project))
+         (context-print-settings (map-elt print-settings context))  ;; TODO: exposing AST structure here, avoid
          (parse-value (lambda (key val)
                         (cl-case val
                           ('max 'Long/MAX_VALUE)
                           ('same (map-elt context-print-settings key))
                           (t val)))))
     (spiral-aux-send
-     (spiral-command-template
-      print-settings-action
-      `((:unrepl.print/context . ,context)
-        (:unrepl.print/coll-length . ,(funcall parse-value :coll-length coll-length))
-        (:unrepl.print/nesting-depth . ,(funcall parse-value :nesting-depth nesting-depth))
-        (:unrepl.print/string-length . ,(funcall parse-value :string-length string-length))))
+     (spiral-project-templated-action
+      project :print-settings
+      :unrepl.print/context context
+      :unrepl.print/coll-length (funcall parse-value :coll-length coll-length)
+      :unrepl.print/nesting-depth (funcall parse-value :nesting-depth nesting-depth)
+      :unrepl.print/string-length (funcall parse-value :string-length string-length))
      eval-callback)))
 
 
@@ -346,16 +344,15 @@ If no buffer is provided the command acts on the current buffer."
      (remove-overlays nil nil 'temporary t)
      (let ((filename (buffer-file-name buffer))
            ;; (ns-form  (cider-ns-form))
-           (load-file-templ (spiral-project-actions-get project :spiral/load-file)))
-       (spiral-aux-send (spiral-command-template
-                         load-file-templ
-                         `((:spiral/file . ,(spiral-file-string filename))
-                           (:spiral/file-name . ,(funcall spiral-filename-function filename))
-                           (:spiral/file-path . ,(file-name-nondirectory filename))))
-                        (lambda (payload)
-                          (message "%s" (spiral-ast-unparse-to-string payload 'mute-ui))))
+           )
+       (spiral-aux-send
+        (spiral-project-templated-action project :spiral/load-file
+                                         :spiral/file (spiral-file-string filename)
+                                         :spiral/file-name (funcall spiral-filename-function filename)
+                                         :spiral/file-path (file-name-nondirectory filename))
+        (lambda (payload)
+          (message "%s" (spiral-ast-unparse-to-string payload 'mute-ui))))
        (message "Loading %s..." filename)))))
-
 
 
 (defun spiral-quit (&optional just-do-it conn-id)
@@ -428,14 +425,11 @@ BORROWED FROM CIDER."
 NS is an optional namespace symbol."
   (with-current-project
    (let* ((context (spiral-complete--get-context))
-          (complete-tmpl (thread-first project
-                           (spiral-project-actions)
-                           (spiral-ast-map-elt :spiral/complete)))
           (candidates (spiral-aux-sync-request
-                       (spiral-command-template complete-tmpl
-                                                `((:spiral/prefix . ,str)
-                                                  (:spiral/context . ,context)
-                                                  (:spiral/ns . ,ns))))))
+                       (spiral-project-templated-action project :spiral/complete
+                                                        :spiral/prefix str
+                                                        :spiral/context context
+                                                        :spiral/ns ns))))
      (mapcar
       (lambda (candidate-node)
         (let* ((node-get (lambda (key) (thread-first candidate-node

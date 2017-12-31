@@ -568,13 +568,13 @@ would get automatically removed after input is sent."
   (when (spiral-repl--in-input-area-p)
     (when-let (sym (symbol-at-point))
       (with-current-repl
-       (let ((doc-action-templ (spiral-project-actions-get project :spiral/doc)))
-         (spiral-aux-send (spiral-command-template doc-action-templ
-                                                   `((:spiral/symbol . ,sym)))
-                          nil
-                          (lambda (stdout-payload group-id)
-                            (spiral-repl--transient-text-insert group-id
-                                                                stdout-payload))))))))
+       (spiral-aux-send
+        (spiral-project-templated-action project :spiral/doc
+                                         :spiral/symbol sym)
+        nil
+        (lambda (stdout-payload group-id)
+          (spiral-repl--transient-text-insert group-id
+                                              stdout-payload)))))))
 
 
 ;; history
