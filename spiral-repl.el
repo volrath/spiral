@@ -32,6 +32,7 @@
 ;;; Code:
 
 (require 'clojure-mode)
+(require 'highlight)
 (require 'subr-x)
 
 (require 'spiral-mode)
@@ -154,6 +155,26 @@ prompt position in buffer.")
 
 (defface spiral-font-doc-face
   '((t (:inherit font-lock-comment-face)))
+  "Face for auto-documentation in the REPL buffer."
+  :group 'spiral-repl)
+
+(defface spiral-font-notification-info-face
+  '((t (:inherit compilation-line-number)))
+  "Face for auto-documentation in the REPL buffer."
+  :group 'spiral-repl)
+
+(defface spiral-font-notification-warn-face
+  '((t (:inherit compilation-warning)))
+  "Face for auto-documentation in the REPL buffer."
+  :group 'spiral-repl)
+
+(defface spiral-font-notification-error-face
+  '((t (:inherit compilation-error)))
+  "Face for auto-documentation in the REPL buffer."
+  :group 'spiral-repl)
+
+(defface spiral-font-notification-msg-face
+  '((t (:inherit compilation-common-part)))
   "Face for auto-documentation in the REPL buffer."
   :group 'spiral-repl)
 
@@ -305,6 +326,47 @@ A `project' variable will be added to the local scope."
           (repl-buffer (spiral-project-repl-buffer project)))
      (with-current-buffer repl-buffer
        ,@body)))
+
+
+
+;; Notifications
+;; -------------------------------------------------------------------
+
+(defmacro spiral-repl-notification-block (&rest body)
+  "Create a highlighted text block with BODY insertions.
+The highlighted text block is preceded and followed by empty lines, and
+it's highlighted with `hl-line' background color."
+  `(progn
+     (unless (bolp) (insert "\n"))
+     (let ((start (point)))
+       (insert "\n")
+       ,@body
+       (insert "\n")
+       (hlt-highlight-region start (point)))
+     (recenter -1)))
+
+(defun spiral-repl-notify (type title &optional msg more)
+  "Create a highlighted text block for a message containing TITLE.
+TYPE is any of the following symbols: `info', `warn', `error'.
+TITLE is a text that will be inserted with a special font locking face
+depending on TYPE.
+MSG is a notification message as a string.
+MORE is another notification message that will be hidden behind a 'Show
+More' button."
+  (let ((type-face (cl-case type
+                     ('info  'spiral-font-notification-info-face)
+                     ('warn  'spiral-font-notification-warn-face)
+                     ('error 'spiral-font-notification-error-face)
+                     (t (when spiral-debug
+                          (error "Unrecognized notification type: %s" type))))))
+    (spiral-repl-notification-block
+     (insert (propertize title 'font-lock-face type-face) "\n")
+     (insert (propertize msg 'font-lock-face 'spiral-font-notification-msg-face) "\n")
+     (spiral-button-throwaway-insert
+      "[Show More]"
+      (lambda (_button)
+        (insert (propertize more 'font-lock-face 'spiral-font-notification-msg-face))))
+     (insert "\n"))))
 
 
 
