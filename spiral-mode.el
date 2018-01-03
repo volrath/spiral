@@ -176,12 +176,6 @@ which won't be automatically killed."
      ,@body))
 
 
-(declare-function spiral-client-sync-request "spiral-loop")
-(defun spiral--switch-ns (ns)
-  "Switch client connection's namespace to NS."
-  (spiral-client-sync-request (format "(unrepl/do (ns %s))" ns)))
-
-
 (declare-function spiral-aux-sync-request "spiral-loop")
 (defun spiral-update-print-settings (project context coll-length nesting-depth string-length)
   "Adjust UNREPL print settings for PROJECT's CONTEXT.
@@ -228,6 +222,22 @@ settings."
           (apply #'spiral-update-print-settings
                  project :eval
                  (funcall ast-limits previous-limits)))))))
+
+
+(declare-function spiral-client-sync-request "spiral-loop")
+(defun spiral--switch-ns (ns)
+  "Switch client connection's namespace to NS."
+  (spiral-client-sync-request (format "(unrepl/do (ns %s))" ns)))
+
+
+(defun spiral-list-ns ()
+  "Synchronously list namespaces loaded in `:client' connection."
+  ;; TODO: Make this into a session action, list only loaded namespaces and put
+  ;; current one first, if any.
+  (spiral-binding-print-limits 'max 'same 'same
+    (thread-first "(all-ns)"
+      (spiral-aux-sync-request)
+      (spiral-ast-to-elisp `((unrepl/ns . ,#'parseclj-ast-value))))))
 
 
 
@@ -366,6 +376,21 @@ current buffer."
        (pop-to-buffer repl-buffer nil t)))))
 
 
+(defun spiral-switch-ns (&optional prefix)
+  "Switch REPL namespace.
+This command's default behavior is to switch to the current buffer's
+namespace.  When there's no namespace in the current buffer, or PREFIX is
+non-nil, this command will prompt for a namespace to switch to, providing a
+completion list."
+  (interactive "P")
+  (let ((file-ns (clojure-find-ns)))
+    (spiral--switch-ns
+     (if (or prefix
+             (null file-ns))
+         (completing-read "Namespace: " (spiral-list-ns) nil 'confirm)
+       file-ns))))
+
+
 (declare-function spiral-repl-insert-phantom-input "spiral-repl")
 (defun spiral-inspect-last-eval ()
   "Replicate last evaluation in REPL buffer for further inspection."
@@ -373,6 +398,7 @@ current buffer."
   (spiral-repl-insert-phantom-input spiral-latest-eval nil 'switch))
 
 
+(declare-function spiral-aux-send "spiral-loop")
 (defun spiral-eval-interrupt ()
   "Interrupt pending evaluation."
   (interactive)
@@ -479,7 +505,6 @@ BORROWED FROM CIDER."
       context)))
 
 
-(declare-function spiral-aux-sync-request "spiral-loop")
 (defun spiral-complete--candidates (str &optional ns)
   "Find completion candidates for STR.
 NS is an optional namespace symbol."
@@ -536,6 +561,7 @@ BORROWED FROM CIDER."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-TAB") #'complete-symbol)
     (define-key map (kbd "C-c C-z") #'spiral-switch-to-repl-buffer)
+    (define-key map (kbd "C-c M-n") #'spiral-switch-ns)
     (define-key map (kbd "C-x C-e") #'spiral-eval-last-sexp)
     (define-key map (kbd "C-c C-c") #'spiral-eval-top-level-form)
     (define-key map (kbd "C-c C-r") #'spiral-inspect-last-eval)
