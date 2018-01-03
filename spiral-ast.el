@@ -67,21 +67,26 @@ NODE is an AST node.  CHILDREN is a list of AST nodes."
                  ast-node))
 
 
-(defun spiral-ast-to-elisp (ast-node)
+(defun spiral-ast-to-elisp (ast-node &optional tag-readers)
   "Transform AST-NODE into an elisp data structure.
+TAG-READERS is an associative data structure that maps tag symbols to tag
+readers.
 This algorithm tries to follow the same logic `parseedn' uses, but will
 ignore tagged elements and not raise on missing tag readers."
   (let ((node-type (parseclj-ast-node-type ast-node))
-        (children (parseclj-ast-children ast-node)))
+        (children (parseclj-ast-children ast-node))
+        (to-elisp (lambda (n) (spiral-ast-to-elisp n tag-readers))))
     (cl-case node-type
-      (:root (mapcar #'spiral-ast-to-elisp children))
-      (:list (mapcar #'spiral-ast-to-elisp children))
-      (:vector (apply #'vector (mapcar #'spiral-ast-to-elisp children)))
-      (:set (mapcar #'spiral-ast-to-elisp children))
+      (:root (mapcar to-elisp children))
+      (:list (mapcar to-elisp children))
+      (:vector (apply #'vector (mapcar to-elisp children)))
+      (:set (mapcar to-elisp children))
       (:map (mapcar (lambda (kv)
-                      (cons (spiral-ast-to-elisp (car kv))
-                            (spiral-ast-to-elisp (cadr kv))))
+                      (cons (spiral-ast-to-elisp (car kv) tag-readers)
+                            (spiral-ast-to-elisp (cadr kv) tag-readers)))
                     (seq-partition children 2)))
+      (:tag (when-let (reader (map-elt tag-readers (parseclj-ast-node-attr ast-node :tag)))
+              (funcall reader (spiral-ast-tag-child ast-node))))
       (t (parseclj-ast-value ast-node)))))
 
 
