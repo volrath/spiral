@@ -206,6 +206,15 @@ prompt position in buffer.")
       (cl-decf count))))
 
 
+(defun spiral-repl--recenter (&optional arg)
+  "Recenter REPL buffer's window.
+ARG is the same as in `recenter'."
+  (when-let (win (get-buffer-window (current-buffer) t))
+    (with-selected-window win
+      (set-window-point win (point-max))
+      (recenter arg))))
+
+
 (defun spiral-repl--newline-if-needed ()
   "Go to max point in buffer and make sure it is the beginning of a new line."
   (unless (bolp)
@@ -223,10 +232,7 @@ prompt position in buffer.")
 COUNT defaults to 1, negative numbers are not allowed."
   (spiral-repl--insert-newline count)
   (when (eobp)
-    (when-let (win (get-buffer-window (current-buffer) t))
-      (with-selected-window win
-        (set-window-point win (point-max))
-        (recenter -1)))))
+    (spiral-repl--recenter -1)))
 
 
 (defun spiral-repl--input-str ()
@@ -350,7 +356,7 @@ it's highlighted with `hl-line' background color."
        ,@body
        (insert "\n")
        (hlt-highlight-region start (point)))
-     (recenter -1)))
+     (spiral-repl--recenter -1)))
 
 (defun spiral-repl-notify (type title &optional msg more)
   "Create a highlighted text block for a message containing TITLE.
@@ -360,24 +366,25 @@ depending on TYPE.
 MSG is a notification message as a string.
 MORE is another notification message that will be hidden behind a 'Show
 More' button."
-  (let ((type-face (cl-case type
-                     ('info  'spiral-font-notification-info-face)
-                     ('warn  'spiral-font-notification-warn-face)
-                     ('error 'spiral-font-notification-error-face)
-                     (t (when spiral-debug
-                          (error "Unrecognized notification type: %s" type))))))
-    (save-excursion
-      (spiral-repl-move-to-next-prompt 'backwards)
-      (spiral-repl-highlighted-block
-       (insert (propertize title 'font-lock-face type-face) "\n")
-       (when msg
-         (insert (propertize msg 'font-lock-face 'spiral-font-notification-msg-face) "\n")
-         (when more
-           (spiral-button-throwaway-insert
-            "[Show More]"
-            (lambda (_button)
-              (insert (propertize more 'font-lock-face 'spiral-font-notification-msg-face))))
-           (insert "\n")))))))
+  (with-current-repl
+   (let ((type-face (cl-case type
+                      ('info  'spiral-font-notification-info-face)
+                      ('warn  'spiral-font-notification-warn-face)
+                      ('error 'spiral-font-notification-error-face)
+                      (t (when spiral-debug
+                           (error "Unrecognized notification type: %s" type))))))
+     (save-excursion
+       (spiral-repl-move-to-next-prompt 'backwards)
+       (spiral-repl-highlighted-block
+        (insert (propertize title 'font-lock-face type-face) "\n")
+        (when msg
+          (insert (propertize msg 'font-lock-face 'spiral-font-notification-msg-face) "\n")
+          (when more
+            (spiral-button-throwaway-insert
+             "[Show More]"
+             (lambda (_button)
+               (insert (propertize more 'font-lock-face 'spiral-font-notification-msg-face))))
+            (insert "\n"))))))))
 
 
 
