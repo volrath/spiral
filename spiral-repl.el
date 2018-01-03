@@ -276,15 +276,16 @@ This function should only be called inside REPL buffers."
          (not (eql group-id last-history-group-id)))))
 
 
-(defun spiral-repl--find-next-prompt (&optional backward)
+(defun spiral-repl--find-next-prompt (&optional backwards)
   "Find the beginning pos of the next prompt in the buffer, or nil if none.
-If BACKWARD is non-nil, search backwards."
+If BACKWARDS is non-nil, search backwards."
   (let ((p (point))
         (current-field nil)
-        (nav-fn (if backward
+        (nav-fn (if backwards
                     #'previous-single-char-property-change
                   #'next-single-char-property-change)))
-    (while (not (or (= p 1) (= p (point-max))
+    (while (not (or (and backwards (= p 1))
+                    (and (not backwards) (= p (point-max)))
                     (eql current-field 'spiral-repl-prompt-field)))
       (setq p (funcall nav-fn p'field))
       (setq current-field (get-char-property p 'field)))
