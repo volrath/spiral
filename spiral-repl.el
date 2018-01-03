@@ -374,12 +374,14 @@ More' button."
                       (t (when spiral-debug
                            (error "Unrecognized notification type: %s" type))))))
      (save-excursion
-       (spiral-repl-move-to-next-prompt 'backwards)
+       (spiral-repl-move-to-last-prompt)
        (spiral-repl-highlighted-block
         (insert (propertize title 'font-lock-face type-face) "\n")
         (when msg
+          (insert "\n")
           (insert (propertize msg 'font-lock-face 'spiral-font-notification-msg-face) "\n")
           (when more
+            (insert "\n")
             (spiral-button-throwaway-insert
              "[Show More]"
              (lambda (_button)
