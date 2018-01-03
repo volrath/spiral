@@ -332,7 +332,7 @@ A `project' variable will be added to the local scope."
 ;; Notifications
 ;; -------------------------------------------------------------------
 
-(defmacro spiral-repl-notification-block (&rest body)
+(defmacro spiral-repl-highlighted-block (&rest body)
   "Create a highlighted text block with BODY insertions.
 The highlighted text block is preceded and followed by empty lines, and
 it's highlighted with `hl-line' background color."
@@ -361,7 +361,7 @@ More' button."
                           (error "Unrecognized notification type: %s" type))))))
     (save-excursion
       (spiral-repl-move-to-next-prompt 'backwards)
-      (spiral-repl-notification-block
+      (spiral-repl-highlighted-block
        (insert (propertize title 'font-lock-face type-face) "\n")
        (when msg
          (insert (propertize msg 'font-lock-face 'spiral-font-notification-msg-face) "\n")
