@@ -316,6 +316,12 @@ If BACKWARDS is non-nil, goes to previous point (next point backwards)."
   (spiral-repl--goto-char (spiral-repl--find-next-prompt backwards)))
 
 
+(defun spiral-repl-move-to-last-prompt ()
+  "Move to the beginning position of the last prompt."
+  (spiral-repl--move-cursor-to-point-max)
+  (spiral-repl-move-to-next-prompt 'backwards))
+
+
 (defmacro with-current-repl (&rest body)
   "Automatically switch to the inferred REPL buffer and eval BODY.
 This macro needs a `conn-id' variable in the scope, otherwise it will throw
