@@ -182,18 +182,16 @@ which won't be automatically killed."
   (spiral-client-sync-request (format "(unrepl/do (ns %s))" ns)))
 
 
-(declare-function spiral-aux-send "spiral-loop")
-(defun spiral-update-print-settings (project context coll-length nesting-depth string-length
-                                             &optional eval-callback)
+(declare-function spiral-aux-sync-request "spiral-loop")
+(defun spiral-update-print-settings (project context coll-length nesting-depth string-length)
   "Adjust UNREPL print settings for PROJECT's CONTEXT.
+This function acts synchronously, and returns the previous print limits.
 COLL-LENGTH, NESTING-DEPTH, and STRING-LENGTH are UNREPL's update-able
 settings.
 If any of them is the symbol `max', the symbol `Long/MAX_VALUE' will be
 sent instead.
 If any of them is the symbol `same', the value will be unaltered in
-UNREPL.
-EVAL-CALLBACK is an optional function to execute after receiving evaluation
-for the updated print settings."
+UNREPL."
   (let* ((print-settings (spiral-project-print-settings project))
          (context-print-settings (map-elt print-settings context))  ;; TODO: exposing AST structure here, avoid
          (parse-value (lambda (key val)
@@ -201,23 +199,19 @@ for the updated print settings."
                           ('max 'Long/MAX_VALUE)
                           ('same (map-elt context-print-settings key))
                           (t val)))))
-    (spiral-aux-send
+    (spiral-aux-sync-request
      (spiral-project-templated-action
       project :print-settings
       :unrepl.print/context context
       :unrepl.print/coll-length (funcall parse-value :coll-length coll-length)
       :unrepl.print/nesting-depth (funcall parse-value :nesting-depth nesting-depth)
-      :unrepl.print/string-length (funcall parse-value :string-length string-length))
-     eval-callback)))
+      :unrepl.print/string-length (funcall parse-value :string-length string-length)))))
 
 
 (defmacro spiral-binding-print-limits (coll-length nesting-depth string-length &rest body)
   "Edit UNREPL `:eval' print settings, exec BODY and revert limits back.
 COLL-LENGTH, NESTING-DEPTH, and STRING-LENGTH are UNREPL's update-able
-settings.
-This macro adds a `revert-bindings-back' function into BODY's lexical
-context.  BODY is in charge of calling this function whenever it seems
-appropriate."
+settings."
   (declare (indent 3))
   `(with-current-project
     (let ((ast-limits (lambda (bindings-node)
@@ -227,14 +221,13 @@ appropriate."
                          '(:unrepl.print/coll-length
                            :unrepl.print/nesting-depth
                            :unrepl.print/string-length)))))
-      (spiral-update-print-settings
-       project :eval
-       ,coll-length ,nesting-depth ,string-length
-       (lambda (previous-limits)
-         (let ((revert-bindings-back (lambda (&rest _args)
-                                       (apply #'spiral-update-print-settings project :eval
-                                              (funcall ast-limits previous-limits)))))
-           ,@body))))))
+      (let ((previous-limits (spiral-update-print-settings
+                              project :eval
+                              ,coll-length ,nesting-depth ,string-length)))
+        (prog1 (progn ,@body)
+          (apply #'spiral-update-print-settings
+                 project :eval
+                 (funcall ast-limits previous-limits)))))))
 
 
 
