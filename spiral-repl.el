@@ -359,14 +359,18 @@ More' button."
                      ('error 'spiral-font-notification-error-face)
                      (t (when spiral-debug
                           (error "Unrecognized notification type: %s" type))))))
-    (spiral-repl-notification-block
-     (insert (propertize title 'font-lock-face type-face) "\n")
-     (insert (propertize msg 'font-lock-face 'spiral-font-notification-msg-face) "\n")
-     (spiral-button-throwaway-insert
-      "[Show More]"
-      (lambda (_button)
-        (insert (propertize more 'font-lock-face 'spiral-font-notification-msg-face))))
-     (insert "\n"))))
+    (save-excursion
+      (spiral-repl-move-to-next-prompt 'backwards)
+      (spiral-repl-notification-block
+       (insert (propertize title 'font-lock-face type-face) "\n")
+       (when msg
+         (insert (propertize msg 'font-lock-face 'spiral-font-notification-msg-face) "\n")
+         (when more
+           (spiral-button-throwaway-insert
+            "[Show More]"
+            (lambda (_button)
+              (insert (propertize more 'font-lock-face 'spiral-font-notification-msg-face))))
+           (insert "\n")))))))
 
 
 
