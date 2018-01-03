@@ -42,7 +42,7 @@
 (require 'spiral-repl)
 
 
-(defcustom spiral-aux-sync-request-timeout 10
+(defcustom spiral-sync-request-timeout 10
   "The number of seconds to wait for a sync response.
 Setting this to nil disables the timeout functionality."
   :type 'integer
@@ -78,6 +78,26 @@ overrides this behavior."
          (proc (spiral-project-conn-pool-get-process project proc-type)))
     (process-send-string proc (concat str (unless no-line-break "\n")))
     str))
+
+
+(defun spiral-loop--sync-request (conn-id proc-type str)
+  "Send input STR to PROC-TYPE of CONN-ID and synchronously wait for a response.
+PROC-TYPE is a keyword, either `:client', `:aux', or `:side-loader'."
+  (let* ((start (current-time))
+         result)
+    (spiral-loop--send conn-id proc-type str)
+    (spiral-pending-eval-add proc-type conn-id
+                             :status :sent
+                             :eval-callback (lambda (eval-payload)
+                                              (setq result eval-payload)))
+    (while (and (not result)
+                (spiral-pending-eval proc-type conn-id)
+                (not (input-pending-p))  ;; do not hang UI
+                (or (not spiral-sync-request-timeout)
+                    (< (cadr (time-subtract (current-time) start))
+                       spiral-sync-request-timeout)))
+      (accept-process-output nil 0.01))
+    result))
 
 
 (defun spiral-loop--destructure-message-ast (msg-node)
@@ -153,6 +173,11 @@ Connection to sent the input to is inferred from `spiral-conn-id'."
                              :buffer buffer
                              :eval-callback eval-callback
                              :stdout-callback stdout-callback)))
+
+
+(defun spiral-client-sync-request (str)
+  "Send input STR to UNREPL client connection and waits for a response."
+  (spiral-loop--sync-request spiral-conn-id :client str))
 
 
 (defun spiral-loop-client-dispatcher (conn-id tag payload &optional group-id)
@@ -333,21 +358,7 @@ Connection to sent the input to is inferred from `spiral-conn-id'."
 
 (defun spiral-aux-sync-request (str)
   "Send input STR to UNREPL aux connection and waits for a response."
-  (let* ((start (current-time))
-         (conn-id spiral-conn-id)
-         result)
-    (spiral-loop--send conn-id :aux str)
-    (spiral-pending-eval-add :aux conn-id
-                             :status :sent
-                             :eval-callback (lambda (eval-payload)
-                                              (setq result eval-payload)))
-    (while (and (not result)
-                (not (input-pending-p))  ;; do not hang UI
-                (or (not spiral-aux-sync-request-timeout)
-                    (< (cadr (time-subtract (current-time) start))
-                       spiral-aux-sync-request-timeout)))
-      (accept-process-output nil 0.01))
-    result))
+  (spiral-loop--sync-request spiral-conn-id :aux str))
 
 
 (defun spiral-loop-aux-handler (conn-id tag payload &optional group-id)
