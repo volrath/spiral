@@ -66,7 +66,7 @@
                  (const :tag "Both" both))
   :group 'spiral)
 
-(defcustom spiral-automatically-sync-ns 'do-it-and-notify
+(defcustom spiral-automatic-ns-sync 'do-it-and-notify
   "Whether to automatically sync ns in interactive evaluations."
   :type '(choice (const :tag "Do sync and notify in the REPL buffer" do-it-and-notify)
                  (const :tag "Do sync and skip notification" do-it-without-notify)
@@ -251,10 +251,10 @@ dispatches the evaluation payload (as an AST node) to EVAL-CALLBACK, which
 can expect it as its only argument.  STDOUT-CALLBACK is also a function
 that expects just one argument, any STDOUT belonging to this evaluation.
 
-Depending on the value of `spiral-automatically-sync-ns', this function
+Depending on the value of `spiral-automatic-ns-sync', this function
 will make sure that the current file's namespace is in sync with the
 REPL's/project's namespace.  For more info, see
-`spiral-automatically-sync-ns' and `spiral-aux-switch-ns'."
+`spiral-automatic-ns-sync' and `spiral-aux-switch-ns'."
   (when (listp form)
     (remove-overlays (car form) (cadr form) 'temporary t))
   ;; Check for namespace synchronization
@@ -263,7 +263,7 @@ REPL's/project's namespace.  For more info, see
                    (spiral-project-namespace)))
         (file-ns (intern (clojure-find-ns))))
     (unless (eql repl-ns file-ns)
-      (cl-case spiral-automatically-sync-ns
+      (cl-case spiral-automatic-ns-sync
         ('do-it-and-notify (progn
                              (spiral--switch-ns file-ns)
                              (spiral-repl-notify
@@ -275,9 +275,9 @@ REPL's/project's namespace.  For more info, see
                               (concat "SPIRAL automatically switches to your file's namespace when doing\n"
                                       "interactive evaluations.")
                               (concat "This behavior can be customize by changing the\n"
-                                      " `spiral-automatically-sync-ns' custom variable.\n\n"
+                                      " `spiral-automatic-ns-sync' custom variable.\n\n"
                                       "Invoke:\n\n"
-                                      "- `M-x customize-variable [RET] spiral-automatically-sync-ns [RET]'\n\n"
+                                      "- `M-x customize-variable [RET] spiral-automatic-ns-sync [RET]'\n\n"
                                       "to see all the options.\n\n"
                                       "If you want to learn more about namespaces, check out:\n"
                                       "- https://clojure.org/reference/namespaces\n"
@@ -292,8 +292,8 @@ REPL's/project's namespace.  For more info, see
                             "Beware that some of your file's definitions may not be found."
                             (concat "SPIRAL can automatically sync your namespace to whichever buffer you are\n"
                                     "evaluating.  Please check the customization option\n"
-                                    "`spiral-automatically-sync-ns' by issuing:\n\n"
-                                    "- `M-x customize-variable [RET] spiral-automatically-sync-ns [RET]'\n\n"
+                                    "`spiral-automatic-ns-sync' by issuing:\n\n"
+                                    "- `M-x customize-variable [RET] spiral-automatic-ns-sync [RET]'\n\n"
                                     "And if you want SPIRAL to help you with your namespaces synchronization,\n"
                                     "select: 'Do sync and notify in the REPL buffer'.\n\n"
                                     "If you want to learn more about namespaces, check out:\n"
@@ -301,8 +301,8 @@ REPL's/project's namespace.  For more info, see
                                     "- https://www.braveclojure.com/organization/")))
         ('avoid-without-notify 'noop)
         (t (when spiral-debug
-             (error "Unrecognized `spiral-automatically-sync-ns' value: %s"
-                    spiral-automatically-sync-ns))))))
+             (error "Unrecognized `spiral-automatic-ns-sync' value: %s"
+                    spiral-automatic-ns-sync))))))
   ;; Evaluate the form
   (let ((form (if (consp form)
                   (apply #'buffer-substring-no-properties form)
