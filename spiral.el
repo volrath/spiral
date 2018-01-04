@@ -7,7 +7,7 @@
 ;; Copyright (C) 2017 Daniel Barreto
 ;; Created: Thu Nov  9 23:26:00 2017 (+0100)
 ;; Version: 0.2.0-snapshot
-;; Package-Requires: ((emacs "25.1") (a "0.1.0alpha4") (clojure-mode "5.6.0") (highlight "0") (treepy "1.0.0"))
+;; Package-Requires: ((emacs "25.1") (a "0.1.0alpha4") (avy "0.4.0") (clojure-mode "5.6.0") (highlight "0") (treepy "1.0.0"))
 ;; URL: https://github.com/Unrepl/spiral
 ;; Keywords: languages, clojure
 ;;
