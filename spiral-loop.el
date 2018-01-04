@@ -389,11 +389,13 @@ to spiral customs."
     (spiral-update-print-settings project :eval
                                   spiral-repl-print-length
                                   spiral-repl-print-level
-                                  'same)
+                                  'same
+                                  'async)
     (spiral-update-print-settings project :out
                                   'same
                                   'same
-                                  spiral-repl-stdout-string-length)))
+                                  spiral-repl-stdout-string-length
+                                  'async)))
 
 
 (defun spiral-loop--aux-prompt (conn-id)

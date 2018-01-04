@@ -177,29 +177,32 @@ which won't be automatically killed."
 
 
 (declare-function spiral-aux-sync-request "spiral-loop")
-(defun spiral-update-print-settings (project context coll-length nesting-depth string-length)
+(defun spiral-update-print-settings (project context coll-length nesting-depth string-length
+                                             &optional async)
   "Adjust UNREPL print settings for PROJECT's CONTEXT.
-This function acts synchronously, and returns the previous print limits.
+This function acts synchronously, and returns the previous print limits,
+ASYNC overrides this behavior.
 COLL-LENGTH, NESTING-DEPTH, and STRING-LENGTH are UNREPL's update-able
 settings.
 If any of them is the symbol `max', the symbol `Long/MAX_VALUE' will be
 sent instead.
 If any of them is the symbol `same', the value will be unaltered in
 UNREPL."
-  (let* ((print-settings (spiral-project-print-settings project))
+  (let* ((request-fn (if async #'spiral-aux-send #'spiral-aux-sync-request))
+         (print-settings (spiral-project-print-settings project))
          (context-print-settings (map-elt print-settings context))  ;; TODO: exposing AST structure here, avoid
          (parse-value (lambda (key val)
                         (cl-case val
                           ('max 'Long/MAX_VALUE)
                           ('same (map-elt context-print-settings key))
                           (t val)))))
-    (spiral-aux-sync-request
-     (spiral-project-templated-action
-      project :print-settings
-      :unrepl.print/context context
-      :unrepl.print/coll-length (funcall parse-value :coll-length coll-length)
-      :unrepl.print/nesting-depth (funcall parse-value :nesting-depth nesting-depth)
-      :unrepl.print/string-length (funcall parse-value :string-length string-length)))))
+    (funcall request-fn
+             (spiral-project-templated-action
+              project :print-settings
+              :unrepl.print/context context
+              :unrepl.print/coll-length (funcall parse-value :coll-length coll-length)
+              :unrepl.print/nesting-depth (funcall parse-value :nesting-depth nesting-depth)
+              :unrepl.print/string-length (funcall parse-value :string-length string-length)))))
 
 
 (defmacro spiral-binding-print-limits (coll-length nesting-depth string-length &rest body)
