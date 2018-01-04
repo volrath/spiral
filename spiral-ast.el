@@ -168,7 +168,11 @@ payload from calling the elision action, if not given, uses
                  (lambda (eval-payload)
                    (funcall (or unparse-fn #'spiral-ast-unparse)
                             eval-payload
-                            (not with-delimiters)))))))
+                            (not with-delimiters))
+                   ;; Look back and see if there's another elision button, and
+                   ;; if so, we place the cursor over it.
+                   (when (get-char-property (1- (point)) 'button)
+                     (left-char)))))))
       (_ (when spiral-debug
            (error "Unrecognized elision tagged form %S" elision-tag-node))))))
 
