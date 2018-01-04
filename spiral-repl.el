@@ -31,6 +31,7 @@
 ;;
 ;;; Code:
 
+(require 'avy)
 (require 'clojure-mode)
 (require 'highlight)
 (require 'subr-x)
@@ -725,6 +726,43 @@ This function makes sure to not get out of history boundaries."
      (spiral-repl--history-search-tuple (1+ idx)))))
 
 
+;; Button navigation
+
+(defun spiral-repl--avy-button-candidates ()
+  "Return a list of `avy' candidates for SPIRAL buttons on the current buffer.
+`avy' candidates take the following form: ((BEG . END) . WND), where BEG &
+END are the beginning and end positions of the candidate, respectively, and
+WND is the window of the candidate's window (in our case, the REPL buffer's
+window)."
+  (let* ((window (get-buffer-window (current-buffer)))
+         (w-beg (window-start))
+         (w-end (window-end window t))
+         (pos w-beg)
+         button
+         candidates)
+    (save-excursion
+      (narrow-to-region w-beg w-end)
+      (while (setq button (next-button pos 'count-current))
+        (let ((b-start (button-start button))
+              (b-end (button-end button)))
+          (push (cons (cons b-start b-end)
+                      window)
+                candidates)
+          (setq pos b-end)))
+      (widen)
+      (nreverse candidates))))
+
+
+(defun spiral-repl-button-goto ()
+  "Invoke an `avy' jump focused only on SPIRAL buttons."
+  (interactive)
+  (let ((avy-all-windows nil)
+        (avy-background t))
+    (avy--process
+     (spiral-repl--avy-button-candidates)
+     (avy--style-fn avy-style))))
+
+
 
 ;; REPL Buffer
 ;; -------------------------------------------------------------------
@@ -978,6 +1016,7 @@ inserted."
     (define-key map (kbd "C-c C-d") #'spiral-request-symbol-doc)
     (define-key map (kbd "C-<up>") #'spiral-repl-previous-input)
     (define-key map (kbd "C-<down>") #'spiral-repl-next-input)
+    (define-key map (kbd "M-s-.") #'spiral-repl-button-goto)
     map))
 
 (defvar spiral-repl-mode-syntax-table
