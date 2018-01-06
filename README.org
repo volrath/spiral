@@ -123,20 +123,18 @@ Pick your definition:
    - =C-c C-r=: Send last evaluation to the REPL buffer.
    - =C-c C-b=: Evaluate buffer.
    - =C-c C-g=: Interrupt current evaluation.
-   - =C-c C-q=: Quit SPIRAL
+   - =M-s-.=: Easy jumping through buttons with [[https://github.com/abo-abo/avy/][avy]].
+   - =C-c q=: Quit SPIRAL.
 
 * Features
   :PROPERTIES:
   :CUSTOM_ID: Features
   :END:
 
-  SPIRAL was previously named UNREPL.el, and all of its commands started with
-  =unrepl-*=.  These gifs were created by then, so they might show outdated
-  commands.  Just replace =unrepl-= with =spiral-= in your mind, everything will
-  be alright!
-
 *** Automatically create a Socket REPL using your project's build tool
-    SPIRAL currently supports [[https://leiningen.org/][Leiningen]] or [[http://boot-clj.com/][Boot]] >= 2.7.2.
+    SPIRAL currently supports [[https://leiningen.org/][Leiningen]], [[http://boot-clj.com/][Boot]] >= 2.7.2, or Clojure's [[https://clojure.org/guides/deps_and_cli][clj CLI]].
+    In this example, the project has both a `build.boot` file and a `deps.edn`
+    file, so `spiral-connect` prompts for a way to run the project.
 
     #+caption: M-x spiral-connect
     [[file:gifs/connect.gif]]
@@ -152,6 +150,14 @@ Pick your definition:
 
     #+caption: Elided data structures
     [[file:gifs/elision.gif]]
+
+*** Easy shortcut to navigate buttons
+    Making use of the awesome [[https://github.com/abo-abo/avy/][avy]] library, SPIRAL provides a REPL shortcut to
+    jump to any button in the screen.  Bound to =M-s-.=.  Watch how easy is to
+    jump to the 1st, 3rd, and 5th button on the screen.
+
+    #+caption: Navigate REPL buttons
+    [[file:gifs/avy.gif]]
 
 *** Playing with Images? why not opening them in the REPL?
     SPIRAL supports displaying buffered images directly in the REPL.
@@ -211,12 +217,6 @@ Pick your definition:
     #+caption: Interactive exception
     [[file:gifs/interactive-exception.gif]]
 
-*** And there is more to come...
-    Before releasing the first SPIRAL stable version, a couple more features
-    might land in:
-    - REPL pretty printing for evaluation results.
-    - Visible UI for interrupting pending evaluations.
-    - Key bindings to navigate buttons in the REPL.
 
 * Contributing
 
