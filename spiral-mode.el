@@ -264,51 +264,52 @@ REPL's/project's namespace.  For more info, see
   (when (listp form)
     (remove-overlays (car form) (cadr form) 'temporary t))
   ;; Check for namespace synchronization
-  (let ((repl-ns (thread-first spiral-conn-id
-                   (spiral-projects-get)
-                   (spiral-project-namespace)))
-        (file-ns (intern (clojure-find-ns))))
-    (unless (eql repl-ns file-ns)
-      (cl-case spiral-automatic-ns-sync
-        ('do-it-and-notify (progn
-                             (spiral--switch-ns file-ns)
-                             (spiral-repl-notify
-                              'info
-                              (concat "Switched to namespace `"
+  (when-let (file-ns-str (clojure-find-ns))
+    (let ((repl-ns (thread-first spiral-conn-id
+                     (spiral-projects-get)
+                     (spiral-project-namespace)))
+          (file-ns (intern file-ns-str)))
+      (unless (eql repl-ns file-ns)
+        (cl-case spiral-automatic-ns-sync
+          ('do-it-and-notify (progn
+                               (spiral--switch-ns file-ns)
+                               (spiral-repl-notify
+                                'info
+                                (concat "Switched to namespace `"
+                                        (propertize (symbol-name file-ns)
+                                                    'font-lock-face 'font-lock-keyword-face)
+                                        "'")
+                                (concat "SPIRAL automatically switches to your file's namespace when doing\n"
+                                        "interactive evaluations.")
+                                (concat "This behavior can be customize by changing the\n"
+                                        " `spiral-automatic-ns-sync' custom variable.\n\n"
+                                        "Invoke:\n\n"
+                                        "- `M-x customize-variable [RET] spiral-automatic-ns-sync [RET]'\n\n"
+                                        "to see all the options.\n\n"
+                                        "If you want to learn more about namespaces, check out:\n"
+                                        "- https://clojure.org/reference/namespaces\n"
+                                        "- https://www.braveclojure.com/organization/"))))
+          ('do-it-without-notify (spiral--switch-ns file-ns))
+          ('avoid-and-notify (spiral-repl-notify
+                              'warn
+                              (concat "REPL namespace differs from `"
                                       (propertize (symbol-name file-ns)
                                                   'font-lock-face 'font-lock-keyword-face)
                                       "'")
-                              (concat "SPIRAL automatically switches to your file's namespace when doing\n"
-                                      "interactive evaluations.")
-                              (concat "This behavior can be customize by changing the\n"
-                                      " `spiral-automatic-ns-sync' custom variable.\n\n"
-                                      "Invoke:\n\n"
+                              "Beware that some of your file's definitions may not be found."
+                              (concat "SPIRAL can automatically sync your namespace to whichever buffer you are\n"
+                                      "evaluating.  Please check the customization option\n"
+                                      "`spiral-automatic-ns-sync' by issuing:\n\n"
                                       "- `M-x customize-variable [RET] spiral-automatic-ns-sync [RET]'\n\n"
-                                      "to see all the options.\n\n"
+                                      "And if you want SPIRAL to help you with your namespaces synchronization,\n"
+                                      "select: 'Do sync and notify in the REPL buffer'.\n\n"
                                       "If you want to learn more about namespaces, check out:\n"
                                       "- https://clojure.org/reference/namespaces\n"
-                                      "- https://www.braveclojure.com/organization/"))))
-        ('do-it-without-notify (spiral--switch-ns file-ns))
-        ('avoid-and-notify (spiral-repl-notify
-                            'warn
-                            (concat "REPL namespace differs from `"
-                                    (propertize (symbol-name file-ns)
-                                                'font-lock-face 'font-lock-keyword-face)
-                                    "'")
-                            "Beware that some of your file's definitions may not be found."
-                            (concat "SPIRAL can automatically sync your namespace to whichever buffer you are\n"
-                                    "evaluating.  Please check the customization option\n"
-                                    "`spiral-automatic-ns-sync' by issuing:\n\n"
-                                    "- `M-x customize-variable [RET] spiral-automatic-ns-sync [RET]'\n\n"
-                                    "And if you want SPIRAL to help you with your namespaces synchronization,\n"
-                                    "select: 'Do sync and notify in the REPL buffer'.\n\n"
-                                    "If you want to learn more about namespaces, check out:\n"
-                                    "- https://clojure.org/reference/namespaces\n"
-                                    "- https://www.braveclojure.com/organization/")))
-        ('avoid-without-notify 'noop)
-        (t (when spiral-debug
-             (error "Unrecognized `spiral-automatic-ns-sync' value: %s"
-                    spiral-automatic-ns-sync))))))
+                                      "- https://www.braveclojure.com/organization/")))
+          ('avoid-without-notify 'noop)
+          (t (when spiral-debug
+               (error "Unrecognized `spiral-automatic-ns-sync' value: %s"
+                      spiral-automatic-ns-sync)))))))
   ;; Evaluate the form
   (let ((form (if (consp form)
                   (apply #'buffer-substring-no-properties form)
