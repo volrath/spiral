@@ -1,6 +1,6 @@
 [submodule "parseclj"]
 	path = parseclj
-	url = https://github.com/lambdaisland/parseclj
+	url = https://github.com/clojure-emacs/parseclj
 	branch = master
 [submodule "unrepl"]
 	path = unrepl
