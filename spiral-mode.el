@@ -512,26 +512,27 @@ BORROWED FROM CIDER."
 (defun spiral-complete--candidates (str &optional ns)
   "Find completion candidates for STR.
 NS is an optional namespace symbol."
-  (with-current-project
-   (let* ((context (spiral-complete--get-context))
-          (candidates (spiral-aux-sync-request
-                       (spiral-project-templated-action project :spiral/complete
-                                                        :spiral/prefix str
-                                                        :spiral/context context
-                                                        :spiral/ns ns))))
-     (mapcar
-      (lambda (candidate-node)
-        (let* ((node-get (lambda (key) (thread-first candidate-node
-                                    (spiral-ast-map-elt key)
-                                    (parseclj-ast-value))))
-               (candidate (funcall node-get :candidate))
-               (type (funcall node-get :type))
-               (ns (funcall node-get :ns)))
-          (when candidate
-            (put-text-property 0 1 'type type candidate)
-            (put-text-property 0 1 'ns ns candidate))
-          candidate))
-      (parseclj-ast-children candidates)))))
+  (when-let (project (and spiral-conn-id
+                          (spiral-projects-get spiral-conn-id)))
+    (let* ((context (spiral-complete--get-context))
+           (candidates (spiral-aux-sync-request
+                        (spiral-project-templated-action project :spiral/complete
+                                                         :spiral/prefix str
+                                                         :spiral/context context
+                                                         :spiral/ns ns))))
+      (mapcar
+       (lambda (candidate-node)
+         (let* ((node-get (lambda (key) (thread-first candidate-node
+                                     (spiral-ast-map-elt key)
+                                     (parseclj-ast-value))))
+                (candidate (funcall node-get :candidate))
+                (type (funcall node-get :type))
+                (ns (funcall node-get :ns)))
+           (when candidate
+             (put-text-property 0 1 'type type candidate)
+             (put-text-property 0 1 'ns ns candidate))
+           candidate))
+       (parseclj-ast-children candidates)))))
 
 
 (defun spiral-complete--annotate-symbol (symbol)
