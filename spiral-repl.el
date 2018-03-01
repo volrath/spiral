@@ -659,6 +659,15 @@ would get automatically removed after input is sent."
           (spiral-repl--transient-text-insert group-id
                                               stdout-payload)))))))
 
+(defun spiral-switch-to-last-clojure-buffer ()
+  "Switch to the previous buffer when in spiral's REPL buffer."
+  (interactive)
+  (let ((buffers (with-current-project
+		  (spiral-project-buffers project)))
+	(not-code-buffer (lambda (buffer-name)
+			   (or (equal "*" (substring (format "%s" buffer-name) 0 1))
+			       (equal "SPIRAL" (substring (format "%s" buffer-name) 0 6))))))
+    (pop-to-buffer (first (remove-if not-code-buffer buffers)) nil t)))
 
 ;; history
 
@@ -1017,6 +1026,7 @@ inserted."
     (define-key map (kbd "C-<up>") #'spiral-repl-previous-input)
     (define-key map (kbd "C-<down>") #'spiral-repl-next-input)
     (define-key map (kbd "M-s-.") #'spiral-repl-button-goto)
+    (define-key map (kbd "C-c C-z") #'spiral-switch-to-last-clojure-buffer)
     map))
 
 (defvar spiral-repl-mode-syntax-table
